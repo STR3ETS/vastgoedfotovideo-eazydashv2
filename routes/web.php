@@ -1,12 +1,20 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
+use App\Http\Controllers\AanvraagController;
+use App\Http\Controllers\PotentieleKlantenController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GebruikersController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\InstellingenController;
 use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\TaskQuestionController;
+
+// eazyonline.nl website
+Route::view('/', 'website.home')->name('pages.home');
+Route::post('/aanvraag/website', [AanvraagController::class, 'storeWebsiteAanvraag']);
 
 // Login
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('support.login');
@@ -38,11 +46,35 @@ Route::prefix('app')->group(function () {
     Route::post('/resend', [AuthController::class, 'resendLoginToken'])->name('support.resend_token');
     
     Route::middleware('auth')->group(function () {
-
         Route::patch('/first-login-dismiss', [AuthController::class, 'dismissFirstLogin'])->name('support.first_login.dismiss');
+        Route::get('/', fn() => view('hub.index', ['user' => auth()->user()]))->name('support.dashboard');
+        Route::patch('/tasks/questions/{question}', [TaskQuestionController::class, 'update'])->name('support.tasks.questions.update');
 
-        Route::get('/', fn() => view('hub.index', ['user' => auth()->user()]))
-            ->name('support.dashboard');
+        // Support
+        Route::prefix('support')
+            ->name('support.')
+            ->controller(SupportController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+
+                Route::prefix('tickets')
+                    ->as('tickets.')
+                    ->group(function () {
+                        Route::get('/openstaand',     'open')->name('openstaand');
+                        Route::get('/in-behandeling', 'inBehandeling')->name('in_behandeling');
+                        Route::get('/gesloten',       'gesloten')->name('gesloten');
+                    });
+        });
+
+        // Potentiële klanten
+        Route::prefix('potentiele-klanten')
+            ->name('support.potentiele-klanten.')
+            ->controller(PotentieleKlantenController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::patch('/{aanvraag}/status', 'updateStatus')->name('status.update');
+                Route::post('/{aanvraag}/calls', 'storeCall')->name('calls.store');
+        });
 
         // Gebruikers
         Route::prefix('gebruikers')
@@ -72,25 +104,9 @@ Route::prefix('app')->group(function () {
                 Route::delete('/bedrijven/{company}/personen/{user}', 'bedrijfPersonenOntkoppel')->name('bedrijven.personen.ontkoppel');
                 Route::get('/bedrijven/{company}/personen/lijst', 'bedrijfPersonenLijst')->name('bedrijven.personen.lijst');
                 Route::post('/bedrijven/{company}/personen/{user}/toggle-admin', 'bedrijfToggleAdmin')->name('bedrijven.admin.toggle');
+        });
 
-            });
-
-        // Support Hub
-        Route::prefix('support')
-            ->name('support.')
-            ->controller(SupportController::class)
-            ->group(function () {
-                Route::get('/', 'index')->name('index');
-
-                Route::prefix('tickets')
-                    ->as('tickets.')
-                    ->group(function () {
-                        Route::get('/openstaand',     'open')->name('openstaand');
-                        Route::get('/in-behandeling', 'inBehandeling')->name('in_behandeling');
-                        Route::get('/gesloten',       'gesloten')->name('gesloten');
-                    });
-            });
-
+        // Instellingen
         Route::prefix('instellingen')
             ->name('support.instellingen.')
             ->controller(InstellingenController::class)
@@ -106,7 +122,7 @@ Route::prefix('app')->group(function () {
                 Route::patch('/persoonlijke-gegevens', 'update')->name('update');
                 Route::patch('/bedrijf', 'updateCompany')->name('company.update');
                 Route::post('/team/invite', [TeamInviteController::class, 'send'])->middleware('throttle:10,1')->name('team.invite');
-            });
+        });
 
         // Logout
         Route::post('/logout', [AuthController::class, 'logout'])->name('support.logout');
@@ -119,4 +135,3 @@ Route::prefix('app')->group(function () {
 // Redirects (bestaande)
 Route::redirect('/support', '/service-hub');
 Route::redirect('/support/login', '/login');
-Route::get('/', fn() => redirect()->route('support.login'));

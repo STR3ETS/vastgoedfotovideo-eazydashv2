@@ -1,5 +1,5 @@
 {{-- resources/views/onboarding/index.blade.php --}}
-@extends('layouts.guest')
+@extends('onboarding.layouts.guest')
 
 @section('content')
 <div class="flex flex-col gap-6">

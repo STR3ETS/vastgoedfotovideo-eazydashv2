@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('hub.layouts.app')
 
 @section('content')
   {{-- LINKER KOLOM (tabs + search) --}}

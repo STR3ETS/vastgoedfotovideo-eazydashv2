@@ -9,3 +9,8 @@
 body {
     font-family: 'Inter Tight', sans-serif;
 }
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-66.666%); } /* ~2/3 van 350% breedte */
+}
