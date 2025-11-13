@@ -24,10 +24,14 @@ class AanvraagWebsite extends Model
         'contactPhone',
         'visit_id',
         'status',
+        'intake_at',
+        'intake_duration',
     ];
 
     protected $casts = [
-        // eventueel later: 'created_at' => 'datetime', etc.
+        'intake_at'           => 'datetime',
+        'intake_done'         => 'boolean',
+        'intake_completed_at' => 'datetime',
     ];
 
     public function tasks()
@@ -41,5 +45,13 @@ class AanvraagWebsite extends Model
     public function statusLogs()
     {
         return $this->hasMany(\App\Models\AanvraagStatusLog::class);
+    }
+    public function files()
+    {
+        return $this->hasMany(\App\Models\AanvraagFile::class, 'aanvraag_website_id');
+    }
+    public function project()
+    {
+        return $this->hasOne(\App\Models\Project::class, 'aanvraag_id');
     }
 }

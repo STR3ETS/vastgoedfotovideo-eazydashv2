@@ -10,7 +10,7 @@
       ? ($valueToLabel[$log->to_status] ?? ucfirst($log->to_status))
       : '—';
 
-  $userName = optional($log->user)->name ?? 'Onbekend';
+  $userName = optional($log->user)->name ?? __('potentiele_klanten.logbook.unknown_user');
   $when     = optional($log->changed_at ?? $log->created_at)->format('d-m-Y H:i');
 
   $colorMap = [
@@ -32,7 +32,7 @@
                 {{ $when }}
             </span>
             <p class="text-xs font-semibold text-[#215558] truncate">
-                Door: {{ $userName }}
+                {{ __('potentiele_klanten.logbook.by', ['name' => $userName]) }}
             </p>
         </div>
         <div class="flex items-center gap-2 min-w-0">
