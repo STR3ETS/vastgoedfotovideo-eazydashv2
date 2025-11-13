@@ -17,6 +17,7 @@
     'sidebar.overview'    : @json(__('sidebar.overview')),
     'sidebar.support'     : @json(__('sidebar.support')),
     'sidebar.leads'       : @json(__('sidebar.leads')),
+    'sidebar.projects'    : @json(__('sidebar.projects')),
     'sidebar.marketing'   : @json(__('sidebar.marketing')),
     'sidebar.users'       : @json(__('sidebar.users')),
     'sidebar.add_module'  : @json(__('sidebar.add_module')),

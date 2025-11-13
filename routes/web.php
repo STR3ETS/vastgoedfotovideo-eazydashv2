@@ -12,6 +12,11 @@ use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\SeoAuditController;
 use App\Http\Controllers\TaskQuestionController;
+use App\Http\Controllers\AanvraagFileController;
+use App\Http\Controllers\IntakeController;
+use App\Http\Controllers\ProjectenController;
+use App\Http\Controllers\ProjectPreviewController;
+use App\Http\Controllers\OfferteController;
 
 // eazyonline.nl website
 Route::view('/', 'website.home')->name('pages.home');
@@ -39,6 +44,14 @@ Route::middleware('guest')
         Route::post('/finish', 'finish')->name('finish');
 });
 
+Route::prefix('preview')
+    ->name('preview.')
+    ->controller(ProjectPreviewController::class)
+    ->group(function () {
+        Route::get('/{token}', 'show')->name('show');
+        Route::post('/{token}/feedback', 'storeFeedback')->name('feedback.store');
+    });
+
 Route::prefix('app')->group(function () {
 
     // OTP
@@ -50,6 +63,16 @@ Route::prefix('app')->group(function () {
         Route::patch('/first-login-dismiss', [AuthController::class, 'dismissFirstLogin'])->name('support.first_login.dismiss');
         Route::get('/', fn() => view('hub.index', ['user' => auth()->user()]))->name('support.dashboard');
         Route::patch('/tasks/questions/{question}', [TaskQuestionController::class, 'update'])->name('support.tasks.questions.update');
+
+        // Intake
+        Route::prefix('support/intake')
+            ->name('support.intake.')
+            ->controller(IntakeController::class)
+            ->group(function () {
+                Route::get('/availability', 'availability')->name('availability');
+                Route::patch('/{aanvraag}/complete', 'complete')->name('complete');
+                Route::patch('/{aanvraag}/clear', 'clear')->name('clear');
+            });
 
         // Support
         Route::prefix('support')
@@ -75,6 +98,22 @@ Route::prefix('app')->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::patch('/{aanvraag}/status', 'updateStatus')->name('status.update');
                 Route::post('/{aanvraag}/calls', 'storeCall')->name('calls.store');
+                Route::post('/{aanvraag}/files', [AanvraagFileController::class, 'store'])->name('files.store');
+                Route::delete('/files/{file}', [AanvraagFileController::class, 'destroy'])->name('files.destroy');
+                Route::get('/files/{file}/download', [AanvraagFileController::class, 'download'])->name('files.download');
+        });
+
+        // Projecten
+        Route::prefix('projecten')
+            ->name('support.projecten.')
+            ->controller(ProjectenController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::patch('/{project}/status', 'updateStatus')->name('status.update');
+                Route::patch('/{project}/preview', 'updatePreview')->name('preview.update');
+                Route::patch('/{project}/offerte-notes', 'updateOfferteNotes')->name('offerte_notes.update');
+                Route::patch('/{project}/offerte-complete', 'completeOfferteTask')->name('offerte.complete');
+                Route::post('/{project}/calls', 'storeCall')->name('calls.store');
         });
 
         // Gebruikers

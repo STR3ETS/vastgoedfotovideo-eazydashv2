@@ -60,10 +60,17 @@
            x-on:dragend="onStatusDragEnd($el)">
 
         <div class="flex flex-col">
-          <span class="text-sm font-semibold">{{ $label }}</span>
+          <span class="text-sm font-semibold">
+            {{ __('potentiele_klanten.statuses.' . $value) }}
+          </span>
           <span class="text-xs opacity-80 mt-1"
-                x-text="(statusCounts['{{ $value }}'] || 0) + ' project' + ((statusCounts['{{ $value }}'] || 0) === 1 ? '' : 'en')">
-            {{ $count }} project{{ $count === 1 ? '' : 'en' }}
+                x-text="formatStatusCount('{{ $value }}')">
+            {{ __(
+              $count === 1
+                ? 'potentiele_klanten.status_counts.singular'
+                : 'potentiele_klanten.status_counts.plural',
+              ['count' => $count]
+            ) }}
           </span>
         </div>
 

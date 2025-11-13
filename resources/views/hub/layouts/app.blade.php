@@ -90,6 +90,21 @@
               </div>
             </a>
 
+            <!-- Projecten -->
+            <a href="{{ url('/app/projecten') }}"
+               class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
+              <i class="fa-solid fa-diagram-project text-[#215558] fa-sm"></i>
+              <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
+              <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
+                          opacity-0 invisible translate-x-1 pointer-events-none
+                          group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
+                          transition-all duration-300 ease-out">
+                <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.projects">
+                  {{ __('sidebar.projects') }}
+                </p>
+              </div>
+            </a>
+
             <!-- Marketing -->
             <a href="{{ url('/app/marketing') }}"
                class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
@@ -285,7 +300,7 @@
               >
                 Start using My Eazyonline
               </button>
-            </div>
+            </div> 
           </div>
         </div>
       </div>

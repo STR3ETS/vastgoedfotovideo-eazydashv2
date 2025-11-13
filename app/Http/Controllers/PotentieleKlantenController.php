@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\AanvraagWebsite;
 use App\Models\AanvraagStatusLog;
+use App\Models\Project;
 use Illuminate\Support\Str;
 use App\Models\User;
 use Illuminate\Validation\Rule;
@@ -28,15 +29,41 @@ class PotentieleKlantenController extends Controller
                 'tasks.questions',
                 'callLogs' => fn ($q) => $q->latest()->with('user'),
                 'statusLogs' => fn ($q) => $q->latest()->with('user'),
+                'files',
             ])
-            ->select('id','choice','company','contactName','contactEmail','contactPhone','created_at','status')
+            ->select(
+                'id',
+                'choice',
+                'company',
+                'contactName',
+                'contactEmail',
+                'contactPhone',
+                'created_at',
+                'status',
+                'intake_at',
+                'intake_duration',
+                'intake_done',
+                'intake_completed_at'
+            )
             ->latest()
             ->paginate(12);
 
-        $statusMap         = $this->statusMap;
-        $statusByValue     = array_flip($this->statusMap); // slug => label
-        $statusLabels      = array_keys($this->statusMap);
+        // Ruwe values uit de property (prospect/contact/intake/dead/lead)
         $allowedStatusVals = array_values($this->statusMap);
+
+        // Voor de UI: label => value (sidebar)
+        $statusMap = [];
+        // Voor kaarten / logboek: value => label
+        $statusByValue = [];
+
+        foreach ($allowedStatusVals as $value) {
+            $label = __('potentiele_klanten.statuses.' . $value);
+
+            $statusMap[$label]     = $value;
+            $statusByValue[$value] = $label;
+        }
+
+        $statusLabels = array_keys($statusMap);
 
         $statusCounts = AanvraagWebsite::selectRaw('status, COUNT(*) as total')
             ->groupBy('status')
@@ -58,51 +85,102 @@ class PotentieleKlantenController extends Controller
         $allowed = array_values($this->statusMap);
 
         $data = $request->validate([
-            'status' => ['required','string','in:'.implode(',', $allowed)],
+            'status'           => ['required','string','in:'.implode(',', $allowed)],
+            'intake_at_local'  => ['nullable','date_format:Y-m-d\TH:i:s'],
+            'intake_duration'  => ['nullable','integer','min:15','max:240'],
+            'tz'               => ['nullable','string'],
         ]);
 
         $oldStatus = $aanvraag->status;
         $newStatus = $data['status'];
 
-        $aanvraag->update(['status' => $newStatus]);
+        // 🚫 Intake alleen toegestaan vanaf 'contact'
+        if ($newStatus === 'intake' && $oldStatus !== 'contact') {
+            return response()->json([
+                'success' => false,
+                'message' => __('potentiele_klanten.errors.intake_only_from_contact'),
+            ], 422);
+        }
 
-        // slug => label
-        $statusByValue = array_flip($this->statusMap);
-        $label = $statusByValue[$aanvraag->status] ?? Str::headline(str_replace('_',' ', $aanvraag->status));
+        // 🚫 Lead alleen toegestaan als intake_done = 1
+        if ($newStatus === 'lead' && !$aanvraag->intake_done) {
+            return response()->json([
+                'success' => false,
+                'message' => __('potentiele_klanten.errors.lead_requires_intake'),
+            ], 422);
+        }
 
-        // ✅ Statuslog maken
-        $log = AanvraagStatusLog::create([
+        $aanvraag->status = $newStatus;
+
+        if ($newStatus === 'intake' && !empty($data['intake_at_local'])) {
+            $tz = $data['tz'] ?? config('app.timezone', 'Europe/Amsterdam');
+            $local = \Carbon\Carbon::createFromFormat('Y-m-d\TH:i:s', $data['intake_at_local'], $tz);
+            $aanvraag->intake_at = $local;
+            $aanvraag->intake_duration = (int) ($data['intake_duration'] ?? 30);
+        }
+
+        $aanvraag->save();
+
+        if ($newStatus === 'lead') {
+            $aanvraag->project()->firstOrCreate(
+                [], // geen extra voorwaarden, alleen aanvraag_id uit de relatie
+                [
+                    'status'        => 'preview',
+                    'company'       => $aanvraag->company,
+                    'contact_name'  => $aanvraag->contactName,
+                    'contact_email' => $aanvraag->contactEmail,
+                    'contact_phone' => $aanvraag->contactPhone,
+                ]
+            );
+        }
+
+        // value => label op basis van vertalingen
+        $statusByValue = [];
+        foreach (array_values($this->statusMap) as $value) {
+            $statusByValue[$value] = __('potentiele_klanten.statuses.' . $value);
+        }
+
+        $label = $statusByValue[$aanvraag->status]
+            ?? \Illuminate\Support\Str::headline(str_replace('_', ' ', $aanvraag->status));
+
+        $log = \App\Models\AanvraagStatusLog::create([
             'aanvraag_website_id' => $aanvraag->id,
             'user_id'             => auth()->id(),
             'from_status'         => $oldStatus,
             'to_status'           => $newStatus,
             'changed_at'          => now(),
         ]);
-
         $log->loadMissing('user');
 
         $fromLabel = $oldStatus
-            ? ($statusByValue[$oldStatus] ?? Str::headline(str_replace('_',' ', $oldStatus)))
+            ? ($statusByValue[$oldStatus] ?? \Illuminate\Support\Str::headline(str_replace('_',' ', $oldStatus)))
             : '—';
-
         $toLabel = $newStatus
-            ? ($statusByValue[$newStatus] ?? Str::headline(str_replace('_',' ', $newStatus)))
+            ? ($statusByValue[$newStatus] ?? \Illuminate\Support\Str::headline(str_replace('_',' ', $newStatus)))
             : '—';
-
         $changedAt = ($log->changed_at ?? $log->created_at)?->format('d-m-Y H:i');
         $userName  = optional($log->user)->name ?? 'Onbekend';
 
-        // 🔁 Render dezelfde Blade-partial als bij een harde reload
         $logHtml = view('hub.potentiele-klanten.partials.status-log-item', [
             'log'          => $log,
             'valueToLabel' => $statusByValue,
         ])->render();
 
+        $intakeHtml = null;
+        if ($aanvraag->status === 'intake' && $aanvraag->intake_at) {
+            // Server-side render van de intake-panel partial
+            $intakeHtml = view('hub.potentiele-klanten.partials.intake-panel', [
+                'aanvraag' => $aanvraag->fresh(), // zekerheid dat we de net opgeslagen waarden hebben
+                'valueToLabel' => array_flip($this->statusMap),
+            ])->render();
+        }
+
         return response()->json([
             'success' => true,
             'id'      => $aanvraag->id,
-            'status'  => $aanvraag->status, // slug
-            'label'   => $label,            // mooi label voor de badge
+            'status'  => $aanvraag->status,
+            'label'   => $label,
+            'intake_done' => (bool) $aanvraag->intake_done,
             'log'     => [
                 'id'          => $log->id,
                 'from_status' => $log->from_status,
@@ -111,8 +189,9 @@ class PotentieleKlantenController extends Controller
                 'to_label'    => $toLabel,
                 'user_name'   => $userName,
                 'changed_at'  => $changedAt,
-                'html'        => $logHtml,  // 👈 hier pak je in JS de li-markup uit
+                'html'        => $logHtml,
             ],
+            'intake_html' => $intakeHtml, // ⇐ NIEUW
         ]);
     }
 

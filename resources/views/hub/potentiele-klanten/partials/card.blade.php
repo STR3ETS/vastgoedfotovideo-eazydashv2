@@ -11,10 +11,12 @@
   $currentLabel = $valueToLabel[$currentValue] ?? 'Prospect';
 
   $choiceMap = [
-      'new'   => 'Nieuwe website',
-      'renew' => 'Website vernieuwen',
+      'new'   => __('potentiele_klanten.choices.new'),
+      'renew' => __('potentiele_klanten.choices.renew'),
   ];
-  $choiceTitle = $choiceMap[$aanvraag->choice] ?? 'Website-aanvraag';
+
+  $choiceTitle = $choiceMap[$aanvraag->choice]
+      ?? __('potentiele_klanten.choices.default');
 
   $badgeColors = [
       'prospect' => [
@@ -53,6 +55,7 @@
 <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-50 transition"
      data-card-id="{{ $aanvraag->id }}"
      data-status="{{ $currentValue }}"
+     data-intake-done="{{ $aanvraag->intake_done ? 1 : 0 }}"
      x-data="{ openDetails: false }"
      x-on:dragover="onCardDragOver"
      x-on:dragleave="onCardDragLeave"
@@ -162,7 +165,9 @@
 
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <h3 class="text-base text-[#215558] font-bold leading-tight truncate">Intakegesprek</h3>
+                <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
+                  {{ __('potentiele_klanten.intake_questions.section_title') }}
+                </h3>
               </div>
 
               <div class="relative">
@@ -177,7 +182,7 @@
                            group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
                            transition-all duration-200 ease-out z-10">
                     <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
-                      Open intakegesprek
+                      {{ __('potentiele_klanten.intake_questions.open_panel_tooltip') }}
                     </p>
                   </div>
                 </button>
@@ -185,7 +190,7 @@
                 <div x-show="openIntakePanel"
                     x-transition
                     @click.outside="openIntakePanel = false"
-                    class="absolute right-full mr-3 top-0 z-30"
+                    class="absolute right-full mr-3 top-1/2 -translate-y-1/2 z-30"
                     style="display:none;">
 
                   @php
@@ -202,20 +207,22 @@
                   <div class="flex items-start gap-3">
                     {{-- LINKS: Vrije notities, eigen card --}}
                     <div class="w-[360px] p-4 bg-white rounded-xl border border-gray-200 shadow-lg">
-                      <p class="text-base text-[#215558] font-black mb-3">Notities</p>
+                      <p class="text-base text-[#215558] font-black mb-3">
+                        {{ __('potentiele_klanten.intake_questions.notes_title') }}
+                      </p>
 
                       @if($notesQ)
                         <textarea
                           x-ref="answer_{{ $notesQ->id }}"
                           data-answer-id="{{ $notesQ->id }}"
-                          class="w-full py-3 px-4 text-sm text-[#215558] font-semibold rounded-xl border border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300"
+                          class="w-full py-3 px-4 text-sm text-[#215558] font-semibold rounded-xl border border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300 max-h-58"
                           rows="10">{{ $notesQ->answer }}</textarea>
-                        <p class="text-[11px] text-[#215558] opacity-70 mt-2">
-                          Wordt opgeslagen met de knop <strong>Opslaan</strong>.
-                        </p>
+                          <p class="text-[11px] text-[#215558] opacity-70 mt-2">
+                            {{ __('potentiele_klanten.intake_questions.notes_help') }}
+                          </p>
                       @else
                         <p class="text-xs text-[#215558] opacity-75">
-                          Geen notities-veld gevonden in deze intake.
+                          {{ __('potentiele_klanten.intake_questions.notes_missing') }}
                         </p>
                       @endif
                     </div>
@@ -223,10 +230,12 @@
                     {{-- RECHTS: Intakevragen (zonder notities) --}}
                     <div class="w-[480px] p-4 bg-white rounded-xl border border-gray-200 shadow-lg">
                       <div class="flex items-start justify-between">
-                        <p class="text-base text-[#215558] font-black mb-1">Intakegesprek</p>
+                        <p class="text-base text-[#215558] font-black mb-1">
+                          {{ __('potentiele_klanten.intake_questions.section_title') }}
+                        </p>
                       </div>
 
-                      <div class="grid gap-3 max-h-60 overflow-y-auto pr-1 mt-2">
+                      <div class="grid gap-3 max-h-50 overflow-y-auto pr-1 mt-2">
                         @foreach($otherQs as $q)
                           @php $refName = 'answer_'.$q->id; @endphp
                           <div>
@@ -247,14 +256,23 @@
                                 class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center w-full text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300"
                                 @click="saveAll()"
                                 x-bind:disabled="savingAll">
-                          <span x-show="!savingAll">Opslaan</span>
-                          <span x-show="savingAll">Opslaan...</span>
+                          <span x-show="!savingAll">
+                            {{ __('potentiele_klanten.intake_questions.save') }}
+                          </span>
+                          <span x-show="savingAll">
+                            {{ __('potentiele_klanten.intake_questions.saving') }}
+                          </span>
                         </button>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+            <div id="intake-panel-{{ $aanvraag->id }}" data-intake-panel>
+              @if($aanvraag->intake_at)
+                @include('hub.potentiele-klanten.partials.intake-panel', ['aanvraag' => $aanvraag, 'valueToLabel' => $valueToLabel ?? []])
+              @endif
             </div>
           </div>
         @endif
@@ -276,7 +294,9 @@
              })">
 
           <div class="flex items-center justify-between">
-            <h3 class="text-base text-[#215558] font-bold leading-tight truncate">Belmomenten</h3>
+            <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
+              {{ __('potentiele_klanten.calls.section_title') }}
+            </h3>
 
             <div class="relative">
               <button type="button"
@@ -290,7 +310,7 @@
                          group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
                          transition-all duration-200 ease-out z-10">
                   <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
-                    Nieuw belmoment
+                    {{ __('potentiele_klanten.calls.new_call_tooltip') }}
                   </p>
                 </div>
               </button>
@@ -302,35 +322,49 @@
                    style="display:none;">
                 <div>
                   <p class="text-base text-[#215558] font-black mb-3">
-                    Nieuw belmoment
+                    {{ __('potentiele_klanten.calls.new_call_title') }}
                   </p>
 
                   <form class="grid gap-3 mt-2" x-on:submit.prevent="submit">
                     <div>
-                      <label class="block text-xs text-[#215558] opacity-70 mb-1">Resultaat</label>
+                      <label class="block text-xs text-[#215558] opacity-70 mb-1">
+                        {{ __('potentiele_klanten.calls.result_label') }}
+                      </label>
                       <select x-model="outcome"
                               class="w-full py-3 px-4 text-sm text-[#215558] font-semibold rounded-xl border border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300">
-                        <option value="">Kies resultaat</option>
-                        <option value="geen_antwoord">Geen antwoord</option>
-                        <option value="gesproken">Gesproken</option>
+                        <option value="">
+                          {{ __('potentiele_klanten.calls.result_choose') }}
+                        </option>
+                        <option value="geen_antwoord">
+                          {{ __('potentiele_klanten.calls.result_none') }}
+                        </option>
+                        <option value="gesproken">
+                          {{ __('potentiele_klanten.calls.result_spoken') }}
+                        </option>
                       </select>
                     </div>
 
                     <div>
-                      <label class="block text-xs text-[#215558] opacity-70 mb-1">Notitie</label>
+                      <label class="block text-xs text-[#215558] opacity-70 mb-1">
+                        {{ __('potentiele_klanten.calls.note_label') }}
+                      </label>
                       <textarea
                         x-model="note"
                         class="w-full py-3 px-4 text-sm text-[#215558] font-semibold rounded-xl border border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300"
                         rows="2"
-                        placeholder="Schrijf een notitie..."></textarea>
+                        placeholder="{{ __('potentiele_klanten.calls.note_placeholder') }}"></textarea>
                     </div>
 
                     <div class="flex items-center justify-end mt-1">
                       <button type="submit"
                               class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center w-full text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300"
                               x-bind:disabled="loading">
-                        <span x-show="!loading">Opslaan</span>
-                        <span x-show="loading">Opslaan...</span>
+                        <span x-show="!loading">
+                          {{ __('potentiele_klanten.calls.save') }}
+                        </span>
+                        <span x-show="loading">
+                          {{ __('potentiele_klanten.calls.saving') }}
+                        </span>
                       </button>
                     </div>
                   </form>
@@ -342,7 +376,7 @@
           <div>
             <template x-if="!calls.length">
               <p class="text-[#215558] text-xs font-semibold opacity-75">
-                Nog geen belmomenten geregistreerd.
+                {{ __('potentiele_klanten.calls.none') }}
               </p>
             </template>
 
@@ -374,18 +408,189 @@
           </div>
         </div>
 
-        {{-- ✅ Statuslogboek: altijd zichtbaar --}}
+        {{-- ✅ Bestanden --}}
+        <div class="pt-3 border-t border-gray-200 mt-4"
+            x-data="filesManager({
+              csrf: '{{ csrf_token() }}',
+              uploadUrl: '{{ route('support.potentiele-klanten.files.store', $aanvraag) }}',
+              deleteUrlTemplate: '{{ route('support.potentiele-klanten.files.destroy', ['file' => '__ID__']) }}',
+              initialFiles: @js(
+                ($aanvraag->files ?? collect())->map(fn($file) => [
+                  'id'         => $file->id,
+                  'name'       => $file->original_name ?? $file->name,
+                  'url'        => route('support.potentiele-klanten.files.download', $file),
+                  'extension'  => strtolower(pathinfo($file->original_name ?? $file->name, PATHINFO_EXTENSION)),
+                  'size_human' => $file->size_human ?? null,
+                  'uploaded_at'=> optional($file->created_at)->format('d-m-Y H:i'),
+                ])
+              ),
+            })">
+
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
+              {{ __('potentiele_klanten.files.section_title') }}
+            </h3>
+          </div>
+
+          {{-- Dropzone --}}
+          <div class="mt-2">
+            <div
+              class="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-6 text-center cursor-pointer transition duration-200"
+              :class="dragOver ? 'border-[#0F9B9F] bg-emerald-50/40' : 'hover:border-[#0F9B9F]'"
+              @dragover.prevent="dragOver = true"
+              @dragleave.prevent="dragOver = false"
+              @drop.prevent="handleDrop($event)"
+              @click="$refs.fileInput.click()"
+            >
+              <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                <i class="fa-solid fa-file-arrow-up text-[#215558]"></i>
+              </div>
+              <div class="text-xs text-[#215558] font-semibold">
+                {!! __('potentiele_klanten.files.drop_text', [
+                    'click' => '<span class="underline">' . __('potentiele_klanten.files.drop_click') . '</span>',
+                ]) !!}
+              </div>
+              <p class="text-[11px] text-[#215558] opacity-70">
+                {{ __('potentiele_klanten.files.drop_help') }}
+              </p>
+
+              <input type="file"
+                    multiple
+                    class="hidden"
+                    x-ref="fileInput"
+                    @change="handleInput($event.target.files)">
+            </div>
+          </div>
+
+          {{-- Lijst met bestanden --}}
+          <div class="mt-3">
+            <template x-if="!files.length && !uploading">
+              <p class="text-[#215558] text-xs font-semibold opacity-75">
+                {{ __('potentiele_klanten.files.none') }}
+              </p>
+            </template>
+
+            <template x-if="uploading">
+              <p class="text-[#215558] text-xs font-semibold opacity-75 flex items-center gap-2">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                {{ __('potentiele_klanten.files.uploading') }}
+              </p>
+            </template>
+
+            <ul class="mt-2 space-y-1 max-h-40 overflow-y-auto pr-1" x-show="files.length">
+              <template x-for="file in files" :key="file.id">
+                <li class="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl p-3">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                      <i class="fa-solid text-sm" :class="iconFor(file)"></i>
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold text-[#215558] truncate" x-text="file.name"></p>
+                      <p class="text-[10px] font-medium text-[#215558] truncate opacity-80">
+                        <span x-text="file.extension?.toUpperCase() || ''"></span>
+                        <span x-show="file.size_human"> · <span x-text="file.size_human"></span></span>
+                        <span x-show="file.uploaded_at">
+                          · {{ __('potentiele_klanten.files.uploaded_on', ['date' => '']) }}
+                          <span x-text="file.uploaded_at"></span>
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <a :href="file.url"
+                      target="_blank"
+                      class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-200 text-[#215558] hover:bg-gray-300 transition duration-300 cursor-pointer">
+                      <i class="fa-solid fa-arrow-up-right-from-square fa-xs mr-1 mt-2"></i>
+                      {{ __('potentiele_klanten.files.open') }}
+                    </a>
+                    <button type="button"
+                            class="px-2.5 py-0.5 flex items-center rounded-full text-[11px] font-semibold bg-red-600 hover:bg-red-700 transition duration-300 text-white cursor-pointer"
+                            @click="openConfirm(file)"
+                            :disabled="removingId === file.id">
+                      <span x-show="removingId !== file.id">
+                        <i class="fa-solid fa-xs fa-trash mr-0.5 mt-2"></i>
+                        {{ __('potentiele_klanten.files.delete') }}
+                      </span>
+                      <span x-show="removingId === file.id">
+                        <i class="fa-solid fa-spinner fa-spin mr-1"></i>
+                      </span>
+                    </button>
+                  </div>
+                </li>
+              </template>
+            </ul>
+          </div>
+
+          {{-- ✅ Lokale confirm-overlay voor bestand verwijderen --}}
+          <div
+            x-show="confirmOpen"
+            x-transition.opacity
+            class="fixed inset-0 z-[9999] flex items-center justify-center px-4"
+            style="display:none;"
+          >
+            <div class="absolute inset-0 bg-black/25" @click="!removingId && (confirmOpen = false)"></div>
+
+            <div
+              class="relative z-10 w-[380px] max-w-[92vw] bg-white rounded-2xl shadow-xl border border-gray-200 p-4
+                    transform-gpu transition-all duration-200 ease-out"
+              x-transition:enter="transition duration-200 ease-out"
+              x-transition:enter-start="opacity-0 translate-y-2"
+              x-transition:enter-end="opacity-100 translate-y-0"
+              x-transition:leave="transition duration-150 ease-in"
+              x-transition:leave-start="opacity-100 translate-y-0"
+              x-transition:leave-end="opacity-0 translate-y-2"
+            >
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+                </div>
+                <div class="flex-1">
+                  <h2 class="text-base font-black text-[#215558]">
+                    {{ __('potentiele_klanten.files.delete_title') }}
+                  </h2>
+                  <p class="mt-1 text-sm text-[#215558]">
+                    {{ __('potentiele_klanten.files.delete_question') }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="mt-3 text-sm text-red-600" x-show="confirmError" x-text="confirmError"></div>
+
+              <div class="mt-4 flex items-center gap-2">
+                <button type="button"
+                        class="bg-red-500 hover:bg-red-600 cursor-pointer text-center w-full text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300 disabled:opacity-60"
+                        :disabled="removingId"
+                        @click="confirmRemove()">
+                  <span class="inline-flex items-center gap-2">
+                    <span x-show="removingId"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                    <span x-show="!removingId">
+                      {{ __('potentiele_klanten.files.delete_yes') }}
+                    </span>
+                  </span>
+                </button>
+                <button type="button"
+                        class="bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer font-semibold px-6 py-3 rounded-full transition duration-300"
+                        :disabled="removingId"
+                        @click="confirmOpen = false; fileToDelete = null;">
+                  {{ __('potentiele_klanten.files.delete_cancel') }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="pt-3 border-t border-gray-200 mt-4">
           <div class="flex items-center justify-between">
             <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
-              Logboek
+              {{ __('potentiele_klanten.logbook.title') }}
             </h3>
           </div>
 
           <p class="text-[#215558] text-xs font-semibold opacity-75 mt-1"
              data-status-log-empty
              @if($statusLogs->isNotEmpty()) style="display:none;" @endif>
-            Nog geen activiteit.
+            {{ __('potentiele_klanten.logbook.empty') }}
           </p>
 
           <ul class="mt-2 space-y-1 max-h-40 overflow-y-auto pr-1"

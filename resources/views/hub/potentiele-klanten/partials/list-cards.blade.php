@@ -6,7 +6,7 @@
     ])
   @empty
     <div class="text-[#215558] text-xs font-semibold opacity-75">
-      Nog geen aanvragen gevonden.
+      {{ __('potentiele_klanten.list.no_requests') }}
     </div>
   @endforelse
 </div>
@@ -16,5 +16,5 @@
   class="text-[#215558] text-xs font-semibold opacity-75"
   x-show="activeFilters.length && !hasVisibleCards"
 >
-  Geen resultaten gevonden voor deze status.
+  {{ __('potentiele_klanten.list.no_results_for_state') }}
 </div>
