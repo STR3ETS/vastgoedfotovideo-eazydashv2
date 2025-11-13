@@ -16,7 +16,6 @@ use App\Http\Controllers\AanvraagFileController;
 use App\Http\Controllers\IntakeController;
 use App\Http\Controllers\ProjectenController;
 use App\Http\Controllers\ProjectPreviewController;
-use App\Http\Controllers\OfferteController;
 
 // eazyonline.nl website
 Route::view('/', 'website.home')->name('pages.home');
@@ -114,15 +113,6 @@ Route::prefix('app')->group(function () {
                 Route::patch('/{project}/offerte-notes', 'updateOfferteNotes')->name('offerte_notes.update');
                 Route::patch('/{project}/offerte-complete', 'completeOfferteTask')->name('offerte.complete');
                 Route::post('/{project}/calls', 'storeCall')->name('calls.store');
-                Route::get('/{project}/offerte/generate', [OfferteController::class, 'generate'])->name('offerte.generate');
-        });
-
-        Route::prefix('offertes')
-            ->name('support.offertes.')
-            ->group(function () {
-                Route::get('/{offerte}/bewerken', [OfferteController::class, 'edit'])->name('edit');
-                Route::put('/{offerte}', [OfferteController::class, 'update'])->name('update');
-                Route::get('/{offerte}', [OfferteController::class, 'show'])->name('show');
         });
 
         // Gebruikers

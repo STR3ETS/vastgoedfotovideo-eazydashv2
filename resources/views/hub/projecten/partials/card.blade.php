@@ -580,7 +580,7 @@
               <a
                 x-show="offerteTaskCompleted"
                 x-cloak
-                href="#"
+                href="{{ route('support.projecten.offerte.generate', $project) }}"
                 class="w-7 h-7 rounded-full bg-gray-200 hover:gray-300 flex items-center justify-center transition duration-200 relative group cursor-pointer"
               >
                 <i class="fa-solid fa-file-lines text-[#215558] text-xs"></i>
