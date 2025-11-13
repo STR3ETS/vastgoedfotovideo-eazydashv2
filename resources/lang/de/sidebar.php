@@ -8,4 +8,5 @@ return [
     'users'      => 'Benutzer',
     'add_module' => 'Modul hinzufügen',
     'audit_log'  => 'Audit-Log',
+    'seo_audit'  => 'SEO-Analyse',
 ];
