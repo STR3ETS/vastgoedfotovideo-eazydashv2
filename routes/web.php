@@ -10,6 +10,7 @@ use App\Http\Controllers\SupportController;
 use App\Http\Controllers\InstellingenController;
 use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\SeoAuditController;
 use App\Http\Controllers\TaskQuestionController;
 use App\Http\Controllers\AanvraagFileController;
 use App\Http\Controllers\IntakeController;
@@ -152,6 +153,15 @@ Route::prefix('app')->group(function () {
                 Route::delete('/bedrijven/{company}/personen/{user}', 'bedrijfPersonenOntkoppel')->name('bedrijven.personen.ontkoppel');
                 Route::get('/bedrijven/{company}/personen/lijst', 'bedrijfPersonenLijst')->name('bedrijven.personen.lijst');
                 Route::post('/bedrijven/{company}/personen/{user}/toggle-admin', 'bedrijfToggleAdmin')->name('bedrijven.admin.toggle');
+        });
+
+        // SEO Audit
+        Route::prefix('seo-audit')
+            ->name('support.seo-audit.')
+            ->controller(SeoAuditController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
         });
 
         // Instellingen

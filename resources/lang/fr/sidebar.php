@@ -9,4 +9,5 @@ return [
     'users'      => 'Utilisateurs',
     'add_module' => 'Ajouter un module',
     'audit_log'  => 'Journal d’audit',
+    'seo_audit'  => 'Audit SEO',
 ];

@@ -9,4 +9,5 @@ return [
     'users'      => 'Users',
     'add_module' => 'Add module',
     'audit_log'  => 'Audit log',
+    'seo_audit'  => 'SEO Audit',
 ];
