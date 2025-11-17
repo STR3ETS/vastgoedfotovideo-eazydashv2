@@ -78,6 +78,8 @@
         openRequestOverlay: false,
         savingPreview: false,
 
+        generatingOfferte: false,
+
         // Offerte-state
         hasOfferteTask: {{ $offerteTask ? 'true' : 'false' }},
         openOfferteOverlay: false,
@@ -247,7 +249,54 @@
             .finally(() => {
                 self.markingOfferteTask = false;
             });
-        }    
+        },
+
+        generateOfferte() {
+            const self = this;
+            if (self.generatingOfferte) return;
+
+            self.generatingOfferte = true;
+
+            fetch('{{ route('support.projecten.offerte.generate', $project) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({}),
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Failed');
+                return res.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed');
+                }
+
+                if (window.showToast) {
+                    window.showToast('Offerte succesvol gegenereerd.', 'success');
+                }
+
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                }
+            })
+            .catch((err) => {
+                console.error(err);
+                if (window.showToast) {
+                    window.showToast('Genereren van offerte is mislukt.', 'error');
+                } else {
+                    alert('Genereren van offerte is mislukt.');
+                }
+            })
+            .finally(() => {
+                self.generatingOfferte = false;
+            });
+        },
     }"
 >
 
@@ -577,24 +626,27 @@
               </div>
 
               {{-- 🔹 EXTRA KNOP: OFFERTE GENEREREN (alleen als taak voltooid is) --}}
-              <a
-                x-show="offerteTaskCompleted"
-                x-cloak
-                href="{{ route('support.projecten.offerte.generate', $project) }}"
-                class="w-7 h-7 rounded-full bg-gray-200 hover:gray-300 flex items-center justify-center transition duration-200 relative group cursor-pointer"
+              <button
+                  type="button"
+                  x-show="offerteTaskCompleted"
+                  x-cloak
+                  class="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition duration-200 relative group cursor-pointer disabled:opacity-60"
+                  :disabled="generatingOfferte"
+                  @click="generateOfferte()"
               >
-                <i class="fa-solid fa-file-lines text-[#215558] text-xs"></i>
+                  <i x-show="!generatingOfferte" class="fa-solid fa-file-lines text-[#215558] text-xs"></i>
+                  <i x-show="generatingOfferte" class="fa-solid fa-spinner fa-spin text-[#215558] text-xs"></i>
 
-                <div
-                  class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute bottom-[135%] right-0
-                        opacity-0 invisible translate-y-1 pointer-events-none
-                        group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
-                        transition-all duration-200 ease-out z-10">
-                  <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
-                    Genereer offerte
-                  </p>
-                </div>
-              </a>
+                  <div
+                    class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute bottom-[135%] right-0
+                          opacity-0 invisible translate-y-1 pointer-events-none
+                          group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
+                          transition-all duration-200 ease-out z-10">
+                    <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
+                      Genereer offerte
+                    </p>
+                  </div>
+              </button>
             </div>
           </div>
 
