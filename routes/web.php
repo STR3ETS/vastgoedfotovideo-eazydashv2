@@ -165,7 +165,10 @@ Route::prefix('app')->group(function () {
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'store')->name('store');
-        });
+
+                Route::get('{seoAudit}', [SeoAuditController::class, 'show'])->name('show');
+                Route::get('{seoAudit}/status', [SeoAuditController::class, 'status'])->name('status');
+                Route::get('{seoAudit}/download-json', [SeoAuditController::class, 'downloadJson'])->name('download-json');        });
 
         // Instellingen
         Route::prefix('instellingen')
