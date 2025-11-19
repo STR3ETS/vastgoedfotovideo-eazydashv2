@@ -14,7 +14,7 @@
         }
 
         body {
-            font-family: sans-serif;
+            font-family: sans-serif, arial !important;
             font-size: 11px;
             color: #215558;
             /* background-color: #f5f5f7; */
@@ -57,6 +57,11 @@
         .mt-3 { margin-top: 12px; }
         .mt-4 { margin-top: 16px; }
         .mt-6 { margin-top: 24px; }
+        .pt-1 { padding-top: 4px; }
+        .pt-2 { padding-top: 8px; }
+        .pt-3 { padding-top: 12px; }
+        .pt-4 { padding-top: 16px; }
+        .pt-6 { padding-top: 24px; }
 
         .heading-xs {
             font-size: 11px;
@@ -207,7 +212,7 @@
             <div class="row">
                 <div class="col-6">
                     <p class="heading-sm">Offerte</p>
-                    <p class="heading-md mt-1">
+                    <p class="heading-md pt-4">
                         {{ data_get($offerte->generated, 'headline', 'Website & online groei voor ' . ($project->company ?? 'jouw bedrijf')) }}
                     </p>
                 </div>
@@ -223,10 +228,10 @@
                     <p class="heading-xs">Offertenummer</p>
                     <p class="text-sm">{{ $offerteNummer }}</p>
 
-                    <p class="heading-xs mt-3">Offertedatum</p>
+                    <p class="heading-xs pt-2">Offertedatum</p>
                     <p class="text-sm">{{ $offerteDate->format('d/m/Y') }}</p>
 
-                    <p class="heading-xs mt-3">Vervaldatum</p>
+                    <p class="heading-xs pt-2">Vervaldatum</p>
                     <p class="text-sm">{{ $vervalDatum->format('d/m/Y') }}</p>
                 </div>
                 <div class="col-6">
@@ -236,7 +241,7 @@
                     <p class="text-sm">KVK: 67228550</p>
                     <p class="text-sm">BTW: NL864926856B01</p>
 
-                    <p class="heading-xs mt-3">Offerte voor</p>
+                    <p class="heading-xs pt-2">Offerte voor</p>
                     <p class="text-sm">{{ $project->company ?? 'Relatie' }}</p>
                     @if($project->address)
                         <p class="text-sm">{{ $project->address }}</p>
@@ -256,7 +261,7 @@
                 </p>
 
                 @if(!empty($summaryBullets))
-                    <ul class="badge-list mt-3">
+                    <ul class="badge-list">
                         @foreach($summaryBullets as $bullet)
                             <li class="badge">• {{ $bullet }}</li>
                         @endforeach
@@ -277,42 +282,42 @@
                 <table class="kpi-cols mt-3">
                     <tr>
                         <td>
-                            <p class="text-xs"><strong>★★★★★ Roy Koenders</strong><br>Eigenaar 2BeFit Coaching</p>
-                            <p class="text-xs mt-2">
+                            <p class="text-xs"><strong>Roy Koenders</strong><br>Eigenaar 2BeFit Coaching</p>
+                            <p class="text-xs pt-2">
                                 Van idee tot eindproduct: Eazy leverde een strak, modern en uniek design dat onze visie perfect weerspiegelt.
                             </p>
                         </td>
                         <td>
-                            <p class="text-xs"><strong>★★★★★ Baris Yildirim</strong><br>Eigenaar Barbaros Detailing</p>
-                            <p class="text-xs mt-2">
+                            <p class="text-xs"><strong>Baris Yildirim</strong><br>Eigenaar Barbaros Detailing</p>
+                            <p class="text-xs pt-2">
                                 Binnen no-time hadden we een op maat gemaakte website die precies laat zien waar ons bedrijf voor staat. Supertevreden.
                             </p>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding-top:10px;">
-                            <p class="text-xs"><strong>★★★★★ Donny Roelvink</strong><br>Eigenaar The Grind</p>
-                            <p class="text-xs mt-2">
+                            <p class="text-xs"><strong>Donny Roelvink</strong><br>Eigenaar The Grind</p>
+                            <p class="text-xs pt-2">
                                 Eazy heeft elke versie van onze website naar een hoger niveau getild. Ze snappen exact wat je als ondernemer nodig hebt.
                             </p>
                         </td>
                         <td style="padding-top:10px;">
-                            <p class="text-xs"><strong>★★★★★ Wouter Smith</strong><br>Eigenaar KapotSterk</p>
-                            <p class="text-xs mt-2">
+                            <p class="text-xs"><strong>Wouter Smit</strong><br>Eigenaar KapotSterk</p>
+                            <p class="text-xs pt-2">
                                 Samenwerken met Eazy voelt als een gedeeld avontuur. Ze denken altijd mee en bouwen écht mee aan ons merk.
                             </p>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding-top:10px;">
-                            <p class="text-xs"><strong>★★★★★ Nienke Roseboom</strong><br>Eigenaresse Huisje Kaatsheuvel</p>
-                            <p class="text-xs mt-2">
+                            <p class="text-xs"><strong>Nienke Roseboom</strong><br>Eigenaresse Huisje Kaatsheuvel</p>
+                            <p class="text-xs pt-2">
                                 Vanaf dag één goede communicatie, snelle updates en een team dat je écht meeneemt in het proces. Heel professioneel.
                             </p>
                         </td>
                         <td style="padding-top:10px;">
-                            <p class="text-xs"><strong>★★★★★ Bas &amp; David</strong><br>Eigenaren BlowerTechnic</p>
-                            <p class="text-xs mt-2">
+                            <p class="text-xs"><strong>Bas &amp; David</strong><br>Eigenaren BlowerTechnic</p>
+                            <p class="text-xs pt-2">
                                 Onze oude websites voldeden niet meer aan onze visie. Eazy ontwikkelde een volledig nieuw concept dat onze verwachtingen overtrof.
                             </p>
                         </td>

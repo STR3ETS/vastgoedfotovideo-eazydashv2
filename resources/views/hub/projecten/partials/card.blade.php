@@ -45,7 +45,14 @@
   $hasFeedback = $previewFeedback->isNotEmpty();
   $callLogs = $project->callLogs ?? collect();
 @endphp
+@php
+    /** @var \App\Models\Offerte|null $existingOfferte */
+    $existingOfferte = $project->offerte ?? null;
 
+    $offerteBeheerderUrl = $existingOfferte
+        ? route('offerte.beheerder.show', ['token' => $existingOfferte->public_uuid])
+        : null;
+@endphp
 <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-50 transition"
     data-card-id="{{ $project->id }}"
     data-status="{{ $statusValue }}"
@@ -89,6 +96,9 @@
         offerteTaskDescription: @js($offerteTaskDescription),
         offerteNotes: @js($offerteNotes),
         offerteTaskCompleted: {{ $offerteTaskCompleted ? 'true' : 'false' }},
+
+        offerteGenerated: {{ $existingOfferte ? 'true' : 'false' }},
+        offerteBeheerderUrl: @js($offerteBeheerderUrl),
 
         previewUrl: @js($project->preview_url ?? null),
         previewUrlInput: @js($project->preview_url ?? ''),
@@ -277,12 +287,15 @@
                     throw new Error(data.message || 'Failed');
                 }
 
-                if (window.showToast) {
-                    window.showToast('Offerte succesvol gegenereerd.', 'success');
-                }
+                // ✅ Offerte is nu gegenereerd: state updaten, NIET redirecten
+                self.offerteGenerated = true;
 
                 if (data.redirect_url) {
-                    window.location.href = data.redirect_url;
+                    self.offerteBeheerderUrl = data.redirect_url;
+                }
+
+                if (window.showToast) {
+                    window.showToast('Offerte succesvol gegenereerd.', 'success');
                 }
             })
             .catch((err) => {
@@ -632,18 +645,37 @@
                   x-cloak
                   class="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition duration-200 relative group cursor-pointer disabled:opacity-60"
                   :disabled="generatingOfferte"
-                  @click="generateOfferte()"
+                  @click="
+                      if (offerteGenerated && offerteBeheerderUrl) {
+                          window.location.href = offerteBeheerderUrl;
+                      } else {
+                          generateOfferte();
+                      }
+                  "
               >
-                  <i x-show="!generatingOfferte" class="fa-solid fa-file-lines text-[#215558] text-xs"></i>
-                  <i x-show="generatingOfferte" class="fa-solid fa-spinner fa-spin text-[#215558] text-xs"></i>
-
+                  <!-- Icoon: GENEREER -->
+                  <i
+                      x-show="!generatingOfferte && !offerteGenerated"
+                      class="fa-solid fa-file-lines text-[#215558] text-xs"
+                  ></i>
+                  <!-- Icoon: BEKIJK (arrow up from square) -->
+                  <i
+                      x-show="!generatingOfferte && offerteGenerated"
+                      class="fa-solid fa-up-right-from-square text-[#215558] text-xs"
+                  ></i>
+                  <!-- Loader -->
+                  <i
+                      x-show="generatingOfferte"
+                      class="fa-solid fa-spinner fa-spin text-[#215558] text-xs"
+                  ></i>
+                  <!-- Tooltip -->
                   <div
                     class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute bottom-[135%] right-0
                           opacity-0 invisible translate-y-1 pointer-events-none
                           group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
                           transition-all duration-200 ease-out z-10">
-                    <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
-                      Genereer offerte
+                    <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap"
+                      x-text="offerteGenerated ? 'Bekijk offerte' : 'Genereer offerte'">
                     </p>
                   </div>
               </button>

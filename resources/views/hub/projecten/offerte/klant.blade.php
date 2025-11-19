@@ -13,14 +13,15 @@
 <div class="w-full fixed z-50 top-0 left-0 bg-white border-b border-b-gray-200 p-4 min-h-[61px] flex items-center">
     <div class="max-w-6xl w-full mx-auto flex items-center justify-between gap-2">
         <div class="flex items-center gap-4 relative">
-            <button type="button" class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition duration-200 relative group cursor-pointer">
+            <a href="{{ route('offerte.download', $offerte->public_uuid) }}"
+            class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition duration-200 relative group cursor-pointer">
                 <i class="fa-solid fa-download text-[#215558] text-xs"></i>
                 <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-full top-1/2 ml-2 -translate-y-1/2 opacity-0 invisible translate-x-1 pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out z-10">
                     <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
                         Downloaden als PDF
                     </p>
                 </div>
-            </button>
+            </a>
             <p class="caveat-font text-[#215558] text-lg animate-pulse">Download hier de offerte!</p>
             <svg class="absolute h-fit -left-10.5 rotate-[-45deg] -top-7 w-[30px]" width="177" height="265" viewBox="0 0 177 265" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M31.6609 252.913C26.9982 250.913 22.3461 248.492 17.4805 247.088C15.266 246.47 11.1171 246.988 10.217 248.494C8.08411 251.854 10.6409 254.327 14.0978 255.293C21.7134 257.419 29.3655 259.384 37.0227 261.4C38.6394 261.816 40.381 261.905 41.8624 262.544C48.8485 265.729 51.589 264.249 51.6232 256.693C51.6948 246.877 51.7664 237.061 51.1101 227.318C50.9342 225.028 48.1646 221.475 46.1268 221.048C41.838 220.165 40.7551 224.049 40.6913 227.622C40.6113 232.613 40.7392 237.584 40.8094 244.081C31.5548 232.362 25.3988 220.65 21.0472 208.075C3.36551 157.123 10.508 108.155 34.2655 60.992C41.1492 47.3499 51.8891 37.1 67.8978 34.4025C71.6673 33.7645 75.5975 34.2119 80.6821 34.1246C71.8231 46.9145 65.6677 59.4348 63.7071 73.4778C62.6592 80.8731 62.209 88.4712 62.7883 95.8617C63.5022 104.603 67.3931 112.03 76.5993 114.836C85.9718 117.731 94.073 114.72 100.476 107.84C110.145 97.3823 114.054 84.4564 114.19 70.543C114.389 53.5809 107.61 39.8323 93.0418 29.5878C116.93 6.38264 144.856 -0.0207063 176.447 6.11382C176.552 5.57892 176.651 4.99207 176.755 4.45717C174.852 3.8076 173.038 2.99186 171.052 2.5604C141.042 -4.04644 114.348 2.60123 91.2768 22.945C88.3332 25.5463 86.0505 26.3509 82.0166 25.3893C67.1178 21.8392 53.5625 25.9706 42.3548 35.7427C35.6875 41.5477 29.238 48.485 25.2888 56.2745C-0.071148 106.325 -7.95309 158.409 11.3911 212.342C16.4024 226.267 24.5595 239.092 31.5672 253.027L31.6609 252.913ZM86.514 37.3197C113.807 53.0095 106.726 91.0091 92.2112 103.419C82.6314 111.612 71.9181 107.383 70.3013 94.3259C67.7364 73.3384 74.1647 54.6013 86.5088 37.2678L86.514 37.3197Z" fill="#215558"></path>
@@ -28,8 +29,9 @@
         </div>
         <div class="flex items-center gap-2">
             <p id="offerte-countdown"
-               class="px-2 py-0.5 text-xs bg-green-200 text-green-700 font-semibold rounded-full w-fit">
-                02:23:59:59
+            data-expiry="{{ $vervalDatum->toIso8601String() }}"
+            class="px-2 py-0.5 text-xs bg-green-200 text-green-700 font-semibold rounded-full w-fit">
+                00:00:00:00
             </p>
 
             <p class="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 font-semibold rounded-full w-fit">
@@ -51,7 +53,7 @@
                     </h2>
                 </div>
 
-                <h1 class="text-2xl -mt-2 text-[#215558] font-black leading-tight shrink-0 max-w-[50%]">
+                <h1 class="text-2xl -mt-2 text-[#215558] font-black leading-tight shrink-0 max-w-[75%]">
                     {{ data_get($offerte->generated, 'headline', 'Website & online groei voor ' . ($project->company ?? 'jouw bedrijf')) }}
                 </h1>
 
@@ -430,6 +432,47 @@
 
 <hr class="border-gray-200">
 
+{{-- Doelen & KPI's --}}
+<div class="grid gap-4">
+    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Doelen & KPI's</p>
+    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+        We denken niet alleen in pixels, maar vooral in resultaat. Samen bepalen we concrete doelen en sturen we op meetbare KPI’s.
+    </p>
+
+    <div class="grid grid-cols-2 gap-4 text-xs">
+        <ul class="grid gap-2">
+            <li class="flex items-center gap-2">
+                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Meer relevante bezoekers via organische zoekresultaten (SEO).
+                </p>
+            </li>
+            <li class="flex items-center gap-2">
+                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Stijging in conversies (aanvragen, bestellingen of afspraken).
+                </p>
+            </li>
+        </ul>
+        <ul class="grid gap-2">
+            <li class="flex items-center gap-2">
+                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Betere inzichtelijkheid in prestaties via duidelijke rapportages en dashboards.
+                </p>
+            </li>
+            <li class="flex items-center gap-2">
+                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Kortere doorlooptijd van eerste bezoek tot klant.
+                </p>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<hr class="border-gray-200">
+
 {{-- Aanpak & planning --}}
 <div class="grid gap-4">
     <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Aanpak & planning</p>
@@ -651,6 +694,78 @@
 
 <hr class="border-gray-200">
 
+{{-- Van start met Eazyonline --}}
+<div class="grid gap-4">
+    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Vervolgstappen</p>
+    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+        Lorem ipsum dolor sit amet, consectetur adipisicing elit. A ea expedita eveniet facere corporis earum debitis voluptatibus et, perferendis accusamus! Et sit necessitatibus ea quos suscipit, ex sapiente facilis expedita.
+    </p>
+    <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Offerte tekenen
+                </p>
+            </div>
+            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-orange-700 bg-orange-100">Hier ben je nu</div>
+        </div>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    50% aanbetaling (of nader afgesproken)
+                </p>
+            </div>
+            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+        </div>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Content aanleveren via ons formulier
+                </p>
+            </div>
+            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+        </div>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Project inplannen
+                </p>
+            </div>
+            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+        </div>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Website wordt gebouwd
+                </p>
+            </div>
+            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+        </div>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Revisie-ronde / Final
+                </p>
+            </div>
+            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+        </div>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                    Livegang
+                </p>
+            </div>
+            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+        </div>
+        <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0 mt-2">
+            Lorem ipsum dolor sit amet, consectetur adipisicing elit. A ea expedita eveniet facere corporis earum debitis voluptatibus et, perferendis accusamus! Et sit necessitatibus ea quos suscipit, ex sapiente facilis expedita.
+        </p>
+    </div>
+</div>
+
+
+<hr class="border-gray-200">
+
 {{-- Randvoorwaarden & scope --}}
 <div class="grid gap-4">
     <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Randvoorwaarden & scope</p>
@@ -690,48 +805,6 @@
         </ul>
     </div>
 </div>
-
-<hr class="border-gray-200">
-
-{{-- Doelen & KPI's --}}
-<div class="grid gap-4">
-    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Doelen & KPI's</p>
-    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-        We denken niet alleen in pixels, maar vooral in resultaat. Samen bepalen we concrete doelen en sturen we op meetbare KPI’s.
-    </p>
-
-    <div class="grid grid-cols-2 gap-4 text-xs">
-        <ul class="grid gap-2">
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Meer relevante bezoekers via organische zoekresultaten (SEO).
-                </p>
-            </li>
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Stijging in conversies (aanvragen, bestellingen of afspraken).
-                </p>
-            </li>
-        </ul>
-        <ul class="grid gap-2">
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Betere inzichtelijkheid in prestaties via duidelijke rapportages en dashboards.
-                </p>
-            </li>
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Kortere doorlooptijd van eerste bezoek tot klant.
-                </p>
-            </li>
-        </ul>
-    </div>
-</div>
-
             </div>
             <div class="bg-white rounded-2xl p-6 border border-gray-200"></div>
         </div>
@@ -785,6 +858,48 @@ document.addEventListener('alpine:init', () => {
             }
         }
     }));
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const el = document.getElementById('offerte-countdown');
+    if (!el) return;
+
+    const expiryStr = el.dataset.expiry;
+    if (!expiryStr) return;
+
+    const expiry = new Date(expiryStr);
+    if (isNaN(expiry.getTime())) return;
+
+    function pad(num) {
+        return String(num).padStart(2, '0');
+    }
+
+    function updateCountdown() {
+        const now  = new Date();
+        let diff   = Math.floor((expiry - now) / 1000); // seconden
+
+        if (diff <= 0) {
+            el.textContent = '00:00:00:00';
+            el.classList.remove('bg-green-200', 'text-green-700');
+            el.classList.add('bg-red-200', 'text-red-700');
+            return;
+        }
+
+        const days    = Math.floor(diff / (24 * 60 * 60));
+        diff          = diff % (24 * 60 * 60);
+        const hours   = Math.floor(diff / (60 * 60));
+        diff          = diff % (60 * 60);
+        const minutes = Math.floor(diff / 60);
+        const seconds = diff % 60;
+
+        // Formaat: DD:HH:MM:SS
+        el.textContent = `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    // Init + interval
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
 });
 </script>
 @endsection

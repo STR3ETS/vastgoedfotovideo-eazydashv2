@@ -15,10 +15,12 @@ class Offerte extends Model
         'status',
         'generated',
         'number',
+        'content_overrides',
     ];
 
     protected $casts = [
         'generated' => 'array',
+        'content_overrides' => 'array',
     ];
 
     public function project()
