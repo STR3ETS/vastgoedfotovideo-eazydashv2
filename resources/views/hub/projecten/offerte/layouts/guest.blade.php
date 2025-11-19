@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>@yield('title', config('app.name'))</title>
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <link rel="icon" type="image/x-icon" href="/assets/favicon.webp">
   @vite(['resources/css/app.css','resources/js/app.js'], 'build')
   <link rel="preload" href="{{ asset('fontawesome/css/all.min.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -16,7 +17,10 @@
     .caveat-font { font-family: 'Caveat', cursive !important; }
   </style>
 </head>
-<body class="min-h-dvh text-[#215558] flex justify-center bg-cover bg-center relative pb-5" style="background-image: url('/assets/app-bg-1920.webp')">
-  @yield('content')
+<body class="min-h-dvh text-[#215558] flex justify-center relative pb-5">
+  <div class="fixed left-0 top-0 z-1 w-full h-dvh bg-cover bg-center" style="background-image: url('/assets/app-bg-1920.webp')"></div>
+  <div class="relative z-2">
+    @yield('content')
+  </div>
 </body>
 </html>

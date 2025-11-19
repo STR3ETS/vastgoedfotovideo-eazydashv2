@@ -59,6 +59,8 @@ Route::prefix('offerte')
         Route::get('/{token}', 'klant')->name('klant.show');
         Route::get('/{token}/edit', 'beheerder')->name('beheerder.show');
         Route::get('/{token}/download', 'download')->name('download');
+        Route::post('/{token}/regenerate', 'regenerate')->name('regenerate');
+        Route::post('/{token}/inline', 'inlineUpdate')->name('inline-update');
     });
 
 Route::prefix('app')->group(function () {
