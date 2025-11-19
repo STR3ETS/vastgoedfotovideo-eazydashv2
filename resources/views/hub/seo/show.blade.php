@@ -4,7 +4,7 @@
 @section('content')
     <div class="h-full flex flex-col col-span-5 gap-4">
         {{-- Header --}}
-        <div class="bg-[#e0f4f1] rounded-xl  px-6 py-4 flex items-center justify-between">
+        <div class="bg-[#e0f4f1] rounded-xl px-6 py-4 flex items-center justify-between">
             <div class="flex flex-col gap-1">
                 <div class="flex items-center gap-3 text-sm text-[#215558]">
                     <a href="{{ route('support.seo-audit.index', ['company_id' => $audit->company_id]) }}"
@@ -21,20 +21,54 @@
                     @if($audit->started_at)
                         <span>Uitgevoerd op {{ $audit->started_at->format('d-m-Y H:i') }}
                             @if($audit->finished_at)
-                                – afgerond op {{ $audit->finished_at->format('d-m-Y H:i') }}
+                                - afgerond op {{ $audit->finished_at->format('d-m-Y H:i') }}
                             @endif
                         </span>
                     @endif
                 </div>
+
+                @if (session('status'))
+                    <div class="mt-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-700">
+                        {{ session('status') }}
+                    </div>
+                @endif
+
+                @if ($errors->any())
+                    <div class="mt-2 px-3 py-1.5 rounded-xl bg-red-50 border border-red-200 text-[11px] text-red-700">
+                        {{ $errors->first() }}
+                    </div>
+                @endif
             </div>
 
             <div class="flex flex-col items-end gap-2">
                 <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
-                                 {{ $audit->status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700' }}">
-                        <span class="w-2 h-2 rounded-full mr-1
-                                     {{ $audit->status === 'completed' ? 'bg-emerald-500' : 'bg-yellow-500' }}"></span>
-                        {{ $audit->status === 'completed' ? 'Afgerond' : ucfirst($audit->status) }}
+                    @php
+                        $status = $audit->status;
+                        $statusLabel = match($status) {
+                            'completed' => 'Afgerond',
+                            'running'   => 'Bezig',
+                            'pending'   => 'In wachtrij',
+                            'failed'    => 'Mislukt',
+                            default     => ucfirst($status),
+                        };
+                        $statusClasses = match($status) {
+                            'completed' => 'bg-emerald-100 text-emerald-700',
+                            'running'   => 'bg-blue-100 text-blue-700',
+                            'pending'   => 'bg-amber-100 text-amber-700',
+                            'failed'    => 'bg-red-100 text-red-700',
+                            default     => 'bg-gray-100 text-gray-700',
+                        };
+                        $dotClasses = match($status) {
+                            'completed' => 'bg-emerald-500',
+                            'running'   => 'bg-blue-500',
+                            'pending'   => 'bg-amber-500',
+                            'failed'    => 'bg-red-500',
+                            default     => 'bg-gray-500',
+                        };
+                    @endphp
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $statusClasses }}">
+                        <span class="w-2 h-2 rounded-full mr-1 {{ $dotClasses }}"></span>
+                        {{ $statusLabel }}
                     </span>
                 </div>
 
@@ -71,7 +105,7 @@
                 {{-- Stat blokjes --}}
                 <div class="grid grid-cols-3 gap-3 mb-4 text-xs">
                     <div class="bg-[#f5faf9] rounded-lg px-3 py-2 flex flex-col">
-                        <span class="text-[11px] text-[#215558] opacity-80 mb-1">Gescande pagina’s</span>
+                        <span class="text-[11px] text-[#215558] opacity-80 mb-1">Gescande pagina s</span>
                         <span class="text-lg font-bold text-[#215558]">
                             {{ $summary['pages'] ?? 'nvt' }}
                         </span>
@@ -101,7 +135,6 @@
                 </h3>
 
                 @php
-                    // Pak de eerste paar quick wins en vul aan met losse raw issues als er weinig zijn
                     $quick = collect($quickWins);
                     if ($quick->isEmpty()) {
                         $quick = collect($rawIssues)
@@ -110,7 +143,7 @@
                             ->take(5)
                             ->map(function ($i) {
                                 $pages = (int) ($i['value'] ?? 0);
-                                $pagesTxt = $pages > 0 ? " ({$pages} pagina’s)" : '';
+                                $pagesTxt = $pages > 0 ? " ({$pages} pagina s)" : '';
                                 return [
                                     'title'       => $i['name'] ?: ($i['code'] ?? 'Onbekend probleem'),
                                     'description' => $pagesTxt,
@@ -124,7 +157,7 @@
                 @if($quick->isEmpty())
                     <p class="text-[11px] text-[#215558]">
                         Geen uitgesproken verbeterpunten gevonden in dit rapport. Kijk handmatig naar de
-                        belangrijke pagina’s en technische basis als je twijfelt.
+                        belangrijke pagina s en technische basis als je twijfelt.
                     </p>
                 @else
                     <ul class="space-y-2 text-[11px] text-[#215558]">
@@ -173,7 +206,7 @@
                         </dd>
                     </div>
                     <div class="flex justify-between">
-                        <dt class="opacity-80">Pagina’s in Google index</dt>
+                        <dt class="opacity-80">Pagina s in Google index</dt>
                         <dd class="font-semibold">
                             {{ $domainProps['index_google'] ?? 'nvt' }}
                         </dd>
@@ -205,56 +238,168 @@
                 </div>
             </div>
 
-            {{-- Kolom 3: Aanpakplan / acties --}}
+            {{-- Kolom 3: Aanpakplan / AI acties --}}
             <div class="bg-white rounded-xl p-5 flex flex-col">
-                <h2 class="text-sm font-semibold text-[#215558] mb-3">Aanpakplan voor deze klant</h2>
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-sm font-semibold text-[#215558]">Aanpakplan voor deze klant</h2>
+
+                    <form method="POST" action="{{ route('support.seo-audit.generate-plan', $audit) }}">
+                        @csrf
+                        <button type="submit"
+                                class="px-3 py-1.5 rounded-full bg-[#0F9B9F] hover:bg-[#215558] text-[11px] font-semibold text-white transition cursor-pointer">
+                            @if(!empty($aiPlan))
+                                AI plan verversen
+                            @else
+                                Genereer AI takenplan
+                            @endif
+                        </button>
+                    </form>
+                </div>
+
                 <p class="text-[11px] text-[#215558] opacity-80 mb-3">
                     Gebruik dit als leidraad voor je advies en werkzaamheden. Werk bij voorkeur
                     van boven naar beneden. Koppel waar nodig taken aan het juiste teamlid
                     (developer, copywriter, SEO of designer).
                 </p>
 
-                @if(empty($actions))
-                    <ol class="list-decimal list-inside space-y-2 text-[11px] text-[#215558]">
-                        <li>Controleer de technische basis: statuscodes, sitemap en robots.txt.</li>
-                        <li>Optimaliseer content en meta tags op de belangrijkste landingspagina’s.</li>
-                        <li>Werk aan interne links en autoriteit van belangrijke pagina’s.</li>
-                        <li>Bespreek de resultaten met de klant en leg vervolgstappen vast.</li>
-                    </ol>
-                @else
-                    <ol class="list-decimal list-inside space-y-3 text-[11px] text-[#215558]">
-                        @foreach($actions as $action)
-                            <li>
-                                <div class="flex flex-col gap-1">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <span class="font-semibold">{{ $action['title'] }}</span>
-                                        <span class="px-1.5 py-0.5 rounded-full bg-[#f5faf9] text-[10px] text-[#215558]">
-                                            {{ $action['category'] ?? 'SEO' }}
-                                        </span>
-                                        @if(!empty($action['owner']))
-                                            <span class="px-1.5 py-0.5 rounded-full bg-[#e0f4f1] text-[10px] text-[#215558]">
-                                                Owner: {{ ucfirst($action['owner']) }}
+                @php
+                    $plan = $aiPlan['plan'] ?? null;
+                    $tasks = collect($plan['tasks'] ?? []);
+                    $tasksByOwner = $tasks->groupBy(function ($task) {
+                        return strtolower($task['owner'] ?? 'seo');
+                    });
+
+                    $ownerLabels = [
+                        'developer' => 'Developer',
+                        'copywriter'=> 'Copywriter',
+                        'seo'       => 'SEO specialist',
+                        'designer'  => 'Designer',
+                        'marketing' => 'Marketing',
+                    ];
+                @endphp
+
+                @if($tasks->isEmpty())
+                    {{-- Fallback op statische recommended_actions als AI nog niets heeft --}}
+                    @if(empty($actions))
+                        <ol class="list-decimal list-inside space-y-2 text-[11px] text-[#215558]">
+                            <li>Controleer de technische basis: statuscodes, sitemap en robots.txt.</li>
+                            <li>Optimaliseer content en meta tags op de belangrijkste landingspagina s.</li>
+                            <li>Werk aan interne links en autoriteit van belangrijke pagina s.</li>
+                            <li>Bespreek de resultaten met de klant en leg vervolgstappen vast.</li>
+                        </ol>
+                    @else
+                        <ol class="list-decimal list-inside space-y-3 text-[11px] text-[#215558]">
+                            @foreach($actions as $action)
+                                <li>
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="font-semibold">{{ $action['title'] }}</span>
+                                            <span class="px-1.5 py-0.5 rounded-full bg-[#f5faf9] text-[10px] text-[#215558]">
+                                                {{ $action['category'] ?? 'SEO' }}
                                             </span>
+                                            @if(!empty($action['owner']))
+                                                <span class="px-1.5 py-0.5 rounded-full bg-[#e0f4f1] text-[10px] text-[#215558]">
+                                                    Owner: {{ ucfirst($action['owner']) }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                        @if(!empty($action['summary']))
+                                            <p class="opacity-80">{{ $action['summary'] }}</p>
+                                        @endif
+
+                                        @if(!empty($action['suggested_steps']) && is_array($action['suggested_steps']))
+                                            <ul class="list-disc list-inside mt-1 space-y-0.5 opacity-90">
+                                                @foreach($action['suggested_steps'] as $step)
+                                                    <li>{{ $step }}</li>
+                                                @endforeach
+                                            </ul>
                                         @endif
                                     </div>
-                                    @if(!empty($action['summary']))
-                                        <p class="opacity-80">{{ $action['summary'] }}</p>
-                                    @endif
-
-                                    @if(!empty($action['suggested_steps']) && is_array($action['suggested_steps']))
-                                        <ul class="list-disc list-inside mt-1 space-y-0.5 opacity-90">
-                                            @foreach($action['suggested_steps'] as $step)
-                                                <li>{{ $step }}</li>
-                                            @endforeach
-                                        </ul>
-                                    @endif
+                                </li>
+                            @endforeach
+                        </ol>
+                    @endif
+                @else
+                    {{-- AI takenplan per owner --}}
+                    <div class="space-y-3 text-[11px] text-[#215558]">
+                        @foreach($tasksByOwner as $owner => $ownerTasks)
+                            <div class="border border-[#e0f4f1] rounded-xl p-3">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-[11px] font-semibold text-[#215558]">
+                                        {{ $ownerLabels[$owner] ?? ucfirst($owner) }}
+                                    </span>
+                                    <span class="text-[10px] text-[#215558] opacity-60">
+                                        {{ count($ownerTasks) }} taak{{ count($ownerTasks) === 1 ? '' : 'en' }}
+                                    </span>
                                 </div>
-                            </li>
+                                <ul class="space-y-1.5">
+                                    @foreach($ownerTasks as $task)
+                                        @php
+                                            $priority = strtolower($task['priority'] ?? 'normal');
+                                            $priorityClasses = match($priority) {
+                                                'must_fix' => 'bg-red-100 text-red-700 border-red-200',
+                                                'high'     => 'bg-amber-100 text-amber-700 border-amber-200',
+                                                'low'      => 'bg-gray-100 text-gray-700 border-gray-200',
+                                                default    => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                            };
+                                        @endphp
+                                        <li class="border border-[#f0f5f4] rounded-lg px-2.5 py-1.5">
+                                            <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                                                <span class="font-semibold">
+                                                    {{ $task['title'] ?? 'Taak' }}
+                                                </span>
+                                                @if(!empty($task['category']))
+                                                    <span class="px-1.5 py-0.5 rounded-full bg-[#f5faf9] text-[9px] text-[#215558]">
+                                                        {{ $task['category'] }}
+                                                    </span>
+                                                @endif
+                                                <span class="px-1.5 py-0.5 rounded-full border text-[9px] {{ $priorityClasses }}">
+                                                    {{ $priority === 'must_fix' ? 'Must fix' : ucfirst($priority) }}
+                                                </span>
+                                                @if(!empty($task['estimated_minutes']))
+                                                    <span class="px-1.5 py-0.5 rounded-full bg-[#f5faf9] text-[9px] text-[#215558]">
+                                                        ± {{ $task['estimated_minutes'] }} min
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            @if(!empty($task['description']))
+                                                <p class="opacity-80">
+                                                    {{ $task['description'] }}
+                                                </p>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
                         @endforeach
-                    </ol>
+                    </div>
+
+                    {{-- Extra tekst om te kopiëren naar interne notities of klant --}}
+                    <div class="mt-4 pt-3 border-t border-[#e0f4f1] space-y-2">
+                        @if(!empty($plan['notes_for_colleague']))
+                            <div>
+                                <p class="text-[10px] font-semibold text-[#215558] mb-1">
+                                    Interne notitie voor collega
+                                </p>
+                                <p class="text-[11px] text-[#215558] opacity-80">
+                                    {{ $plan['notes_for_colleague'] }}
+                                </p>
+                            </div>
+                        @endif
+
+                        @if(!empty($plan['client_summary']))
+                            <div>
+                                <p class="text-[10px] font-semibold text-[#215558] mb-1">
+                                    Korte samenvatting richting klant
+                                </p>
+                                <p class="text-[11px] text-[#215558] opacity-80">
+                                    {{ $plan['client_summary'] }}
+                                </p>
+                            </div>
+                        @endif
+                    </div>
                 @endif
 
-                {{-- Toekomst: knoppen om taken aan te maken of extra checks te triggeren --}}
                 <div class="mt-4 pt-3 border-t border-[#e0f4f1] flex flex-wrap gap-2">
                     <button type="button"
                             class="px-3 py-1.5 rounded-full text-[11px] bg-[#215558] text-white shadow-sm cursor-not-allowed opacity-60"

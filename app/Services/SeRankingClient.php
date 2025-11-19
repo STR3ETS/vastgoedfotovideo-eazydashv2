@@ -30,16 +30,37 @@ class SeRankingClient
         $method = strtolower($method);
         $client = $this->http();
 
+        // TEMP LOGGING
+        logger()->warning('SERanking request', [
+            'method' => strtoupper($method),
+            'url'    => $this->baseUrl . $path,
+            'params' => $params,
+            'apiKey_starts_with' => substr($this->apiKey, 0, 6),
+        ]);
+
         if ($method === 'get') {
             $res = $client->get($path, $params);
         } else {
             $res = $client->{$method}($path, $params);
         }
 
+        if ($res->failed()) {
+            logger()->warning('SERanking API error', [
+                'method' => strtoupper($method),
+                'url'    => $this->baseUrl . $path,
+                'status' => $res->status(),
+                'body'   => $res->body(),
+                'json'   => $res->json(),
+                'params' => $params,
+                'headers'=> $res->headers(),
+            ]);
+        }
+
         $res->throw();
 
         return $res->json();
     }
+
 
     /**
      * Start een standaard Website Audit.
