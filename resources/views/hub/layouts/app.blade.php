@@ -272,7 +272,7 @@
       </div>
 
       <!-- Content area -->
-      <div class="flex-1 grid grid-cols-5 min-h-0 w-full gap-4 overflow-y-visible">
+      <div class="flex-1 grid grid-cols-5 min-h-0 w-full gap-4">
         @yield('content')
       </div>
     </main>

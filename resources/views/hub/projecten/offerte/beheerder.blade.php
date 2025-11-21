@@ -761,11 +761,21 @@
                     </p>
 
                     @php
-                        $rows         = data_get($investment, 'rows', []);
-                        $packageName  = data_get($investment, 'package_name');
-                        $whyPackage   = data_get($investment, 'why_this_package');
-                        $totalSetup   = data_get($investment, 'total_setup_amount');
-                        $totalMonthly = data_get($investment, 'total_monthly_amount');
+                        $rows             = data_get($investment, 'rows', []);
+                        $packageName      = data_get($investment, 'package_name');
+                        $whyPackage       = data_get($investment, 'why_this_package');
+
+                        // Tekstlabels (bijv. "€ 2.950,- eenmalig") – kun je later gebruiken in PDF
+                        $totalSetupLabel   = data_get($investment, 'total_setup_amount');
+                        $totalMonthlyLabel = data_get($investment, 'total_monthly_amount');
+
+                        // Numerieke waardes voor inline inputs
+                        $setupPriceEur    = data_get($investment, 'setup_price_eur');
+                        $monthlyPriceEur  = data_get($investment, 'monthly_price_eur');
+
+                        // Booleans om te bepalen of de rijen getoond moeten worden
+                        $hasSetupTotal   = $setupPriceEur !== null || !empty($totalSetupLabel);
+                        $hasMonthlyTotal = $monthlyPriceEur !== null || !empty($totalMonthlyLabel);
                     @endphp
 
                     @if(!empty($rows))
@@ -817,31 +827,34 @@
                             </div>
 
                             {{-- Totaalregels ook inline bewerkbaar --}}
-                            @if($totalSetup)
+                            @if($hasSetupTotal)
                                 <div class="flex items-center justify-between px-4 py-3 bg-gray-50">
                                     <p class="text-xs text-[#215558] font-black">Totaal eenmalig</p>
-                                    <p
-                                        class="js-inline-edit max-w-[400px] break-all p-2 rounded-xl bg-gray-100 transition text-sm text-[#215558] font-black"
-                                        contenteditable="true"
-                                        spellcheck="false"
-                                        data-inline-key="investment.total_setup_amount"
-                                    >
-                                        {{ $totalSetup }}
-                                    </p>
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-xs text-[#215558] font-black">€</span>
+                                        <input
+                                            type="number"
+                                            step="1"
+                                            class="js-inline-number w-28 text-right text-sm text-[#215558] font-black p-2 rounded-xl bg-gray-100 border border-transparent focus:outline-none focus:border-[#0F9B9F] focus:ring-1 focus:ring-[#0F9B9F] transition"
+                                            value="{{ $setupPriceEur !== null ? $setupPriceEur : '' }}"
+                                            data-number-key="investment.setup_price_eur"
+                                        >
+                                    </div>
                                 </div>
                             @endif
-
-                            @if($totalMonthly)
+                            @if($hasMonthlyTotal)
                                 <div class="flex items-center justify-between px-4 py-3 bg-gray-50">
                                     <p class="text-xs text-[#215558] font-black">Per maand</p>
-                                    <p
-                                        class="js-inline-edit max-w-[400px] break-all p-2 rounded-xl bg-gray-100 transition text-sm text-[#215558] font-black"
-                                        contenteditable="true"
-                                        spellcheck="false"
-                                        data-inline-key="investment.total_monthly_amount"
-                                    >
-                                        {{ $totalMonthly }}
-                                    </p>
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-xs text-[#215558] font-black">€</span>
+                                        <input
+                                            type="number"
+                                            step="1"
+                                            class="js-inline-number w-28 text-right text-sm text-[#215558] font-black p-2 rounded-xl bg-gray-100 border border-transparent focus:outline-none focus:border-[#0F9B9F] focus:ring-1 focus:ring-[#0F9B9F] transition"
+                                            value="{{ $monthlyPriceEur !== null ? $monthlyPriceEur : '' }}"
+                                            data-number-key="investment.monthly_price_eur"
+                                        >
+                                    </div>
                                 </div>
                             @endif
                         </div>
@@ -1310,6 +1323,50 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const editableEls = document.querySelectorAll('.js-inline-edit');
     editableEls.forEach(attachInline);
+
+    // Numeric inputs voor totaalbedragen (eenmalig / per maand)
+    const numberInputs = document.querySelectorAll('.js-inline-number');
+    numberInputs.forEach(function (input) {
+        input.addEventListener('change', function () {
+            saveInlineNumber(input);
+        });
+        input.addEventListener('blur', function () {
+            saveInlineNumber(input);
+        });
+    });
+
+    function saveInlineNumber(input) {
+        const key = input.dataset.numberKey;
+        if (!key) return;
+
+        const value = input.value === '' ? null : input.value;
+
+        fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute('content'),
+            },
+            body: JSON.stringify({ key, value }),
+        })
+            .then(function (res) {
+                if (!res.ok) throw new Error('Save failed');
+                return res.json();
+            })
+            .then(function () {
+                if (window.showToast) {
+                    window.showToast('Investering bijgewerkt.', 'success');
+                }
+            })
+            .catch(function () {
+                if (window.showToast) {
+                    window.showToast('Opslaan mislukt. Probeer het opnieuw.', 'error');
+                }
+            });
+    }
 
     function saveInline(el) {
         const key = el.dataset.inlineKey;

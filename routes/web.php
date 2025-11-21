@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
+use App\Models\Offerte;
+
 use App\Http\Controllers\AanvraagController;
 use App\Http\Controllers\PotentieleKlantenController;
 use App\Http\Controllers\AuthController;
@@ -72,7 +74,15 @@ Route::prefix('app')->group(function () {
     
     Route::middleware('auth')->group(function () {
         Route::patch('/first-login-dismiss', [AuthController::class, 'dismissFirstLogin'])->name('support.first_login.dismiss');
-        Route::get('/', fn() => view('hub.index', ['user' => auth()->user()]))->name('support.dashboard');
+        
+        Route::get('/', function () {
+            $user = auth()->user();
+            $offertes = Offerte::with('project')
+                ->orderByDesc('created_at')
+                ->get();
+            return view('hub.index', compact('user', 'offertes'));
+        })->name('support.dashboard');
+
         Route::patch('/tasks/questions/{question}', [TaskQuestionController::class, 'update'])->name('support.tasks.questions.update');
 
         // Intake
@@ -83,7 +93,7 @@ Route::prefix('app')->group(function () {
                 Route::get('/availability', 'availability')->name('availability');
                 Route::patch('/{aanvraag}/complete', 'complete')->name('complete');
                 Route::patch('/{aanvraag}/clear', 'clear')->name('clear');
-            });
+        });
 
         // Support
         Route::prefix('support')
@@ -168,7 +178,8 @@ Route::prefix('app')->group(function () {
 
                 Route::get('{seoAudit}', [SeoAuditController::class, 'show'])->name('show');
                 Route::get('{seoAudit}/status', [SeoAuditController::class, 'status'])->name('status');
-                Route::get('{seoAudit}/download-json', [SeoAuditController::class, 'downloadJson'])->name('download-json');        });
+                Route::get('{seoAudit}/download-json', [SeoAuditController::class, 'downloadJson'])->name('download-json');
+        });
 
         // Instellingen
         Route::prefix('instellingen')
