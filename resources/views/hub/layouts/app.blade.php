@@ -33,168 +33,204 @@
       <style>/* ... ongewijzigd ... */</style>
     @endif
   </head>
-  <body class="max-h-screen flex bg-cover bg-center" style="background-image: url('/assets/app-bg-1920.webp')">
+  <!-- <body class="max-h-screen flex bg-cover bg-center" style="background-image: url('/assets/app-bg-1920.webp')"> -->
+  <body class="max-h-screen flex bg-[#ebf2f2]">
     <!-- SIDEBAR -->
-    <aside class="w-fit p-4 h-screen">
-      <div class="w-fit p-2 h-full bg-white rounded-xl flex flex-col justify-between">
-        <!-- Logo -->
-        <a href="{{ url('/app') }}" class="px-1 pt-1 cursor-pointer">
-          <img class="max-w-7" src="/assets/logo.webp" alt="Eazyonline">
-        </a>
+    <aside class="w-fit h-screen pl-2 py-2">
+      <div class="flex h-full">
+        <div class="w-fit p-2 h-full rounded-xl flex flex-col justify-between pr-8">
+          <div class="grid gap-11">
+            <!-- Logo -->
+            <a href="{{ url('/app') }}" class="cursor-pointer">
+              <img class="max-w-9" src="/assets/logo.webp" alt="Eazyonline">
+            </a>
 
-        <!-- Main icons -->
-        <nav class="flex flex-col gap-0">
-          <!-- Dashboard -->
-          <a href="{{ url('/app') }}"
-             class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
-            <i class="fa-solid fa-house text-[#215558] fa-sm"></i>
-            <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-            <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
-                        opacity-0 invisible translate-x-1 pointer-events-none
-                        group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
-                        transition-all duration-300 ease-out">
-              <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.overview">
-                {{ __('sidebar.overview') }}
-              </p>
-            </div>
+            <ul class="grid gap-4">
+              <li>
+                <a href="{{ url('/app') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                  <i class="fa-solid fa-house text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                </a>
+              </li>
+              <li>
+                <a href="{{ url('/app/support') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                  <i class="fa-solid fa-message-lines text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                </a>
+              </li>
+              <li>
+                <a href="{{ url('/app/potentiele-klanten') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                  <i class="fa-solid fa-bolt text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                </a>
+              </li>
+              <li>
+                <a href="{{ url('/app/projecten') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                  <i class="fa-solid fa-folders text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                </a>
+              </li>
+              <li>
+                <a href="{{ url('/app/marketing') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                  <i class="fa-solid fa-at text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                </a>
+              </li>
+              <li>
+                <a href="{{ url('/app/seo-audit') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                  <i class="fa-brands fa-google text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                </a>
+              </li>
+            </ul>
+          </div>
+          <!-- ONDERSTE CONTENT SIDEBAR -->
+          <a href="{{ url('/app/gebruikers') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+            <i class="fa-solid fa-gear text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
           </a>
-
-          <!-- Support -->
-          <a href="{{ url('/app/support') }}"
-             class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
-            <i class="fa-solid fa-ticket text-[#215558] fa-sm"></i>
-            <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-            <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
-                        opacity-0 invisible translate-x-1 pointer-events-none
-                        group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
-                        transition-all duration-300 ease-out">
-              <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.support">
-                {{ __('sidebar.support') }}
-              </p>
-            </div>
-          </a>
-
-          @if ($user->rol === 'admin')
-            <!-- Leads -->
-            <a href="{{ url('/app/potentiele-klanten') }}"
-               class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
-              <i class="fa-solid fa-bolt text-[#215558] fa-sm"></i>
-              <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-              <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
-                          opacity-0 invisible translate-x-1 pointer-events-none
-                          group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
-                          transition-all duration-300 ease-out">
-                <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.leads">
-                  {{ __('sidebar.leads') }}
-                </p>
-              </div>
-            </a>
-
-            <!-- Projecten -->
-            <a href="{{ url('/app/projecten') }}"
-               class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
-              <i class="fa-solid fa-diagram-project text-[#215558] fa-sm"></i>
-              <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-              <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
-                          opacity-0 invisible translate-x-1 pointer-events-none
-                          group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
-                          transition-all duration-300 ease-out">
-                <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.projects">
-                  {{ __('sidebar.projects') }}
-                </p>
-              </div>
-            </a>
-
-            <!-- Marketing -->
-            <a href="{{ url('/app/marketing') }}"
-               class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
-              <i class="fa-solid fa-at text-[#215558] fa-sm"></i>
-              <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-              <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
-                          opacity-0 invisible translate-x-1 pointer-events-none
-                          group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
-                          transition-all duration-300 ease-out">
-                <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.marketing">
-                  {{ __('sidebar.marketing') }}
-                </p>
-              </div>
-            </a>
-          @endif
-
-          @if ($user->rol === 'admin' || $user->rol === 'medewerker')
-            <!-- Gebruikers -->
-            <a href="{{ url('/app/gebruikers/klanten') }}"
-               class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
-              <i class="fa-solid fa-user text-[#215558] fa-sm"></i>
-              <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-              <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
-                          opacity-0 invisible translate-x-1 pointer-events-none
-                          group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
-                          transition-all duration-300 ease-out">
-                <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.users">
-                  {{ __('sidebar.users') }}
-                </p>
-              </div>
-            </a>
-            <!-- SEO -->
-            <a href="{{ route('support.seo-audit.index') }}"
-               class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
-              <i class="fa-solid fa-magnifying-glass-chart text-[#215558] fa-sm"></i>
-              <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-              <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
-                          opacity-0 invisible translate-x-1 pointer-events-none
-                          group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
-                          transition-all duration-300 ease-out">
-                <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.seo_audit">
-                  {{ __('sidebar.seo_audit') }}
-                </p>
-              </div>
-            </a>
-          @endif
-
-          @if ($user->rol === 'klant')
-            <!-- Module toevoegen -->
-            <a href="{{ url('/app/add') }}"
-               class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
-              <i class="fa-solid fa-plus text-[#215558] fa-sm"></i>
-              <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-              <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
-                          opacity-0 invisible translate-x-1 pointer-events-none
-                          group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
-                          transition-all duration-300 ease-out">
-                <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.add_module">
-                  {{ __('sidebar.add_module') }}
-                </p>
-              </div>
-            </a>
-          @endif
-        </nav>
-
-        <!-- Bottom (audit / spacer) -->
-        @if ($user->rol === 'admin' || $user->rol === 'medewerker')
-          <a href="{{ url('/app/audit-log') }}"
-             class="relative group w-full aspect-square rounded-xl flex items-center justify-center hover:bg-gray-200 transition duration-300">
-            <i class="fa-solid fa-timer text-[#215558] fa-sm"></i>
-            <span class="absolute left-full top-1/2 -translate-y-1/2 w-3 h-8 opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-            <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-[135%] top-1/2 -translate-y-1/2
-                        opacity-0 invisible translate-x-1 pointer-events-none
-                        group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto
-                        transition-all duration-300 ease-out">
-              <p class="text-[#215558] text-xs font-semibold whitespace-nowrap" data-i18n="sidebar.audit_log">
-                {{ __('sidebar.audit_log') }}
-              </p>
-            </div>
-          </a>
-        @else
-          <div></div>
-        @endif
+        </div>
+        <div class="min-w-[300px] h-full pr-8">
+          <h1 class="text-base font-black text-[#215558] pt-3.5 mb-4">Eazyonline Workspace</h1>
+          <ul class="grid gap-2">
+            @if (request()->is('app'))
+              <li class="flex items-center gap-2 opacity-50">
+                <i class="fa-solid fa-star text-[#215558] fa-xs"></i>
+                <p href="#" class="text-[#215558] font-semibold text-sm">Favorieten</p>
+              </li>
+              <li class="flex items-center gap-2 opacity-50">
+                <i class="fa-solid fa-history text-[#215558] fa-xs"></i>
+                <p href="#" class="text-[#215558] font-semibold text-sm">Recent</p>
+              </li>
+              <li class="flex"><a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">Sales</a></li>
+              <li class="flex"><a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">Doelen</a></li>
+              <ul class="grid gap-2" x-data="{ openDashboard: true }">
+                  <!-- Rij: Dashboard + plusje -->
+                  <li class="flex items-center justify-between gap-2">
+                      <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                          Dashboard
+                      </a>
+                      <!-- Plusje als toggle -->
+                      <button
+                          type="button"
+                          class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                          @click="openDashboard = !openDashboard"
+                          :aria-expanded="openDashboard.toString()"
+                      >
+                          <i
+                              class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+                              :class="openDashboard ? 'rotate-45 text-[#0F9B9F]' : ''"
+                          ></i>
+                      </button>
+                  </li>
+                  <!-- UITKLAPBAAR BLOK ONDER DASHBOARD -->
+                  <li x-show="openDashboard" x-transition>
+                      <div class="border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+                          <!-- Mijn planning -->
+                          <div class="flex items-center gap-2">
+                              <hr class="w-[10px] border-1 border-[#215558]/25">
+                              <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                  Mijn planning
+                              </a>
+                          </div>
+                          <!-- Mijn projecten -->
+                          <ul class="grid gap-2">
+                              <li class="flex items-center justify-between gap-2">
+                                  <div class="flex items-center gap-2">
+                                      <hr class="w-[10px] border-1 border-[#215558]/25">
+                                      <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                          Mijn projecten
+                                      </a>
+                                  </div>
+                                  <div
+                                      class="w-4 h-4 bg-[#0F9B9F] font-semibold text-[11px] rounded-full text-white flex items-center justify-center"
+                                  >
+                                      2
+                                  </div>
+                              </li>
+                              <!-- Subprojecten -->
+                              <li>
+                                  <div class="ml-[18px] border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+                                      <div class="flex items-center gap-2">
+                                          <hr class="w-[10px] border-1 border-[#215558]/25">
+                                          <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                              Projectnaam 1
+                                          </a>
+                                      </div>
+                                      <div class="flex items-center gap-2">
+                                          <hr class="w-[10px] border-1 border-[#215558]/25">
+                                          <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                              Projectnaam 2
+                                          </a>
+                                      </div>
+                                  </div>
+                              </li>
+                          </ul>
+                          <ul class="grid gap-2">
+                              <li class="flex items-center justify-between gap-2">
+                                  <div class="flex items-center gap-2">
+                                      <hr class="w-[10px] border-1 border-[#215558]/25">
+                                      <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                          Mijn support-tickets
+                                      </a>
+                                  </div>
+                                  <div
+                                      class="w-4 h-4 bg-[#0F9B9F] font-semibold text-[11px] rounded-full text-white flex items-center justify-center"
+                                  >
+                                      4
+                                  </div>
+                              </li>
+                              <!-- Subprojecten -->
+                              <li>
+                                  <div class="ml-[18px] border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+                                      <div class="flex items-center justify-between gap-2">
+                                          <div class="flex items-center gap-2">
+                                              <hr class="w-[10px] border-1 border-[#215558]/25">
+                                              <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                                  Openstaand
+                                              </a>
+                                          </div>
+                                          <div
+                                              class="w-4 h-4 bg-[#0F9B9F] font-semibold text-[11px] rounded-full text-white flex items-center justify-center"
+                                          >
+                                              2
+                                          </div>
+                                      </div>
+                                      <div class="flex items-center justify-between gap-2">
+                                          <div class="flex items-center gap-2">
+                                              <hr class="w-[10px] border-1 border-[#215558]/25">
+                                              <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                                  In behandeling
+                                              </a>
+                                          </div>
+                                          <div
+                                              class="w-4 h-4 bg-[#0F9B9F] font-semibold text-[11px] rounded-full text-white flex items-center justify-center"
+                                          >
+                                              1
+                                          </div>
+                                      </div>
+                                      <div class="flex items-center justify-between gap-2">
+                                          <div class="flex items-center gap-2">
+                                              <hr class="w-[10px] border-1 border-[#215558]/25">
+                                              <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                                  Gesloten
+                                              </a>
+                                          </div>
+                                          <div
+                                              class="w-4 h-4 bg-[#0F9B9F] font-semibold text-[11px] rounded-full text-white flex items-center justify-center"
+                                          >
+                                              1
+                                          </div>
+                                      </div>
+                                  </div>
+                              </li>
+                          </ul>
+                      </div>
+                  </li>
+              </ul>
+            @endif
+          </ul>
+        </div>
       </div>
     </aside>
 
     <!-- MAIN -->
     <main class="flex-1 h-screen py-4 pr-4 flex flex-col gap-4">
       <!-- Top bar -->
-      <div class="shrink-0 w-full flex items-center justify-end p-2 bg-[#215558] rounded-xl">
+      <div class="shrink-0 w-full flex items-center justify-end rounded-xl pt-1 gap-2 pr-2">
         @php
           $naam = trim((string) ($user->name ?? ''));
           $init = '?';
@@ -208,16 +244,20 @@
           }
         @endphp
 
+        <div class="flex-1">
+          <input type="text" placeholder="Zoeken in mijn systeem..." class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#215558] font-medium outline-none">
+        </div>
+
         <!-- Avatar dropdown (with hover bridge) -->
         <div class="relative inline-block group">
-          <div class="w-8 h-8 rounded-full bg-[#3b8b8f] hover:bg-[#ffffff75] transition duration-300 cursor-pointer flex items-center justify-center"
+          <div class="min-w-9 min-h-9 rounded-full bg-white border border-gray-200 transition duration-300 cursor-pointer flex items-center justify-center"
                aria-haspopup="true" aria-expanded="false" role="button" tabindex="0">
-            <p class="text-sm text-[#215558] font-semibold">{{ $init }}</p>
+               <img src="/assets/eazyonline/memojis/boyd.webp" class="max-h-6">
           </div>
 
           <span class="absolute right-0 top-8 h-4 min-w-[300px] block opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
 
-          <div class="min-w-[300px] px-1 py-3 rounded-xl bg-white border border-gray-200 shadow-md absolute right-0 top-12 z-50
+          <div class="min-w-[300px] px-1 py-3 rounded-xl bg-white border border-gray-200 shadow-md absolute right-0 top-10 z-50
                       opacity-0 invisible translate-y-1 pointer-events-none
                       group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
                       group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:pointer-events-auto
@@ -269,10 +309,13 @@
             </a>
           </div>
         </div>
+        <div class="w-8 h-8 rounded-full bg-[#215558] flex items-center justify-center">
+          <i class="fa-solid fa-plus text-sm text-white"></i>
+        </div>
       </div>
 
       <!-- Content area -->
-      <div class="flex-1 grid grid-cols-5 min-h-0 w-full gap-4 overflow-y-visible">
+      <div class="flex-1 grid grid-cols-5 min-h-0 w-full gap-4">
         @yield('content')
       </div>
     </main>

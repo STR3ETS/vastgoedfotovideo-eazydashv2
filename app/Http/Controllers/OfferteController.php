@@ -8,6 +8,11 @@ use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OfferteKlantMail;
+use Carbon\Carbon;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class OfferteController extends Controller
 {
@@ -15,7 +20,7 @@ class OfferteController extends Controller
     {
         /** @var Offerte $offerte */
         $offerte = Offerte::with('project')
-            ->where('public_uuid', $token)
+            ->where('public_view_uuid', $token)
             ->firstOrFail();
 
         return view('hub.projecten.offerte.klant', [
@@ -552,6 +557,73 @@ TXT;
         ]);
     }
 
+    public function sign(Request $request, string $token)
+    {
+        /** @var Offerte $offerte */
+        $offerte = Offerte::with('project')
+            ->where('public_view_uuid', $token) // 🔑 zelfde token als klant-link
+            ->firstOrFail();
+
+        // Optioneel: blokkeer als hij al getekend is of verlopen is
+        if ($offerte->status === 'signed') {
+            return response()->json([
+                'status'  => 'already_signed',
+                'message' => 'Deze offerte is al digitaal ondertekend.',
+            ], 422);
+        }
+
+        // Optioneel: als je tekenen na vervaldatum wilt blokken
+        /*
+        if ($offerte->status === 'expired') {
+            return response()->json([
+                'status'  => 'expired',
+                'message' => 'Deze offerte is verlopen en kan niet meer ondertekend worden.',
+            ], 422);
+        }
+        */
+
+        $data = $request->validate([
+            'signature' => 'required|string', // data:image/png;base64,...
+        ]);
+
+        $dataUrl = $data['signature'];
+
+        // Strip "data:image/png;base64," indien aanwezig
+        if (str_contains($dataUrl, ',')) {
+            [$meta, $base64] = explode(',', $dataUrl, 2);
+        } else {
+            $base64 = $dataUrl;
+        }
+
+        $binary = base64_decode($base64, true);
+
+        if ($binary === false) {
+            return response()->json([
+                'status'  => 'invalid_signature',
+                'message' => 'Handtekening kon niet worden verwerkt.',
+            ], 422);
+        }
+
+        // Bestandsnaam in /storage/app/public/offertes/signatures/...
+        $fileName = 'offertes/signatures/' . $offerte->id . '_' . now()->timestamp . '.png';
+
+        Storage::disk('public')->put($fileName, $binary);
+
+        // Update offerte
+        $offerte->status         = 'signed';
+        $offerte->signed_at      = now();          // zorg dat deze kolom bestaat
+        $offerte->signature_path = $fileName;      // idem: kolom in je tabel
+        $offerte->save();
+
+        return response()->json([
+            'status'      => 'ok',
+            'message'     => 'Offerte is succesvol digitaal ondertekend.',
+            'new_status'  => $offerte->status,
+            'signed_at'   => $offerte->signed_at?->toIso8601String(),
+            'signature'   => $fileName,
+        ]);
+    }
+
     public function download(string $token)
     {
         /** @var Offerte $offerte */
@@ -571,5 +643,92 @@ TXT;
         ])->setPaper('a4');
 
         return $pdf->download($offerteNummer . '.pdf');
+    }
+
+    public function revoke(Request $request, string $token)
+    {
+        /** @var Offerte $offerte */
+        $offerte = Offerte::with('project')
+            ->where('public_uuid', $token)
+            ->firstOrFail();
+
+        // Offerte terug naar concept / intern bewerkbaar
+        $offerte->status  = 'concept';
+        $offerte->sent_at = null;
+
+        // 🔑 Belangrijk: klantlink ongeldig maken
+        // We legen de public_view_uuid, zodat de klant-URL die hij had niet meer werkt.
+        $offerte->public_view_uuid = null;
+
+        $offerte->save();
+
+        return response()->json([
+            'message' => 'De offerte is ingetrokken. De klant heeft geen toegang meer en jij kunt hem weer bewerken.',
+            'status'  => $offerte->status,
+            'sent_at' => $offerte->sent_at,
+        ]);
+    }
+
+    public function send(Request $request, string $token)
+    {
+        /** @var Offerte $offerte */
+        $offerte = Offerte::with('project')
+            ->where('public_uuid', $token)
+            ->firstOrFail();
+
+        $project = $offerte->project;
+
+        if (! $project) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Geen gekoppeld project gevonden bij deze offerte.',
+            ], 422);
+        }
+
+        // ✅ Haal e-mail & naam op
+        $toEmail = $project->contact_email ?? $project->email;
+        $toName  = $project->contact_name ?? $project->company ?? null;
+
+        // ✅ Check of het echt een geldig e-mailadres is
+        if (! $toEmail || ! filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Er is geen geldig e-mailadres bekend bij dit project. Vul eerst een correct e-mailadres in.',
+            ], 422);
+        }
+
+        $offerteDate = $offerte->created_at ?? now();
+        $vervalDatum = $offerteDate->copy()->addMonthNoOverflow();
+
+        // 🔑 Genereer (of gebruik) een klant-token voor de publieke view
+        // Als je bij elke verzending een nieuw token wil, kun je hier altijd een nieuwe UUID maken.
+        // In dit voorbeeld: alleen als hij nog leeg is (na revoke wordt hij geleegd).
+        if (! $offerte->public_view_uuid) {
+            $offerte->public_view_uuid = (string) Str::uuid();
+        }
+
+        // Status & verzendmoment opslaan vóór mail (zodat je in de mail eventueel kunt verwijzen)
+        $offerte->sent_at = now();
+        $offerte->status  = 'pending'; // "Te ondertekenen"
+        $offerte->save();
+
+        // ✅ Klant-URL op basis van public_view_uuid
+        $klantUrl = route('offerte.klant.show', ['token' => $offerte->public_view_uuid]);
+
+        // ✅ Mail versturen
+        Mail::to($toEmail, $toName)
+            ->send(new OfferteKlantMail(
+                $project->company ?? 'jouw bedrijf',
+                $toName,
+                $klantUrl,
+                $vervalDatum
+            ));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Gelukt! De offerte is succesvol verstuurd naar de klant en de status is veranderd naar "Te ondertekenen".',
+            'status'  => $offerte->status,
+            'sent_at' => $offerte->sent_at?->toIso8601String(),
+        ]);
     }
 }

@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
+use App\Models\Offerte;
+
 use App\Http\Controllers\AanvraagController;
 use App\Http\Controllers\PotentieleKlantenController;
 use App\Http\Controllers\AuthController;
@@ -57,10 +59,13 @@ Route::prefix('offerte')
     ->controller(OfferteController::class)
     ->group(function () {
         Route::get('/{token}', 'klant')->name('klant.show');
+        Route::post('/{token}/sign', 'sign')->name('sign');
         Route::get('/{token}/edit', 'beheerder')->name('beheerder.show');
         Route::get('/{token}/download', 'download')->name('download');
         Route::post('/{token}/regenerate', 'regenerate')->name('regenerate');
         Route::post('/{token}/inline', 'inlineUpdate')->name('inline-update');
+        Route::post('/{token}/revoke', 'revoke')->name('revoke');
+        Route::post('/{token}/send', 'send')->name('send');
     });
 
 Route::prefix('app')->group(function () {
@@ -72,7 +77,15 @@ Route::prefix('app')->group(function () {
     
     Route::middleware('auth')->group(function () {
         Route::patch('/first-login-dismiss', [AuthController::class, 'dismissFirstLogin'])->name('support.first_login.dismiss');
-        Route::get('/', fn() => view('hub.index', ['user' => auth()->user()]))->name('support.dashboard');
+        
+        Route::get('/', function () {
+            $user = auth()->user();
+            $offertes = Offerte::with('project')
+                ->orderByDesc('created_at')
+                ->get();
+            return view('hub.index', compact('user', 'offertes'));
+        })->name('support.dashboard');
+
         Route::patch('/tasks/questions/{question}', [TaskQuestionController::class, 'update'])->name('support.tasks.questions.update');
 
         // Intake
@@ -83,7 +96,7 @@ Route::prefix('app')->group(function () {
                 Route::get('/availability', 'availability')->name('availability');
                 Route::patch('/{aanvraag}/complete', 'complete')->name('complete');
                 Route::patch('/{aanvraag}/clear', 'clear')->name('clear');
-            });
+        });
 
         // Support
         Route::prefix('support')

@@ -3,18 +3,176 @@
 @section('content')
 
 @php
-    /** @var \App\Models\Offerte $offerte */
-    $offerteDate   = $offerte->created_at ?? now();  // offertedatum
-    $vervalDatum   = $offerteDate->copy()->addMonthNoOverflow(); // +1 maand
+    // Offertedatum (blijft gebaseerd op aangemaakt-moment)
+    $offerteDate = $offerte->created_at ?? now();
+
+    // Vervaldatum / timer-basis: vanaf verzendmoment, anders fallback naar offertedatum
+    $vervalBase  = $offerte->sent_at ?? $offerteDate;
+    $vervalDatum = $vervalBase->copy()->addMonthNoOverflow(); // +1 maand na sent_at
+
     $offerteNummer = $offerte->number
         ?? ('OF-' . $offerteDate->format('Ym') . str_pad($offerte->id ?? 1, 4, '0', STR_PAD_LEFT));
+
+    // Zelfde override-logica als in beheerde.blade.php
+    $overrides = $offerte->content_overrides ?? [];
+
+    $headline = data_get($overrides, 'headline')
+        ?? data_get(
+            $offerte->generated,
+            'headline',
+            'Website & online groei voor ' . ($project->company ?? 'jouw bedrijf')
+        );
+
+    $summaryParagraph = data_get($overrides, 'summary_paragraph')
+        ?? data_get($offerte->generated, 'summary_paragraph');
+
+    $summaryBullets = data_get($overrides, 'summary_bullets')
+        ?? data_get($offerte->generated, 'summary_bullets', []);
+
+    $strongPoints = data_get($overrides, 'strong_points')
+        ?? data_get($offerte->generated, 'strong_points', []);
+
+    $improvementPoints = data_get($overrides, 'improvement_points')
+        ?? data_get($offerte->generated, 'improvement_points', []);
+
+    $scopeIntro = data_get($overrides, 'scope_intro')
+        ?? 'In deze offerte leveren we een complete online oplossing waarmee jullie merk professioneel, snel en schaalbaar online kan groeien. Hieronder de belangrijkste onderdelen op een rij.';
+
+    $scopeItems = data_get($overrides, 'scope_items')
+        ?? data_get($offerte->generated, 'scope_items', [
+            'Volledig maatwerk ontwerp afgestemd op jullie merk, doelgroep en positionering.',
+            'Conversiegerichte pagina’s (bijvoorbeeld: Home, Diensten, Over ons, Contact).',
+            'Technische basis voor SEO (laadsnelheid, structuur, metadata, basis redirects).',
+            'Koppelingen met belangrijke tools (bijvoorbeeld: betaalprovider, e-mailmarketing, statistieken).',
+            'Gebruiksvriendelijk beheer zodat jullie zelf content, producten en pagina’s kunnen beheren.',
+            'Begeleiding bij livegang en korte training in het gebruik van de omgeving.',
+        ]);
+
+    $goalsIntro = data_get($overrides, 'goals_intro')
+        ?? 'We denken niet alleen in pixels, maar vooral in resultaat. Samen bepalen we concrete doelen en sturen we op meetbare KPI’s.';
+
+    $goalsItems = data_get($overrides, 'goals_items')
+        ?? data_get($offerte->generated, 'goals_items', [
+            'Meer relevante bezoekers via organische zoekresultaten (SEO).',
+            'Stijging in conversies (aanvragen, bestellingen of afspraken).',
+            'Betere inzichtelijkheid in prestaties via duidelijke rapportages en dashboards.',
+            'Kortere doorlooptijd van eerste bezoek tot klant.',
+        ]);
+
+    $approachPhases = data_get($overrides, 'approach_phases')
+        ?? data_get($offerte->generated, 'approach_phases', [
+            [
+                'title' => 'Fase 1 – Strategie & kick-off',
+                'text'  => 'Gezamenlijke sessie(s) om doelen, doelgroep, positionering en functionaliteiten scherp te krijgen. We vertalen dit naar een concreet plan van aanpak.',
+            ],
+            [
+                'title' => 'Fase 2 – Design & concept',
+                'text'  => 'Uitwerking van het visuele ontwerp (desktop & mobiel), inclusief feedbackronde(s). Na akkoord zetten we het design door naar de bouw.',
+            ],
+            [
+                'title' => 'Fase 3 – Bouw & inrichting',
+                'text'  => 'Technische realisatie, contentinvoer en koppelingen (betaalprovider, formulieren, tracking). We leveren een testomgeving op om samen door te lopen.',
+            ],
+            [
+                'title' => 'Fase 4 – Testen, livegang & nazorg',
+                'text'  => 'Laatste checks, livegang en overdracht. Eventuele puntjes op de i verwerken we na livegang in overleg.',
+            ],
+        ]);
+
+    $pageStructure = array_key_exists('page_structure', $overrides ?? [])
+        ? $overrides['page_structure']
+        : data_get($offerte->generated, 'page_structure', []);
+
+    $pageStructurePages   = data_get($pageStructure, 'pages', []);
+    $pageStructureSummary = data_get($pageStructure, 'summary');
+
+    $investment = data_get($overrides, 'investment')
+        ?? data_get($offerte->generated, 'investment', []);
+
+    $rows        = data_get($investment, 'rows', []);
+    $packageName = data_get($investment, 'package_name');
+    $whyPackage  = data_get($investment, 'why_this_package');
+
+    // Labels vanuit AI / generator (optioneel, bv "€ 2.950,- eenmalig")
+    $totalSetupLabel   = data_get($investment, 'total_setup_amount');
+    $totalMonthlyLabel = data_get($investment, 'total_monthly_amount');
+
+    // Numerieke waarden vanuit beheerder-view
+    $setupPriceEur   = data_get($investment, 'setup_price_eur');
+    $monthlyPriceEur = data_get($investment, 'monthly_price_eur');
+
+    // Wat tonen we aan de klant?
+    // → Eerst de numerieke velden uit beheerder, daarna pas het oude label als fallback
+    $displaySetup = null;
+    if ($setupPriceEur !== null && $setupPriceEur !== '') {
+        // Opstart meestal zonder centen, met ,- notatie
+        $displaySetup = '€ ' . number_format((float) $setupPriceEur, 0, ',', '.') . ',- eenmalig';
+    } elseif (!empty($totalSetupLabel)) {
+        $displaySetup = $totalSetupLabel;
+    }
+
+    $displayMonthly = null;
+    if ($monthlyPriceEur !== null && $monthlyPriceEur !== '') {
+        // Maandbedrag mét twee decimalen
+        $displayMonthly = '€ ' . number_format((float) $monthlyPriceEur, 2, ',', '.') . ' per maand';
+    } elseif (!empty($totalMonthlyLabel)) {
+        $displayMonthly = $totalMonthlyLabel;
+    }
+
+    // Voor 2-koloms doelenlijst
+    $goalsCount = count($goalsItems);
+    $goalsHalf  = $goalsCount > 0 ? (int) ceil($goalsCount / 2) : 0;
+    $goalsLeft  = $goalsHalf ? array_slice($goalsItems, 0, $goalsHalf) : [];
+    $goalsRight = $goalsHalf ? array_slice($goalsItems, $goalsHalf) : [];
+
+    // Status + badges voor klant-weergave
+    $status = $offerte->status ?? 'pending';
+
+    $statusConfig = [
+        'concept' => [
+            'label' => 'Concept',
+            'bg'    => 'bg-cyan-100',
+            'text'  => 'text-cyan-700',
+        ],
+        'pending' => [
+            'label' => 'Te ondertekenen',
+            'bg'    => 'bg-orange-100',
+            'text'  => 'text-orange-700',
+        ],
+        'signed' => [
+            'label' => 'Getekend',
+            'bg'    => 'bg-emerald-100',
+            'text'  => 'text-emerald-700',
+        ],
+        'expired' => [
+            'label' => 'Verlopen',
+            'bg'    => 'bg-red-100',
+            'text'  => 'text-red-700',
+        ],
+    ];
+
+    $statusCfg = $statusConfig[$status] ?? $statusConfig['pending'];
+
+    // Klant + contactgegevens
+    $companyName   = $project->company ?? 'Nog geen bedrijfsnaam';
+    $contactName   = $project->contact_name ?? null;
+    $contactEmail  = $project->contact_email ?? $project->email ?? null;
+    $contactPhone  = $project->contact_phone ?? $project->phone ?? null;
+
+    // 👉 NIEUW: check of de offerte getekend is
+    $isSigned = ($offerte->status === 'signed') || !is_null($offerte->signed_at);
+
+    // 👉 NIEUW: URL naar handtekening (als aanwezig)
+    $signatureUrl = $offerte->signature_path
+        ? \Illuminate\Support\Facades\Storage::url($offerte->signature_path)
+        : null;
 @endphp
 
 <div class="w-full fixed z-50 top-0 left-0 bg-white border-b border-b-gray-200 p-4 min-h-[61px] flex items-center">
     <div class="max-w-6xl w-full mx-auto flex items-center justify-between gap-2">
         <div class="flex items-center gap-4 relative">
             <a href="{{ route('offerte.download', $offerte->public_uuid) }}"
-            class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition duration-200 relative group cursor-pointer">
+               class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition duration-200 relative group cursor-pointer">
                 <i class="fa-solid fa-download text-[#215558] text-xs"></i>
                 <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute left-full top-1/2 ml-2 -translate-y-1/2 opacity-0 invisible translate-x-1 pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:pointer-events-auto transition-all duration-200 ease-out z-10">
                     <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
@@ -28,15 +186,23 @@
             </svg>
         </div>
         <div class="flex items-center gap-2">
-            <p id="offerte-countdown"
-            data-expiry="{{ $vervalDatum->toIso8601String() }}"
-            class="px-2 py-0.5 text-xs bg-green-200 text-green-700 font-semibold rounded-full w-fit">
-                00:00:00:00
-            </p>
+            @if(!$isSigned)
+                {{-- Normale countdown + beschikbaarheid zolang niet getekend --}}
+                <p id="offerte-countdown"
+                data-expiry="{{ $vervalDatum->toIso8601String() }}"
+                class="px-2 py-0.5 text-xs bg-green-200 text-green-700 font-semibold rounded-full w-fit">
+                    00:00:00:00
+                </p>
 
-            <p class="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 font-semibold rounded-full w-fit">
-                Beschikbaar tot: {{ $vervalDatum->format('d/m/Y H:i') }}
-            </p>
+                <p class="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 font-semibold rounded-full w-fit">
+                    Beschikbaar tot: {{ $vervalDatum->format('d/m/Y H:i') }}
+                </p>
+            @else
+                {{-- Als getekend: geen timer / lock, maar een nette badge --}}
+                <p class="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 font-semibold rounded-full w-fit">
+                    Offerte getekend op: {{ optional($offerte->signed_at)->format('d/m/Y H:i') }}
+                </p>
+            @endif
         </div>
     </div>
 </div>
@@ -53,8 +219,9 @@
                     </h2>
                 </div>
 
+                {{-- Headline uit overrides/generated --}}
                 <h1 class="text-2xl -mt-2 text-[#215558] font-black leading-tight shrink-0 max-w-[75%]">
-                    {{ data_get($offerte->generated, 'headline', 'Website & online groei voor ' . ($project->company ?? 'jouw bedrijf')) }}
+                    {{ $headline }}
                 </h1>
 
                 <div class="flex items-start justify-between">
@@ -135,11 +302,9 @@
                         Samenvatting van het voorstel
                     </p>
                     <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-                        {{ data_get($offerte->generated, 'summary_paragraph') }}
+                        {{ $summaryParagraph }}
                     </p>
-                    @php
-                        $summaryBullets = data_get($offerte->generated, 'summary_bullets', []);
-                    @endphp
+
                     @if(!empty($summaryBullets))
                         <div class="grid grid-cols-2 gap-2">
                             @foreach($summaryBullets as $bullet)
@@ -154,7 +319,7 @@
 
                 <hr class="border-gray-200">
 
-                {{-- Over Eazyonline + Reviews --}}
+                {{-- Over Eazyonline + Reviews (statisch) --}}
                 <div class="grid gap-4">
                     <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Over Eazyonline</p>
                     <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
@@ -324,12 +489,10 @@
 
                 <hr class="border-gray-200">
 
+                {{-- Analyse & Uitdagingen --}}
                 <div class="grid gap-4">
                     <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Analyse & Uitdagingen</p>
                     <div class="grid grid-cols-2 gap-4">
-                        @php
-                            $strongPoints = data_get($offerte->generated, 'strong_points', []);
-                        @endphp
                         <ul class="text-xs grid gap-2">
                             <li>
                                 <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">Sterke punten</p>
@@ -344,9 +507,7 @@
                                 </li>
                             @endforeach
                         </ul>
-                        @php
-                            $improvementPoints = data_get($offerte->generated, 'improvement_points', []);
-                        @endphp
+
                         <ul class="text-xs grid gap-2">
                             <li>
                                 <p class="text-sm text-[#215558] font-black leading-tight truncate">Verbeterpunten</p>
@@ -364,464 +525,602 @@
                     </div>
                 </div>
 
-<hr class="border-gray-200">
+                <hr class="border-gray-200">
 
-{{-- Scope & deliverables --}}
-<div class="grid gap-4">
-    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Wat je van ons krijgt</p>
-    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-        In deze offerte leveren we een complete online oplossing waarmee jullie merk professioneel, snel en schaalbaar online kan groeien. Hieronder de belangrijkste onderdelen op een rij.
-    </p>
-    <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Volledig maatwerk ontwerp afgestemd op jullie merk, doelgroep en positionering.
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Conversiegerichte pagina’s (bijvoorbeeld: Home, Diensten, Over ons, Contact).
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Technische basis voor SEO (laadsnelheid, structuur, metadata, basis redirects).
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Koppelingen met belangrijke tools (bijvoorbeeld: betaalprovider, e-mailmarketing, statistieken).
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Gebruiksvriendelijk beheer zodat jullie zelf content, producten en pagina’s kunnen beheren.
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Begeleiding bij livegang en korte training in het gebruik van de omgeving.
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
-        </div>
-    </div>
-</div>
-
-<hr class="border-gray-200">
-
-{{-- Doelen & KPI's --}}
-<div class="grid gap-4">
-    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Doelen & KPI's</p>
-    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-        We denken niet alleen in pixels, maar vooral in resultaat. Samen bepalen we concrete doelen en sturen we op meetbare KPI’s.
-    </p>
-
-    <div class="grid grid-cols-2 gap-4 text-xs">
-        <ul class="grid gap-2">
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Meer relevante bezoekers via organische zoekresultaten (SEO).
-                </p>
-            </li>
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Stijging in conversies (aanvragen, bestellingen of afspraken).
-                </p>
-            </li>
-        </ul>
-        <ul class="grid gap-2">
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Betere inzichtelijkheid in prestaties via duidelijke rapportages en dashboards.
-                </p>
-            </li>
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Kortere doorlooptijd van eerste bezoek tot klant.
-                </p>
-            </li>
-        </ul>
-    </div>
-</div>
-
-<hr class="border-gray-200">
-
-{{-- Aanpak & planning --}}
-<div class="grid gap-4">
-    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Aanpak & planning</p>
-    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-        We werken met een duidelijke, voorspelbare aanpak. Zo weet je precies wat je wanneer kunt verwachten en welke input we op welk moment nodig hebben.
-    </p>
-
-    <div class="grid grid-cols-2 gap-4">
-        <div class="text-xs grid gap-2 h-fit">
-            <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">Fase 1 – Strategie & kick-off</p>
-            <p class="text-xs text-[#215558] font-semibold leading-tight">
-                Gezamenlijke sessie(s) om doelen, doelgroep, positionering en functionaliteiten scherp te krijgen. We vertalen dit naar een concreet plan van aanpak.
-            </p>
-        </div>
-
-        <div class="text-xs grid gap-2 h-fit">
-            <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">Fase 2 – Design & concept</p>
-            <p class="text-xs text-[#215558] font-semibold leading-tight">
-                Uitwerking van het visuele ontwerp (desktop & mobiel), inclusief feedbackronde(s). Na akkoord zetten we het design door naar de bouw.
-            </p>
-        </div>
-
-        <div class="text-xs grid gap-2 h-fit">
-            <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">Fase 3 – Bouw & inrichting</p>
-            <p class="text-xs text-[#215558] font-semibold leading-tight">
-                Technische realisatie, contentinvoer en koppelingen (betaalprovider, formulieren, tracking). We leveren een testomgeving op om samen door te lopen.
-            </p>
-        </div>
-
-        <div class="text-xs grid gap-2 h-fit">
-            <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">Fase 4 – Testen, livegang & nazorg</p>
-            <p class="text-xs text-[#215558] font-semibold leading-tight">
-                Laatste checks, livegang en overdracht. Eventuele puntjes op de i verwerken we na livegang in overleg.
-            </p>
-        </div>
-    </div>
-</div>
-
-<hr class="border-gray-200">
-
-{{-- Pagina-structuur --}}
-@php
-    $pageStructure       = data_get($offerte->generated, 'page_structure', []);
-    $pageStructurePages  = data_get($pageStructure, 'pages', []);
-    $pageStructureSummary = data_get($pageStructure, 'summary');
-@endphp
-
-@if(!empty($pageStructurePages))
-    <div class="grid gap-4">
-        <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">
-            Voorstel paginastructuur
-        </p>
-
-        @if($pageStructureSummary)
-            <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-                {{ $pageStructureSummary }}
-            </p>
-        @endif
-
-        <div class="grid grid-cols-1 gap-4">
-            @foreach($pageStructurePages as $page)
-                <div class="border border-gray-200 rounded-2xl p-4 text-xs grid gap-4">
+                {{-- Scope & deliverables --}}
+                <div class="grid gap-4">
+                    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Wat je van ons krijgt</p>
+                    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+                        {{ $scopeIntro }}
+                    </p>
                     <div class="flex flex-col gap-2">
-                        <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">
-                            {{ data_get($page, 'title') }}
-                        </p>
-
-                        @if(data_get($page, 'goal'))
-                            <span class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-                                {{ data_get($page, 'goal') }}
-                            </span>
-                        @endif
-                    </div>
-
-                    @php
-                        $sections = data_get($page, 'key_sections', []);
-                    @endphp
-
-                    @if(!empty($sections))
-                        <ul class="grid gap-1">
-                            @foreach($sections as $section)
-                                <li class="flex items-center gap-2">
-                                    <i class="fa-solid fa-circle text-[5px] text-[#215558]"></i>
+                        @foreach($scopeItems as $item)
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
                                     <p class="text-xs text-[#215558] font-semibold leading-tight">
-                                        {{ $section }}
+                                        {{ $item }}
+                                    </p>
+                                </div>
+                                <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">
+                                    Inbegrepen
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <hr class="border-gray-200">
+
+                {{-- Doelen & KPI's --}}
+                <div class="grid gap-4">
+                    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Doelen & KPI's</p>
+                    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+                        {{ $goalsIntro }}
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-4 text-xs">
+                        <ul class="grid gap-2">
+                            @foreach($goalsLeft as $item)
+                                <li class="flex items-center gap-2">
+                                    <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
+                                    <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                        {{ $item }}
                                     </p>
                                 </li>
                             @endforeach
                         </ul>
+                        <ul class="grid gap-2">
+                            @foreach($goalsRight as $item)
+                                <li class="flex items-center gap-2">
+                                    <i class="fa-solid fa-bullseye fa-xs mt-0.5 text-[#215558]"></i>
+                                    <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                        {{ $item }}
+                                    </p>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+
+                <hr class="border-gray-200">
+
+                {{-- Aanpak & planning --}}
+                <div class="grid gap-4">
+                    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Aanpak & planning</p>
+                    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+                        We werken met een duidelijke, voorspelbare aanpak. Zo weet je precies wat je wanneer kunt verwachten en welke input we op welk moment nodig hebben.
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        @foreach($approachPhases as $phase)
+                            <div class="text-xs grid gap-2 h-fit">
+                                <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">
+                                    {{ data_get($phase, 'title') }}
+                                </p>
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    {{ data_get($phase, 'text') }}
+                                </p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <hr class="border-gray-200">
+
+                {{-- Pagina-structuur --}}
+                @if(!empty($pageStructurePages))
+                    <div class="grid gap-4">
+                        <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">
+                            Voorstel paginastructuur
+                        </p>
+
+                        @if($pageStructureSummary)
+                            <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+                                {{ $pageStructureSummary }}
+                            </p>
+                        @endif
+
+                        <div class="grid grid-cols-1 gap-4">
+                            @foreach($pageStructurePages as $page)
+                                <div class="border border-gray-200 rounded-2xl p-4 text-xs grid gap-4">
+                                    <div class="flex flex-col gap-2">
+                                        <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">
+                                            {{ data_get($page, 'title') }}
+                                        </p>
+
+                                        @if(data_get($page, 'goal'))
+                                            <span class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+                                                {{ data_get($page, 'goal') }}
+                                            </span>
+                                        @endif
+                                    </div>
+
+                                    @php
+                                        $sections = data_get($page, 'key_sections', []);
+                                    @endphp
+
+                                    @if(!empty($sections))
+                                        <ul class="grid gap-1">
+                                            @foreach($sections as $section)
+                                                <li class="flex items-center gap-2">
+                                                    <i class="fa-solid fa-circle text-[5px] text-[#215558]"></i>
+                                                    <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                                        {{ $section }}
+                                                    </p>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <hr class="border-gray-200">
+                @endif
+
+                {{-- Investering --}}
+                <div class="grid gap-4">
+                    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Investering</p>
+                    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+                        Hieronder zie je de investering uitgesplitst. Bedragen zijn exclusief btw en gebaseerd op de beschreven scope en het best passende pakket.
+                    </p>
+
+                    @if(!empty($rows))
+                        <div class="border border-gray-200 rounded-2xl divide-y divide-gray-200 overflow-hidden">
+                            @foreach($rows as $row)
+                                <div class="flex items-center justify-between px-4 py-3 text-xs">
+                                    <p class="text-[#215558] font-semibold">
+                                        {{ data_get($row, 'label') }}
+                                    </p>
+                                    <p class="text-[#215558] font-black">
+                                        {{ data_get($row, 'amount') }}
+                                    </p>
+                                </div>
+                            @endforeach
+
+                            @if($displaySetup)
+                                <div class="flex items-center justify-between px-4 py-3 bg-[#215558]/5">
+                                    <p class="text-xs text-[#215558] font-black">Totaal eenmalig</p>
+                                    <p class="text-sm text-[#215558] font-black">{{ $displaySetup }}</p>
+                                </div>
+                            @endif
+
+                            @if($displayMonthly)
+                                <div class="flex items-center justify-between px-4 py-3 bg-[#215558]/5">
+                                    <p class="text-xs text-[#215558] font-black">Per maand</p>
+                                    <p class="text-sm text-[#215558] font-black">{{ $displayMonthly }}</p>
+                                </div>
+                            @endif
+                        </div>
+                    @else
+                        {{-- Fallback als er nog geen investment is --}}
+                        <div class="border border-gray-200 rounded-2xl divide-y divide-gray-200 overflow-hidden">
+                            <div class="flex items-center justify-between px-4 py-3 text-xs">
+                                <p class="text-[#215558] font-semibold">Webdesign &amp; ontwikkeling</p>
+                                <p class="text-[#215558] font-black">€ 0.000,- eenmalig</p>
+                            </div>
+                            <div class="flex items-center justify-between px-4 py-3 text-xs">
+                                <p class="text-[#215558] font-semibold">Technische inrichting &amp; koppelingen</p>
+                                <p class="text-[#215558] font-black">€ 0.000,- eenmalig</p>
+                            </div>
+                            <div class="flex items-center justify-between px-4 py-3 text-xs">
+                                <p class="text-[#215558] font-semibold">SEO-basis &amp; optimalisatie key pages</p>
+                                <p class="text-[#215558] font-black">€ 0.000,- eenmalig</p>
+                            </div>
+                            <div class="flex items-center justify-between px-4 py-3 text-xs">
+                                <p class="text-[#215558] font-semibold">Hosting, onderhoud &amp; support</p>
+                                <p class="text-[#215558] font-black">€ 000,- per maand</p>
+                            </div>
+                            <div class="flex items-center justify-between px-4 py-3 bg-[#215558]/5">
+                                <p class="text-xs text-[#215558] font-black">Totaal eenmalig</p>
+                                <p class="text-sm text-[#215558] font-black">€ 0.000,-</p>
+                            </div>
+                            <div class="flex items-center justify-between px-4 py-3 bg-[#215558]/5">
+                                <p class="text-xs text-[#215558] font-black">Per maand</p>
+                                <p class="text-sm text-[#215558] font-black">€ 000,-</p>
+                            </div>
+                        </div>
+                    @endif
+
+                    <p class="text-[11px] text-[#215558] font-bold leading-tight">
+                        Extra pagina's nodig? Geen probleem!<br>Voor € 195,- bouwen wij een extra pagina, volledig naar wens.
+                    </p>
+                    <p class="text-[11px] text-[#215558] font-semibold leading-tight opacity-60">
+                        * Bovenstaande bedragen zijn indicatief en worden definitief op basis van de gekozen opties en eventuele aanvullende wensen.
+                    </p>
+                </div>
+
+                <hr class="border-gray-200">
+
+                {{-- Support & onderhoud (nog statisch) --}}
+                <div class="grid gap-4">
+                    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Support, onderhoud & groei</p>
+                    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+                        Na livegang laten we je niet los. We zorgen dat de techniek veilig, snel en up-to-date blijft, én dat je altijd bij ons terechtkunt met vragen of ideeën.
+                    </p>
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Beveiligde hostingomgeving, monitoring en basis back-ups.
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Technische updates en onderhoud van de website / webshop.
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Toegang tot ons supportportaal voor vragen en wijzigingsverzoeken.
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-200">
+
+                {{-- Vervolgstappen (nu nog statisch) --}}
+                <div class="grid gap-4">
+                    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Vervolgstappen</p>
+                    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. A ea expedita eveniet facere corporis earum debitis voluptatibus et, perferendis accusamus! Et sit necessitatibus ea quos suscipit, ex sapiente facilis expedita.
+                    </p>
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Offerte tekenen
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-orange-700 bg-orange-100">Hier ben je nu</div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    50% aanbetaling (of nader afgesproken)
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Content aanleveren via ons formulier
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Project inplannen
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Website wordt gebouwd
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Revisie-ronde / Final
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Livegang
+                                </p>
+                            </div>
+                            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
+                        </div>
+                        <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0 mt-2">
+                            Lorem ipsum dolor sit amet, consectetur adipisicing elit. A ea expedita eveniet facere corporis earum debitis voluptatibus et, perferendis accusamus! Et sit necessitatibus ea quos suscipit, ex sapiente facilis expedita.
+                        </p>
+                    </div>
+                </div>
+
+                <hr class="border-gray-200">
+
+                {{-- Randvoorwaarden & scope (statisch) --}}
+                <div class="grid gap-4">
+                    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Randvoorwaarden & scope</p>
+                    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
+                        Om de samenwerking soepel te laten verlopen, maken we duidelijke afspraken over scope, oplevering en verantwoordelijkheden.
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <ul class="text-xs grid gap-2">
+                            <li class="flex items-center gap-2">
+                                <i class="fa-solid fa-circle-info fa-xs mt-0.5 text-[#215558]"></i>
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Deze offerte is gebaseerd op de besproken wensen en uitgangspunten. Grote wijzigingen in scope kunnen invloed hebben op planning en investering.
+                                </p>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fa-solid fa-circle-info fa-xs mt-0.5 text-[#215558]"></i>
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Content (teksten, foto’s, video’s) wordt aangeleverd door de opdrachtgever, tenzij anders overeengekomen.
+                                </p>
+                            </li>
+                        </ul>
+
+                        <ul class="text-xs grid gap-2">
+                            <li class="flex items-center gap-2">
+                                <i class="fa-solid fa-circle-info fa-xs mt-0.5 text-[#215558]"></i>
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Extra werkzaamheden buiten de afgesproken scope vallen onder meerwerk en worden vooraf afgestemd op basis van ons uurtarief.
+                                </p>
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <i class="fa-solid fa-circle-info fa-xs mt-0.5 text-[#215558]"></i>
+                                <p class="text-xs text-[#215558] font-semibold leading-tight">
+                                    Op deze offerte zijn de algemene voorwaarden van Eazyonline van toepassing.
+                                </p>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="h-fit sticky top-[88px] bg-white rounded-2xl p-6 border border-gray-200 flex flex-col gap-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-base text-[#215558] font-black leading-tight truncate">
+                            Snel overzicht
+                        </p>
+                    </div>
+                    <span class="px-2.5 py-0.5 rounded-full font-semibold text-[11px] {{ $statusCfg['bg'] }} {{ $statusCfg['text'] }}">
+                        {{ $statusCfg['label'] }}
+                    </span>
+                </div>
+
+                {{-- Klant & contactpersoon --}}
+                <div class="rounded-2xl bg-gray-50 px-3 py-3 text-xs text-[#215558] font-semibold grid">
+                    <p class="text-sm text-[#215558] font-black leading-tight truncate mb-1">
+                        Offerte voor
+                    </p>
+                    <p class="text-xs text-[#215558] font-semibold leading-tight truncate">
+                        {{ $companyName }}
+                    </p>
+
+                    @if($contactName)
+                        <div class="w-full flex items-center gap-2 mt-3">
+                            <i class="min-w-[15px] fa-solid fa-user text-[#215558] text-xs"></i>
+                            <p class="text-xs font-semibold text-[#215558] truncate">
+                                {{ $contactName }}
+                            </p>
+                        </div>
+                    @endif
+
+                    <div class="flex flex-col gap-1 mt-1">
+                        @if($contactEmail)
+                            <div class="w-full flex items-center gap-2">
+                                <i class="min-w-[15px] fa-solid fa-paper-plane text-[#215558] text-[11px]"></i>
+                                <p class="text-xs font-semibold text-[#215558] truncate">
+                                    {{ $contactEmail }}
+                                </p>
+                            </div>
+                        @endif
+                        @if($contactPhone)
+                            <div class="w-full flex items-center gap-2">
+                                <i class="min-w-[15px] fa-solid fa-phone text-[#215558] text-[11px]"></i>
+                                <p class="text-xs font-semibold text-[#215558] truncate">
+                                    {{ $contactPhone }}
+                                </p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Financieel overzicht --}}
+                <div class="grid grid-cols-1 gap-2 text-xs">
+                    <div class="border border-gray-200 rounded-2xl p-3 flex flex-col gap-1">
+                        <p class="text-sm text-[#215558] font-black leading-tight truncate">
+                            Totaal eenmalig
+                        </p>
+                        <p class="text-xs text-[#215558] font-semibold leading-tight truncate">
+                            {{ $displaySetup ?? 'n.n.b.' }}
+                        </p>
+                    </div>
+                    <div class="border border-gray-200 rounded-2xl p-3 flex flex-col gap-1">
+                        <p class="text-sm text-[#215558] font-black leading-tight truncate">
+                            Per maand
+                        </p>
+                        <p class="text-xs text-[#215558] font-semibold leading-tight truncate">
+                            {{ $displayMonthly ?? 'n.n.b.' }}
+                        </p>
+                    </div>
+                </div>
+
+                {{-- Datums --}}
+                <div class="pt-3 border-t border-gray-200">
+                    <p class="text-sm text-[#215558] font-black leading-tight truncate mb-2">
+                        Belangrijke datums
+                    </p>
+                    <ul class="space-y-1.5 text-[11px] text-[#215558]">
+                        <li class="flex items-center justify-between gap-2">
+                            <span class="font-semibold leading-tight">Offertedatum</span>
+                            <span class="font-semibold leading-tight">
+                                {{ $offerteDate->format('d-m-Y') }}
+                            </span>
+                        </li>
+
+                        @if(!$isSigned)
+                            <li class="flex items-center justify-between gap-2">
+                                <span class="font-semibold leading-tight">Beschikbaar tot</span>
+                                <span class="font-semibold leading-tight">
+                                    {{ $vervalDatum->format('d-m-Y') }}
+                                </span>
+                            </li>
+                        @elseif($offerte->signed_at)
+                            <li class="flex items-center justify-between gap-2">
+                                <span class="font-semibold leading-tight">Getekend op</span>
+                                <span class="font-semibold leading-tight">
+                                    {{ $offerte->signed_at->format('d-m-Y') }}
+                                </span>
+                            </li>
+                        @endif
+                    </ul>
+                    @if($isSigned && $signatureUrl)
+                        <div class="mt-3 pt-3 border-t border-dashed border-gray-200">
+                            <p class="text-sm text-[#215558] font-black leading-tight truncate mb-2">
+                                Handtekening
+                            </p>
+                            <img
+                                src="{{ $signatureUrl }}"
+                                alt="Digitale handtekening"
+                                class="max-h-24 object-contain"
+                            >
+                            @if($offerte->signed_at)
+                                <p class="mt-2 text-[11px] text-[#215558] font-semibold leading-tight">
+                                    Getekend op: {{ $offerte->signed_at->format('d-m-Y H:i') }}
+                                </p>
+                            @endif
+                        </div>
                     @endif
                 </div>
-            @endforeach
+            </div>
         </div>
     </div>
+</div>
 
-    <hr class="border-gray-200">
-@endif
-
-{{-- Investering --}}
-<div class="grid gap-4">
-    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Investering</p>
-    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-        Hieronder zie je de investering uitgesplitst. Bedragen zijn exclusief btw en gebaseerd op de beschreven scope en het best passende pakket.
-    </p>
-
-    @php
-        $investment   = data_get($offerte->generated, 'investment', []);
-        $rows         = data_get($investment, 'rows', []);
-        $packageName  = data_get($investment, 'package_name');
-        $whyPackage   = data_get($investment, 'why_this_package');
-        $totalSetup   = data_get($investment, 'total_setup_amount');
-        $totalMonthly = data_get($investment, 'total_monthly_amount');
-    @endphp
-
-    @if(!empty($rows))
-        <div class="border border-gray-200 rounded-2xl divide-y divide-gray-200 overflow-hidden">
-            @foreach($rows as $row)
-                <div class="flex items-center justify-between px-4 py-3 text-xs">
-                    <p class="text-[#215558] font-semibold">
-                        {{ data_get($row, 'label') }}
+{{-- Bottom bar + ondertekenen overlay --}}
+<div
+    x-data="offerteSigning({ signed: {{ $isSigned ? 'true' : 'false' }} })"
+    x-init="init()"
+    x-cloak
+    data-sign-url="{{ route('offerte.sign', $offerte->public_view_uuid) }}"
+>
+    {{-- Overlay voor digitale handtekening --}}
+    <div
+        x-show="openSignModal"
+        x-transition.opacity
+        x-effect="if (openSignModal) $nextTick(() => setupCanvas())"
+        @click.self="openSignModal = false"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
+    >
+        <div
+            class="w-full max-w-lg mx-4 bg-white rounded-2xl p-6 shadow-xl"
+            @click.stop
+        >
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                    <p class="text-base text-[#215558] font-black leading-tight">
+                        Onderteken de offerte
                     </p>
-                    <p class="text-[#215558] font-black">
-                        {{ data_get($row, 'amount') }}
+                    <p class="text-[11px] text-[#215558]/70 leading-snug mt-1">
+                        Zet je handtekening zoals op je legitimatie. Na bevestiging wordt de offerte als getekend opgeslagen.
                     </p>
                 </div>
-            @endforeach
+                <button
+                    type="button"
+                    @click="openSignModal = false"
+                    class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition"
+                >
+                    <i class="fa-solid fa-xmark text-xs text-[#215558]"></i>
+                </button>
+            </div>
 
-            {{-- Totaalregels uit de JSON (al als nette tekst aangeleverd) --}}
-            @if($totalSetup)
-                <div class="flex items-center justify-between px-4 py-3 bg-[#215558]/5">
-                    <p class="text-xs text-[#215558] font-black">Totaal eenmalig</p>
-                    <p class="text-sm text-[#215558] font-black">{{ $totalSetup }}</p>
+            {{-- Canvas --}}
+            <div class="border border-dashed border-gray-300 rounded-2xl p-3 bg-gray-50">
+                <div class="relative w-full h-48 md:h-56 bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <canvas
+                        x-ref="signatureCanvas"
+                        class="w-full h-full cursor-crosshair touch-none"
+                        @mousedown.prevent="pointerDown($event)"
+                        @mousemove.prevent="pointerMove($event)"
+                        @mouseup.prevent="pointerUp()"
+                        @mouseleave="pointerUp()"
+                        @touchstart.prevent="pointerDown($event)"
+                        @touchmove.prevent="pointerMove($event)"
+                        @touchend.prevent="pointerUp()"
+                    ></canvas>
+
+                    <p
+                        class="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[11px] text-gray-400"
+                        x-show="!hasSignature"
+                    >
+                        Gebruik je muis (of vinger op mobiel) om te tekenen
+                    </p>
                 </div>
-            @endif
 
-            @if($totalMonthly)
-                <div class="flex items-center justify-between px-4 py-3 bg-[#215558]/5">
-                    <p class="text-xs text-[#215558] font-black">Per maand</p>
-                    <p class="text-sm text-[#215558] font-black">{{ $totalMonthly }}</p>
+                <div class="mt-3 flex items-center justify-between text-[11px] text-gray-500">
+                    <button
+                        type="button"
+                        @click="clearSignature()"
+                        class="px-3 py-1 rounded-full border border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 transition"
+                    >
+                        Wissen
+                    </button>
+                    <span>Tevreden? Klik dan op “Bevestig handtekening”.</span>
                 </div>
-            @endif
-        </div>
-    @else
-        {{-- Fallback: oude statische tabel als er (nog) geen investment is --}}
-        <div class="border border-gray-200 rounded-2xl divide-y divide-gray-200 overflow-hidden">
-            <div class="flex items-center justify-between px-4 py-3 text-xs">
-                <p class="text-[#215558] font-semibold">Webdesign &amp; ontwikkeling</p>
-                <p class="text-[#215558] font-black">€ 0.000,- eenmalig</p>
             </div>
-            <div class="flex items-center justify-between px-4 py-3 text-xs">
-                <p class="text-[#215558] font-semibold">Technische inrichting &amp; koppelingen</p>
-                <p class="text-[#215558] font-black">€ 0.000,- eenmalig</p>
-            </div>
-            <div class="flex items-center justify-between px-4 py-3 text-xs">
-                <p class="text-[#215558] font-semibold">SEO-basis &amp; optimalisatie key pages</p>
-                <p class="text-[#215558] font-black">€ 0.000,- eenmalig</p>
-            </div>
-            <div class="flex items-center justify-between px-4 py-3 text-xs">
-                <p class="text-[#215558] font-semibold">Hosting, onderhoud &amp; support</p>
-                <p class="text-[#215558] font-black">€ 000,- per maand</p>
-            </div>
-            <div class="flex items-center justify-between px-4 py-3 bg-[#215558]/5">
-                <p class="text-xs text-[#215558] font-black">Totaal eenmalig</p>
-                <p class="text-sm text-[#215558] font-black">€ 0.000,-</p>
-            </div>
-            <div class="flex items-center justify-between px-4 py-3 bg-[#215558]/5">
-                <p class="text-xs text-[#215558] font-black">Per maand</p>
-                <p class="text-sm text-[#215558] font-black">€ 000,-</p>
-            </div>
-        </div>
-    @endif
 
-    <p class="text-[11px] text-[#215558] font-bold leading-tight">
-        Extra pagina's nodig? Geen probleem!<br>Voor € 195,- bouwen wij een extra pagina, volledig naar wens.
-    </p>
-    <p class="text-[11px] text-[#215558] font-semibold leading-tight opacity-60">
-        * Bovenstaande bedragen zijn indicatief en worden definitief op basis van de gekozen opties en eventuele aanvullende wensen.
-    </p>
-</div>
-
-<hr class="border-gray-200">
-
-{{-- Support & onderhoud --}}
-<div class="grid gap-4">
-    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Support, onderhoud & groei</p>
-    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-        Na livegang laten we je niet los. We zorgen dat de techniek veilig, snel en up-to-date blijft, én dat je altijd bij ons terechtkunt met vragen of ideeën.
-    </p>
-    <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Beveiligde hostingomgeving, monitoring en basis back-ups.
-                </p>
+            <div class="mt-6 flex items-center justify-end gap-2">
+                <button
+                    type="button"
+                    @click="openSignModal = false"
+                    class="px-4 py-2 rounded-full text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition"
+                >
+                    Annuleren
+                </button>
+                <button
+                    type="button"
+                    @click="confirmSignature()"
+                    :disabled="!hasSignature || isSubmitting"
+                    class="px-4 py-2 rounded-full text-xs font-semibold text-white bg-[#0F9B9F] hover:bg-[#215558] disabled:opacity-60 disabled:cursor-not-allowed transition"
+                >
+                    <span x-show="!isSubmitting">Bevestig handtekening</span>
+                    <span x-show="isSubmitting">Versturen…</span>
+                </button>
             </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Technische updates en onderhoud van de website / webshop.
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Toegang tot ons supportportaal voor vragen en wijzigingsverzoeken.
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-green-700 bg-green-100">Inbegrepen</div>
         </div>
     </div>
-</div>
 
-<hr class="border-gray-200">
-
-{{-- Van start met Eazyonline --}}
-<div class="grid gap-4">
-    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Vervolgstappen</p>
-    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-        Lorem ipsum dolor sit amet, consectetur adipisicing elit. A ea expedita eveniet facere corporis earum debitis voluptatibus et, perferendis accusamus! Et sit necessitatibus ea quos suscipit, ex sapiente facilis expedita.
-    </p>
-    <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Offerte tekenen
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-orange-700 bg-orange-100">Hier ben je nu</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    50% aanbetaling (of nader afgesproken)
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Content aanleveren via ons formulier
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Project inplannen
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Website wordt gebouwd
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Revisie-ronde / Final
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
-        </div>
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Livegang
-                </p>
-            </div>
-            <div class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-gray-700 bg-gray-100">Volgend</div>
-        </div>
-        <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0 mt-2">
-            Lorem ipsum dolor sit amet, consectetur adipisicing elit. A ea expedita eveniet facere corporis earum debitis voluptatibus et, perferendis accusamus! Et sit necessitatibus ea quos suscipit, ex sapiente facilis expedita.
-        </p>
-    </div>
-</div>
-
-
-<hr class="border-gray-200">
-
-{{-- Randvoorwaarden & scope --}}
-<div class="grid gap-4">
-    <p class="text-xl text-[#215558] font-black leading-tight truncate shrink-0">Randvoorwaarden & scope</p>
-    <p class="text-xs text-[#215558] font-semibold leading-tight max-w-[75%] shrink-0">
-        Om de samenwerking soepel te laten verlopen, maken we duidelijke afspraken over scope, oplevering en verantwoordelijkheden.
-    </p>
-
-    <div class="grid grid-cols-2 gap-4">
-        <ul class="text-xs grid gap-2">
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-circle-info fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Deze offerte is gebaseerd op de besproken wensen en uitgangspunten. Grote wijzigingen in scope kunnen invloed hebben op planning en investering.
-                </p>
-            </li>
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-circle-info fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Content (teksten, foto’s, video’s) wordt aangeleverd door de opdrachtgever, tenzij anders overeengekomen.
-                </p>
-            </li>
-        </ul>
-
-        <ul class="text-xs grid gap-2">
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-circle-info fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Extra werkzaamheden buiten de afgesproken scope vallen onder meerwerk en worden vooraf afgestemd op basis van ons uurtarief.
-                </p>
-            </li>
-            <li class="flex items-center gap-2">
-                <i class="fa-solid fa-circle-info fa-xs mt-0.5 text-[#215558]"></i>
-                <p class="text-xs text-[#215558] font-semibold leading-tight">
-                    Op deze offerte zijn de algemene voorwaarden van Eazyonline van toepassing.
-                </p>
-            </li>
-        </ul>
-    </div>
-</div>
-            </div>
-            <div class="bg-white rounded-2xl p-6 border border-gray-200"></div>
-        </div>
-    </div>
-</div>
-
-{{-- Bottom bar (nog leeg) --}}
-<div class="w-full fixed z-50 bottom-0 left-0 bg-white border-b border-b-gray-200 p-4">
-    <div class="max-w-6xl mx-auto flex items-center gap-2">
-        <a href="#"
-           class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300">
+    {{-- Bottom bar --}}
+    <div class="w-full fixed z-50 bottom-0 left-0 bg-white border-b border-b-gray-200 p-4">
+        <div class="max-w-6xl mx-auto flex items-center gap-2">
+        <button
+            type="button"
+            @click="if (!isSigned) openSignModal = true"
+            :disabled="isSigned"
+            :class="[
+                'text-center text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300',
+                isSigned
+                    ? 'bg-[#0F9B9F] opacity-50 cursor-not-allowed'
+                    : 'bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer'
+            ]"
+        >
             Offerte ondertekenen
-        </a>
-        <a href="#"
-           class="bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer font-semibold px-6 py-3 rounded-full transition duration-300">
-            Bellen met een medewerker
-        </a>
+        </button>
+            <a href="#"
+               class="bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer font-semibold px-6 py-3 rounded-full transition duration-300">
+                Bellen met een medewerker
+            </a>
+        </div>
     </div>
 </div>
 
@@ -893,13 +1192,148 @@ document.addEventListener('DOMContentLoaded', function () {
         const minutes = Math.floor(diff / 60);
         const seconds = diff % 60;
 
-        // Formaat: DD:HH:MM:SS
         el.textContent = `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
     }
 
-    // Init + interval
     updateCountdown();
     setInterval(updateCountdown, 1000);
+});
+</script>
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('offerteSigning', (config = {}) => ({
+        openSignModal: false,
+        isSubmitting: false,
+        hasSignature: false,
+        canvas: null,
+        ctx: null,
+        drawing: false,
+        lastX: 0,
+        lastY: 0,
+        signUrl: null,
+        // 👉 NIEUW: status vanuit Blade
+        isSigned: !!config.signed,
+
+        init() {
+            // URL uit data-sign-url attribuut op de wrapper
+            this.signUrl = this.$el.dataset.signUrl || null;
+        },
+
+        setupCanvas() {
+            if (this.isSigned) return; // als al getekend, geen canvas nodig
+
+            this.canvas = this.$refs.signatureCanvas;
+            if (!this.canvas) return;
+
+            const rect  = this.canvas.getBoundingClientRect();
+            const ratio = window.devicePixelRatio || 1;
+
+            this.canvas.width  = rect.width * ratio;
+            this.canvas.height = rect.height * ratio;
+
+            this.ctx = this.canvas.getContext('2d');
+            this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+            this.ctx.lineJoin    = 'round';
+            this.ctx.lineCap     = 'round';
+            this.ctx.lineWidth   = 2;
+            this.ctx.strokeStyle = '#111827';
+
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            this.hasSignature = false;
+            this.drawing = false;
+        },
+
+        getPoint(event) {
+            const rect = this.canvas.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (event.touches && event.touches.length) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top,
+            };
+        },
+
+        pointerDown(event) {
+            if (!this.canvas || this.isSigned) return;
+            this.drawing = true;
+            const point = this.getPoint(event);
+            this.lastX = point.x;
+            this.lastY = point.y;
+            this.hasSignature = true;
+        },
+
+        pointerMove(event) {
+            if (!this.drawing || !this.ctx || this.isSigned) return;
+            const point = this.getPoint(event);
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.lastX, this.lastY);
+            this.ctx.lineTo(point.x, point.y);
+            this.ctx.stroke();
+            this.lastX = point.x;
+            this.lastY = point.y;
+        },
+
+        pointerUp() {
+            this.drawing = false;
+        },
+
+        clearSignature() {
+            if (!this.canvas || !this.ctx || this.isSigned) return;
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.hasSignature = false;
+        },
+
+        async confirmSignature() {
+            if (!this.canvas || !this.hasSignature || this.isSubmitting || this.isSigned) return;
+
+            this.isSubmitting = true;
+
+            try {
+                const dataUrl = this.canvas.toDataURL('image/png');
+
+                if (this.signUrl) {
+                    const response = await fetch(this.signUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            signature: dataUrl, // data:image/png;base64,...
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Opslaan mislukt');
+                    }
+
+                    // Na succes: UI updaten
+                    this.isSigned = true;
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Er ging iets mis bij het ondertekenen. Probeer het later opnieuw of neem contact met ons op.');
+            } finally {
+                this.isSubmitting = false;
+                this.openSignModal = false;
+            }
+        },
+    }));
 });
 </script>
 @endsection

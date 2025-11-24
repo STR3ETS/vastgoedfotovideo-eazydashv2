@@ -21,6 +21,8 @@ class Offerte extends Model
     protected $casts = [
         'generated' => 'array',
         'content_overrides' => 'array',
+        'sent_at' => 'datetime',
+        'signed_at' => 'datetime',
     ];
 
     public function project()
