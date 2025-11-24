@@ -86,7 +86,7 @@
         <div class="min-w-[300px] h-full pr-8">
           <h1 class="text-base font-black text-[#215558] pt-3.5 mb-4">Eazyonline Workspace</h1>
           <ul class="grid gap-2">
-            @if (request()->is('app'))
+            @if (request()->is('app') || request()->is('app/overzicht/offertes') || request()->is('app/overzicht/facturen'))
               <li class="flex items-center gap-2 opacity-50">
                 <i class="fa-solid fa-star text-[#215558] fa-xs"></i>
                 <p href="#" class="text-[#215558] font-semibold text-sm">Favorieten</p>
@@ -95,7 +95,46 @@
                 <i class="fa-solid fa-history text-[#215558] fa-xs"></i>
                 <p href="#" class="text-[#215558] font-semibold text-sm">Recent</p>
               </li>
-              <li class="flex"><a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">Sales</a></li>
+              <li class="grid gap-1" x-data="{ openSales: true }">
+                <!-- Rij: Sales + plusje -->
+                <div class="flex items-center justify-between gap-2">
+                  <a href="{{ url('/app/overzicht/offertes') }}"
+                    class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                    Sales
+                  </a>
+                  <button
+                    type="button"
+                    class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                    @click="openSales = !openSales"
+                    :aria-expanded="openSales.toString()"
+                  >
+                    <i
+                      class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+                      :class="openSales ? 'rotate-45 text-[#0F9B9F]' : ''"
+                    ></i>
+                  </button>
+                </div>
+
+                <!-- Uitklap: Facturen & Offertes -->
+                <div x-show="openSales" x-transition>
+                  <div class="border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+                    <div class="flex items-center gap-2">
+                      <hr class="w-[10px] border-1 border-[#215558]/25">
+                      <a href="{{ url('/app/overzicht/facturen') }}"
+                        class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                        Facturen
+                      </a>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <hr class="w-[10px] border-1 border-[#215558]/25">
+                      <a href="{{ url('/app/overzicht/offertes') }}"
+                        class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                        Offertes
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </li>
               <li class="flex"><a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">Doelen</a></li>
               <ul class="grid gap-2" x-data="{ openDashboard: true }">
                   <!-- Rij: Dashboard + plusje -->

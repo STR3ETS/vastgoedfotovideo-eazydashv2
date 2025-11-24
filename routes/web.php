@@ -80,11 +80,16 @@ Route::prefix('app')->group(function () {
         
         Route::get('/', function () {
             $user = auth()->user();
+            return view('hub.index', compact('user'));
+        })->name('support.dashboard');
+
+        Route::get('/overzicht/offertes', function () {
+            $user = auth()->user();
             $offertes = Offerte::with('project')
                 ->orderByDesc('created_at')
                 ->get();
-            return view('hub.index', compact('user', 'offertes'));
-        })->name('support.dashboard');
+            return view('hub.overzicht.offertes', compact('user', 'offertes'));
+        })->name('support.dashboard.offertes');
 
         Route::patch('/tasks/questions/{question}', [TaskQuestionController::class, 'update'])->name('support.tasks.questions.update');
 
