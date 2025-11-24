@@ -59,10 +59,13 @@ Route::prefix('offerte')
     ->controller(OfferteController::class)
     ->group(function () {
         Route::get('/{token}', 'klant')->name('klant.show');
+        Route::post('/{token}/sign', 'sign')->name('sign');
         Route::get('/{token}/edit', 'beheerder')->name('beheerder.show');
         Route::get('/{token}/download', 'download')->name('download');
         Route::post('/{token}/regenerate', 'regenerate')->name('regenerate');
         Route::post('/{token}/inline', 'inlineUpdate')->name('inline-update');
+        Route::post('/{token}/revoke', 'revoke')->name('revoke');
+        Route::post('/{token}/send', 'send')->name('send');
     });
 
 Route::prefix('app')->group(function () {

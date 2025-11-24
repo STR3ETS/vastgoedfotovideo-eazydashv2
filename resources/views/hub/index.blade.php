@@ -1,14 +1,9 @@
 @extends('hub.layouts.app')
 
 @section('content')
-    {{-- Linker kolom – kan later gevuld worden met widgets / stats --}}
-    <div class="col-span-1 w-full p-4 h-full bg-white rounded-xl">
-        {{-- Bijvoorbeeld: korte stats, snelle links, etc. --}}
-    </div>
-
     {{-- Rechter kolom – Offertes overzicht --}}
-    <div class="col-span-4 flex-1 min-h-0">
-        <div class="w-full p-4 bg-white rounded-xl h-full min-h-0"
+    <div class="col-span-5 flex-1 min-h-0">
+        <div class="w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0"
             x-data="{
                 openOverzichtSection: true,
                 openStatistiekenSection: true,
@@ -284,45 +279,35 @@
                                     rows.forEach(row => tbody.appendChild(row));
                                 }
                             }">
-                            <div class="flex flex-wrap items-center justify-between">
-                                <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex flex-wrap items-center justify-between p-2 rounded-full bg-[#f3f8f8]">
+                                <div class="flex-1 grid grid-cols-4 gap-2">
                                     {{-- Concept --}}
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $summary['concept']['bg'] }} text-white">
-                                        {{ $summary['concept']['label'] }}
-                                        &nbsp;&nbsp;
+                                    <span class="py-2 px-3 rounded-full text-xs font-semibold {{ $summary['concept']['bg'] }} text-white text-center">
                                         {{ $summary['concept']['count'] }}
                                         &nbsp;&nbsp;≈&nbsp;&nbsp;
                                         {{ $formatAmount($summary['concept']['sum']) }}
                                     </span>
                                     {{-- Nog niet getekend --}}
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $summary['pending']['bg'] }} text-white">
-                                        {{ $summary['pending']['label'] }}
-                                        &nbsp;&nbsp;
+                                    <span class="py-2 px-3 rounded-full text-xs font-semibold {{ $summary['pending']['bg'] }} text-white text-center">
                                         {{ $summary['pending']['count'] }}
                                         &nbsp;&nbsp;≈&nbsp;&nbsp;
                                         {{ $formatAmount($summary['pending']['sum']) }}
                                     </span>
                                     {{-- Getekend --}}
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $summary['signed']['bg'] }} text-white">
-                                        {{ $summary['signed']['label'] }}
-                                        &nbsp;&nbsp;
+                                    <span class="py-2 px-3 rounded-full text-xs font-semibold {{ $summary['signed']['bg'] }} text-white text-center">
                                         {{ $summary['signed']['count'] }}
                                         &nbsp;&nbsp;≈&nbsp;&nbsp;
                                         {{ $formatAmount($summary['signed']['sum']) }}
                                     </span>
                                     {{-- Verlopen --}}
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $summary['expired']['bg'] }} text-white">
-                                        {{ $summary['expired']['label'] }}
-                                        &nbsp;&nbsp;
+                                    <span class="py-2 px-3 rounded-full text-xs font-semibold {{ $summary['expired']['bg'] }} text-white text-center">
                                         {{ $summary['expired']['count'] }}
                                         &nbsp;&nbsp;≈&nbsp;&nbsp;
                                         {{ $formatAmount($summary['expired']['sum']) }}
                                     </span>
                                 </div>
                                 {{-- Totaal --}}
-                                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $summary['total']['bg'] }} text-white">
-                                    {{ $summary['total']['label'] }}
-                                    &nbsp;&nbsp;&nbsp;
+                                <span class="py-2 px-3 rounded-full text-xs font-extrabold text-[#215558] pl-6">
                                     {{ $summary['total']['count'] }}
                                     &nbsp;&nbsp;≈&nbsp;&nbsp;
                                     {{ $formatAmount($summary['total']['sum']) }}
@@ -395,18 +380,18 @@
                                 <input
                                     type="text"
                                     x-model="searchTerm"
-                                    class="w-[300px] p-2 text-xs text-[#215558] font-semibold rounded-xl border border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300"
+                                    class="w-[300px] p-2 text-xs text-[#215558] font-semibold rounded-xl border bg-white border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300"
                                     placeholder="Zoek op factuur, bedrijf of contactpersoon"
                                 >
                             </div>
     
-                            <div class="w-full p-4 border border-gray-200 rounded-xl mt-3">
+                            <div class="w-full p-8 bg-[#f3f8f8] rounded-4xl mt-3">
                                 <div class="grid grid-cols-9 gap-2 pb-4 border-b border-b-gray-200">
                                     <p
                                         class="text-xs font-bold text-[#215558] flex items-center gap-1 cursor-pointer select-none"
                                         @click="sortByFact()"
                                     >
-                                        Factuurnummer
+                                        Offertenummer
                                         <span class="inline-flex w-3 h-3 items-center justify-center">
                                             <i
                                                 class="fa-solid fa-chevron-down text-[9px] opacity-30"
@@ -647,7 +632,7 @@
                         </p>
                     @endif
                 </div>   
-                <div class="w-full flex items-center gap-2 min-w-0 pt-3 border-t border-t-gray-200 mt-4">
+                <div class="w-full flex items-center gap-2 min-w-0 pt-8">
                     <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
                         Statistieken
                     </h3>
@@ -663,41 +648,56 @@
                     x-transition 
                     class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div class="grid gap-4">
-                        <div class="bg-white border border-gray-200 rounded-xl p-4">
-                            <p class="text-xs font-bold text-[#215558] mb-4 text-center">
-                                Verdeling offertes per status (aantal)
+                        <div class="bg-[#f3f8f8] rounded-4xl p-8 flex flex-col justify-between">
+                            <p class="text-lg font-bold text-[#215558] mb-4 text-left">
+                                Offertes per status
                             </p>
                             <canvas id="offertesStatusPie" class="w-full max-h-[150px]"></canvas>
                         </div>
-                        <div class="bg-white border border-gray-200 rounded-xl p-4">
-                            <p class="text-xs font-bold text-[#215558] mb-4 text-center">
-                                Conversie: getekend vs totaal
+                        <div class="bg-[#f3f8f8] rounded-4xl p-8 flex flex-col justify-between">
+                            <p class="text-lg font-bold text-[#215558] mb-4 text-left">
+                                Getekend vs. totaal
                             </p>
-                            <canvas id="offertesConversionDonut" class="w-full max-h-[150px]"></canvas>
+
+                            <div class="relative flex items-center justify-center">
+                                <canvas id="offertesConversionDonut" class="w-full max-h-[150px]"></canvas>
+
+                                {{-- Tekst in het midden van de gauge --}}
+                                <div
+                                    class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[-20%] text-center pointer-events-none">
+                                    <p id="conversionPercentValue"
+                                    class="text-4xl font-extrabold text-[#215558] leading-none">
+                                        0%
+                                    </p>
+                                    <p class="text-[11px] font-semibold text-[#0F9B9F] mt-1">
+                                        Getekend
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="grid gap-4">
-                        <div class="bg-white border border-gray-200 rounded-xl p-4">
-                            <p class="text-xs font-bold text-[#215558] mb-4 text-center">
-                                Totaal eenmalige investering per status
+                        <div class="bg-[#f3f8f8] rounded-4xl p-8 flex flex-col justify-between">
+                            <p class="text-lg font-bold text-[#215558] mb-4 text-left">
+                                Totaal per status
                             </p>
                             <canvas id="offertesStatusAmountBar" class="w-full max-h-[150px]"></canvas>
                         </div>
-                        <div class="bg-white border border-gray-200 rounded-xl p-4">
-                            <p class="text-xs font-bold text-[#215558] mb-4 text-center">
-                                Gemiddelde eenmalige investering per status
+                        <div class="bg-[#f3f8f8] rounded-4xl p-8 flex flex-col justify-between">
+                            <p class="text-lg font-bold text-[#215558] mb-4 text-left">
+                                Gemiddelde per status
                             </p>
                             <canvas id="offertesStatusAvgBar" class="w-full max-h-[150px]"></canvas>
                         </div>
                     </div>
                     <div class="col-span-2 grid gap-4">
-                        <div class="bg-white border border-gray-200 rounded-xl p-4">
+                        <div class="bg-[#f3f8f8] rounded-4xl p-8 flex flex-col justify-between">
                             <p class="text-xs font-bold text-[#215558] mb-4 text-center">
                                 Totaal eenmalige investering per maand
                             </p>
                             <canvas id="offertesSetupPerMonthLine" class="w-full max-h-[150px]"></canvas>
                         </div>
-                        <div class="bg-white border border-gray-200 rounded-xl p-4">
+                        <div class="bg-[#f3f8f8] rounded-4xl p-8 flex flex-col justify-between">
                             <p class="text-xs font-bold text-[#215558] mb-4 text-center">
                                 Conversie per maand (in %)
                             </p>
@@ -755,12 +755,18 @@
                             '#22c55e', // signed   (groen → bg-green-500)
                             '#ef4444', // expired  (rood → bg-red-500)
                         ],
+                        borderWidth: 0,
+                        borderRadius: 20,
                     }]
                 },
                 options: {
+                    responsive: true,
+                    rotation: -90,      // start boven
+                    circumference: 180, // halve cirkel
+                    cutout: '70%',      // dikte van de boog
                     plugins: {
                         legend: {
-                            display: false, // labels onder de taart uit
+                            display: false,
                         },
                         tooltip: {
                             callbacks: {
@@ -771,8 +777,7 @@
                                 }
                             }
                         }
-                    },
-                    cutout: '55%',
+                    }
                 }
             });
         }
@@ -792,6 +797,8 @@
                             '#22c55e', // signed
                             '#ef4444', // expired
                         ],
+                        borderWidth: 0,
+                        borderRadius: 10,
                     }]
                 },
                 options: {
@@ -810,16 +817,36 @@
                     },
                     scales: {
                         x: {
-                            display: false,
+                            ticks: {
+                                display: false,   // geen labels onderin
+                            },
+                            border: {
+                                display: false,   // geen as-lijn onderin
+                            },
                             grid: {
-                                display: false,
+                                display: false,   // ❌ géén verticale gridlijnen
                             },
                         },
                         y: {
                             beginAtZero: true,
+                            border: {
+                                display: false,   // optie: ook de linker as-lijn uit
+                            },
+                            grid: {
+                                display: true,        // ✅ wél horizontale lijnen
+                                color: '#21555810',     // kleur van de lijnen
+                                lineWidth: 1,
+                            },
                             ticks: {
+                                color: '#21555880',     // kleur van de getallen links
+                                font: {
+                                    size: 12,
+                                    weight: '600',
+                                },
                                 callback: function (val) {
-                                    return '€ ' + val.toLocaleString('nl-NL', { maximumFractionDigits: 0 });
+                                    return '€ ' + val.toLocaleString('nl-NL', {
+                                        maximumFractionDigits: 0,
+                                    });
                                 }
                             }
                         }
@@ -836,33 +863,53 @@
             const signedCount = signedIndex >= 0 ? (counts[signedIndex] || 0) : 0;
             const otherCount  = Math.max(totalCount - signedCount, 0);
 
-            new Chart(conversionEl, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Getekend', 'Overig'],
-                    datasets: [{
-                        data: [signedCount, otherCount],
-                        backgroundColor: ['#22c55e', '#e5e7eb'], // groen + lichtgrijs
-                    }]
-                },
-                options: {
-                    plugins: {
-                        legend: {
-                            display: false, // labels onder de donut uit
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function (ctx) {
-                                    const value = ctx.raw || 0;
-                                    const pct = totalCount ? ((value / totalCount) * 100).toFixed(1) : 0;
-                                    return `${ctx.label}: ${value} (${pct}%)`;
+            const conversionEl = document.getElementById('offertesConversionDonut');
+            if (conversionEl && window.Chart) {
+                const totalCount = counts.reduce((acc, v) => acc + v, 0);
+                const signedIndex = statusOrder.indexOf('signed');
+                const signedCount = signedIndex >= 0 ? (counts[signedIndex] || 0) : 0;
+                const otherCount  = Math.max(totalCount - signedCount, 0);
+
+                // percentage voor in het midden
+                const conversionPercent = totalCount ? (signedCount / totalCount * 100).toFixed(0) : 0;
+                const percentEl = document.getElementById('conversionPercentValue');
+                if (percentEl) {
+                    percentEl.textContent = conversionPercent + '%';
+                }
+
+                new Chart(conversionEl, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Getekend', 'Overig'],
+                        datasets: [{
+                            data: [signedCount, otherCount],
+                            backgroundColor: ['#22c55e', '#e5e7eb'],
+                            borderWidth: 0,
+                            borderRadius: 20,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        rotation: -90,      // boven beginnen
+                        circumference: 180, // halve cirkel
+                        cutout: '70%',      // dikke boog
+                        plugins: {
+                            legend: {
+                                display: false,
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) {
+                                        const value = ctx.raw || 0;
+                                        const pct = totalCount ? ((value / totalCount) * 100).toFixed(1) : 0;
+                                        return `${ctx.label}: ${value} (${pct}%)`;
+                                    }
                                 }
                             }
                         }
-                    },
-                    cutout: '55%',
-                }
-            });
+                    }
+                });
+            }
         }
 
         // ===== Balkdiagram: gemiddelde eenmalige investering per status =====
@@ -885,6 +932,8 @@
                             '#22c55e', // signed
                             '#ef4444', // expired
                         ],
+                        borderWidth: 0,
+                        borderRadius: 10,
                     }]
                 },
                 options: {
@@ -905,16 +954,36 @@
                     },
                     scales: {
                         x: {
-                            display: false,
+                            ticks: {
+                                display: false,   // geen labels onderin
+                            },
+                            border: {
+                                display: false,   // geen as-lijn onderin
+                            },
                             grid: {
-                                display: false,
+                                display: false,   // ❌ géén verticale gridlijnen
                             },
                         },
                         y: {
                             beginAtZero: true,
+                            border: {
+                                display: false,   // optie: ook de linker as-lijn uit
+                            },
+                            grid: {
+                                display: true,        // ✅ wél horizontale lijnen
+                                color: '#21555810',     // kleur van de lijnen
+                                lineWidth: 1,
+                            },
                             ticks: {
+                                color: '#21555880',     // kleur van de getallen links
+                                font: {
+                                    size: 12,
+                                    weight: '600',
+                                },
                                 callback: function (val) {
-                                    return '€ ' + val.toLocaleString('nl-NL', { maximumFractionDigits: 0 });
+                                    return '€ ' + val.toLocaleString('nl-NL', {
+                                        maximumFractionDigits: 0,
+                                    });
                                 }
                             }
                         }

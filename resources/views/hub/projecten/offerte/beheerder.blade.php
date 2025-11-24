@@ -79,10 +79,13 @@
 <style>
     .js-inline-edit {
         cursor: pointer;
-        white-space: pre-line;
+        /* white-space: pre-line; */
         text-decoration: none;
     }
 </style>
+@php
+    $isSent = !is_null($offerte->sent_at);
+@endphp
 <div class="w-full fixed z-50 top-0 left-0 bg-white border-b border-b-gray-200 p-4 min-h-[61px] flex items-center">
     <div class="max-w-6xl w-full mx-auto flex items-center justify-between gap-2">
         <div class="flex items-center gap-4 relative">
@@ -98,8 +101,14 @@
             </a>
         </div>
         <div class="flex items-center gap-2">
-            <p class="px-2 py-0.5 text-xs bg-orange-200 text-orange-700 font-semibold rounded-full w-fit">
-                Je bent de offerte aan het bewerken
+            <p
+                class="px-2 py-0.5 text-xs font-semibold rounded-full w-fit {{ $isSent ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700' }}"
+                data-offerte-edit-status
+            >
+                {{ $isSent
+                    ? 'Offerte is opgestuurd naar de klant'
+                    : 'Je bent de offerte aan het bewerken'
+                }}
             </p>
         </div>
     </div>
@@ -1049,17 +1058,205 @@
                     </div>
                 </div>
             </div>
-            <div class="bg-white rounded-2xl p-6 border border-gray-200"></div>
+            <div class="h-fit sticky top-[88px] bg-white rounded-2xl p-6 border border-gray-200 flex flex-col gap-4">
+                @php
+                    $status = $offerte->status ?? 'concept';
+
+                    $statusConfig = [
+                        'concept' => [
+                            'label' => 'Concept',
+                            'bg'    => 'bg-cyan-100',
+                            'text'  => 'text-cyan-700',
+                        ],
+                        'pending' => [
+                            'label' => 'Te ondertekenen',
+                            'bg'    => 'bg-orange-100',
+                            'text'  => 'text-orange-700',
+                        ],
+                        'signed' => [
+                            'label' => 'Getekend',
+                            'bg'    => 'bg-emerald-100',
+                            'text'  => 'text-emerald-700',
+                        ],
+                        'expired' => [
+                            'label' => 'Verlopen',
+                            'bg'    => 'bg-red-100',
+                            'text'  => 'text-red-700',
+                        ],
+                    ];
+
+                    $statusCfg = $statusConfig[$status] ?? $statusConfig['concept'];
+
+                    $companyName   = $project->company ?? 'Nog geen bedrijfsnaam';
+                    $contactName   = $project->contact_name ?? null;
+                    $contactEmail  = $project->contact_email ?? $project->email ?? null;
+                    $contactPhone  = $project->contact_phone ?? $project->phone ?? null;
+
+                    $setupPriceEur     = data_get($investment, 'setup_price_eur');
+                    $monthlyPriceEur   = data_get($investment, 'monthly_price_eur');
+                    $totalSetupLabel   = data_get($investment, 'total_setup_amount');
+                    $totalMonthlyLabel = data_get($investment, 'total_monthly_amount');
+
+                    $timeline = [];
+
+                    // Altijd: aangemaakt (heeft altijd een datum)
+                    if ($offerte->created_at) {
+                        $timeline[] = [
+                            'key'           => 'created',
+                            'label'         => 'Offerte aangemaakt',
+                            'statusClasses' => 'bg-cyan-100 text-cyan-700',
+                            'at'            => $offerte->created_at,
+                        ];
+                    }
+
+                    // Alleen tonen als er echt een wijziging is geweest
+                    if ($offerte->updated_at && $offerte->updated_at->gt($offerte->created_at)) {
+                        $timeline[] = [
+                            'key'           => 'updated',
+                            'label'         => 'Offerte laatst bewerkt',
+                            'statusClasses' => 'bg-orange-100 text-orange-700',
+                            'at'            => $offerte->updated_at,
+                        ];
+                    }
+
+                    // Alleen toevoegen als sent_at gevuld is
+                    if ($offerte->sent_at) {
+                        $timeline[] = [
+                            'key'           => 'sent',
+                            'label'         => 'Verzonden naar klant',
+                            'statusClasses' => 'bg-emerald-100 text-emerald-700',
+                            'at'            => $offerte->sent_at,
+                        ];
+                    }
+                @endphp
+
+                {{-- Header: klant & status --}}
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-base text-[#215558] font-black leading-tight truncate shrink-0">Snel overzicht</p>
+                    </div>
+                    <span
+                        class="px-2.5 py-0.5 rounded-full font-semibold text-[11px] {{ $statusCfg['bg'] }} {{ $statusCfg['text'] }}"
+                        data-offerte-status-label
+                    >
+                        {{ $statusCfg['label'] }}
+                    </span>
+                </div>
+
+                {{-- Klant & contactpersoon --}}
+                <div class="rounded-2xl bg-gray-50 px-3 py-3 text-xs text-[#215558] font-semibold grid">
+                    <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0 mb-1">Offerte voor</p>
+                    <p class="text-xs text-[#215558] font-semibold leading-tight truncate shrink-0">{{ $companyName }}</p>
+
+                    @if($contactName)
+                        <div class="w-full flex items-center gap-2 mt-3">
+                            <i class="min-w-[15px] fa-solid fa-user text-[#215558] text-xs"></i>
+                            <p class="text-xs font-semibold text-[#215558] truncate">
+                                {{ $contactName }}
+                            </p>
+                        </div>
+                    @endif
+
+                    <div class="flex flex-col gap-1">
+                        @if($contactEmail)
+                            <div class="w-full flex items-center gap-2 mt-1">
+                                <i class="min-w-[15px] fa-solid fa-paper-plane text-[#215558] text-[11px]"></i>
+                                <p class="text-xs font-semibold text-[#215558] truncate">
+                                {{ $contactEmail }}
+                                </p>
+                            </div>
+                        @endif
+                        @if($contactPhone)
+                            <div class="w-full flex items-center gap-2">
+                                <i class="min-w-[15px] fa-solid fa-phone text-[#215558] text-[11px]"></i>
+                                <p class="text-xs font-semibold text-[#215558] truncate">
+                                    {{ $contactPhone }}
+                                </p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Financieel overzicht --}}
+                <div class="grid grid-cols-1 gap-2 text-xs">
+                    <div class="border border-gray-200 rounded-2xl p-3 flex flex-col gap-1">
+                        <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">Totaal eenmalig</p>
+                        <p class="text-xs text-[#215558] font-semibold leading-tight truncate shrink-0">
+                            @if(!is_null($setupPriceEur))
+                                € {{ number_format($setupPriceEur, 0, ',', '.') }},
+                            @elseif($totalSetupLabel)
+                                {{ $totalSetupLabel }}
+                            @else
+                                n.n.b.
+                            @endif
+                        </p>
+                    </div>
+                    <div class="border border-gray-200 rounded-2xl p-3 flex flex-col gap-1">
+                        <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0">Per maand</p>
+                        <p class="text-xs text-[#215558] font-semibold leading-tight truncate shrink-0">
+                            @if(!is_null($monthlyPriceEur))
+                                € {{ number_format($monthlyPriceEur, 0, ',', '.') }},
+                            @elseif($totalMonthlyLabel)
+                                {{ $totalMonthlyLabel }}
+                            @else
+                                n.n.b.
+                            @endif
+                        </p>
+                    </div>
+                </div>
+
+                {{-- Tijdlijn --}}
+                <div class="pt-3 border-t border-gray-200">
+                    <p class="text-sm text-[#215558] font-black leading-tight truncate shrink-0 mb-2">Tijdlijn</p>
+                    <ul class="space-y-1.5" data-timeline-list>
+                        @foreach($timeline as $item)
+                            <li
+                                class="flex items-center justify-between gap-2 text-[11px] text-[#215558]"
+                                @if($item['key'] === 'sent') data-timeline-sent="1" @endif
+                            >
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="font-semibold leading-tight"
+                                        data-timeline-date="{{ $item['key'] }}"
+                                    >
+                                        @if($item['at'])
+                                            {{ \Illuminate\Support\Carbon::parse($item['at'])->format('d-m-Y H:i') }}
+                                        @endif
+                                    </span>
+                                </div>
+                                <span class="px-2.5 py-0.5 rounded-full font-semibold text-[11px] {{ $item['statusClasses'] }}">
+                                    {{ $item['label'] }}
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-{{-- Bottom bar (nog leeg) --}}
+{{-- Bottom bar --}}
+@php
+    $isSent = !is_null($offerte->sent_at);
+@endphp
 <div class="w-full fixed z-50 bottom-0 left-0 bg-white border-b border-b-gray-200 p-4">
-    <div class="max-w-6xl mx-auto flex items-center gap-2">
+    <div class="max-w-6xl mx-auto flex items-center gap-3">
+        {{-- Versturen --}}
         <a href="#"
-           class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300">
+           id="send-offerte-button"
+           @if($isSent) data-disabled="1" @endif
+           class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300
+                  {{ $isSent ? 'opacity-50 cursor-not-allowed pointer-events-none hover:bg-[#0F9B9F]' : '' }}">
             Offerte goedkeuren en opsturen
+        </a>
+
+        {{-- Intrekken – alleen tonen als hij al verstuurd is --}}
+        <a href="#"
+           id="revoke-offerte-button"
+           class="bg-red-500 hover:bg-red-600 cursor-pointer text-center text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300
+                  {{ $isSent ? '' : 'hidden' }}">
+            Offerte intrekken
         </a>
     </div>
 </div>
@@ -1284,6 +1481,61 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const isReadOnlyInitial = @json(!is_null($offerte->sent_at));
+
+    // Globale helper om de offerte in read-only te zetten
+    window.makeOfferteReadOnly = function () {
+        // Alle inline teksten uitschakelen
+        const editableEls = document.querySelectorAll('.js-inline-edit');
+        editableEls.forEach(function (el) {
+            el.removeAttribute('contenteditable');
+            el.classList.remove('cursor-text');
+            el.classList.add('opacity-60');
+        });
+
+        // Numerieke inputs (totaal eenmalig / per maand) disablen
+        const numberInputs = document.querySelectorAll('.js-inline-number');
+        numberInputs.forEach(function (input) {
+            input.setAttribute('disabled', 'disabled');
+            input.classList.add('bg-gray-50', 'cursor-not-allowed', 'opacity-60');
+        });
+
+        // Alle + / – knoppen uitschakelen
+        const buttons = document.querySelectorAll([
+            '[data-add-strong-point]',
+            '[data-add-improvement-point]',
+            '[data-add-summary-bullet]',
+            '[data-add-scope-item]',
+            '[data-add-goal-item]',
+            '[data-add-page-structure-page]',
+            '[data-add-page-section]',
+            '[data-delete-investment-row]',
+            '[data-delete-page-section]',
+            '[data-delete-page-structure-page]',
+            '[data-delete-goal-item]',
+            '[data-delete-scope-item]',
+            '[data-delete-summary-bullet]',
+            '[data-delete-strong-point]',
+            '[data-delete-improvement-point]'
+        ].join(','));
+
+        buttons.forEach(function (btn) {
+            btn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        });
+
+        // Regenerate-knop ook uitschakelen als hij bestaat
+        const regenBtn = document.getElementById('regenerate-offerte-button');
+        if (regenBtn) {
+            regenBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        }
+    };
+
+    // Als sent_at al gevuld is bij het laden → alles direct read-only
+    if (isReadOnlyInitial) {
+        window.makeOfferteReadOnly();
+        return; // geen inline events meer koppelen
+    }
+
     // ✏️ Endpoint voor inline opslaan
     const endpoint = @json(route('offerte.inline-update', $offerte->public_uuid));
 
@@ -2190,6 +2442,205 @@ document.addEventListener('DOMContentLoaded', function () {
         confirmBtn.addEventListener('click', function () {
             setConfirmVisible(false);
             startRegeneration();
+        });
+    }
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const sendBtn   = document.getElementById('send-offerte-button');
+    const revokeBtn = document.getElementById('revoke-offerte-button');
+
+    if (!sendBtn) return;
+
+    const sendEndpoint   = @json(route('offerte.send', $offerte->public_uuid));
+    const revokeEndpoint = @json(route('offerte.revoke', $offerte->public_uuid));
+    const csrf = document.querySelector('meta[name="csrf-token"]')
+        ? document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        : null;
+
+    let isSending = false;
+
+    // ✅ Offerte versturen
+    sendBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (isSending || sendBtn.dataset.disabled) return;
+
+        if (!confirm('Weet je zeker dat je deze offerte wilt goedkeuren en naar de klant wilt versturen?')) {
+            return;
+        }
+
+        isSending = true;
+        sendBtn.classList.add('opacity-60', 'pointer-events-none');
+
+        fetch(sendEndpoint, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+            },
+            body: JSON.stringify({}),
+        })
+        .then(function (res) {
+            if (!res.ok) {
+                return res.json().catch(() => ({})).then(function (data) {
+                    throw new Error(data.message || 'Versturen mislukt.');
+                });
+            }
+            return res.json();
+        })
+        .then(function (data) {
+            if (window.showToast) {
+                window.showToast(
+                    data.message || 'Gelukt! De offerte is succesvol verstuurd naar de klant en de status is veranderd naar "Te ondertekenen".',
+                    'success'
+                );
+            }
+
+            // Statusbadge bijwerken (rechts in de sidebar)
+            if (data.status) {
+                const statusBadge = document.querySelector('[data-offerte-status-label]');
+                if (statusBadge && data.status === 'pending') {
+                    statusBadge.textContent = 'Te ondertekenen';
+                    statusBadge.className =
+                        'px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-orange-100 text-orange-700';
+                }
+            }
+
+            // Bovenbalk-label bijwerken als de offerte nu is verstuurd
+            if (data.sent_at) {
+                const editBadge = document.querySelector('[data-offerte-edit-status]');
+                if (editBadge) {
+                    editBadge.textContent = 'Offerte is opgestuurd naar de klant';
+                    editBadge.className =
+                        'px-2 py-0.5 text-xs bg-green-100 text-green-700 font-semibold rounded-full w-fit';
+                }
+            }
+
+            // Knop direct "definitief" disablen na succesvol versturen
+            sendBtn.classList.remove('opacity-60');
+            sendBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            sendBtn.setAttribute('data-disabled', '1');
+
+            // Revoke-knop tonen zodra hij verstuurd is
+            if (revokeBtn && data.sent_at) {
+                revokeBtn.classList.remove('hidden');
+            }
+
+            // Tijdlijn: "Verzonden naar klant" toevoegen of bijwerken
+            if (data.sent_at) {
+                const list = document.querySelector('[data-timeline-list]');
+                const dateObj = new Date(data.sent_at);
+
+                const pad = (n) => String(n).padStart(2, '0');
+                const formatted =
+                    `${pad(dateObj.getDate())}-${pad(dateObj.getMonth() + 1)}-${dateObj.getFullYear()} ` +
+                    `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+
+                let sentItem = document.querySelector('[data-timeline-sent]');
+
+                if (!sentItem && list) {
+                    sentItem = document.createElement('li');
+                    sentItem.className =
+                        'flex items-center justify-between gap-2 text-[11px] text-[#215558]';
+                    sentItem.setAttribute('data-timeline-sent', '1');
+                    sentItem.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold leading-tight" data-timeline-date="sent">
+                                ${formatted}
+                            </span>
+                        </div>
+                        <span class="px-2.5 py-0.5 rounded-full font-semibold text-[11px] bg-emerald-100 text-emerald-700">
+                            Verzonden naar klant
+                        </span>
+                    `;
+                    list.appendChild(sentItem);
+                } else if (sentItem) {
+                    const dateSpan = sentItem.querySelector('[data-timeline-date="sent"]');
+                    if (dateSpan) {
+                        dateSpan.textContent = formatted;
+                    }
+                }
+
+                // Na versturen: offerte read-only maken
+                if (window.makeOfferteReadOnly) {
+                    window.makeOfferteReadOnly();
+                }
+            }
+        })
+        .catch(function (err) {
+            if (window.showToast) {
+                window.showToast(err.message || 'Versturen mislukt. Probeer het opnieuw.', 'error');
+            } else {
+                alert(err.message || 'Versturen mislukt.');
+            }
+        })
+        .finally(function () {
+            isSending = false;
+
+            if (!sendBtn.dataset.disabled) {
+                sendBtn.classList.remove('opacity-60', 'pointer-events-none');
+            } else {
+                sendBtn.classList.remove('opacity-60');
+            }
+        });
+    });
+
+    // ❌ Offerte intrekken
+    if (revokeBtn) {
+        revokeBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (isSending) return;
+
+            if (!confirm('Weet je zeker dat je deze offerte wilt intrekken? De klant kan de offerte dan niet meer bekijken of tekenen.')) {
+                return;
+            }
+
+            isSending = true;
+            revokeBtn.classList.add('opacity-60', 'pointer-events-none');
+
+            fetch(revokeEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                },
+                body: JSON.stringify({}),
+            })
+            .then(function (res) {
+                if (!res.ok) {
+                    return res.json().catch(() => ({})).then(function (data) {
+                        throw new Error(data.message || 'Intrekken mislukt.');
+                    });
+                }
+                return res.json();
+            })
+            .then(function (data) {
+                if (window.showToast) {
+                    window.showToast(
+                        data.message || 'De offerte is ingetrokken. De klant heeft geen toegang meer en jij kunt hem weer bewerken.',
+                        'success'
+                    );
+                }
+
+                // Kleine delay zodat de toast zichtbaar is, daarna alles opnieuw laden
+                setTimeout(function () {
+                    window.location.reload();
+                }, 700);
+            })
+            .catch(function (err) {
+                if (window.showToast) {
+                    window.showToast(err.message || 'Intrekken mislukt. Probeer het opnieuw.', 'error');
+                } else {
+                    alert(err.message || 'Intrekken mislukt.');
+                }
+            })
+            .finally(function () {
+                isSending = false;
+                revokeBtn.classList.remove('opacity-60', 'pointer-events-none');
+            });
         });
     }
 });
