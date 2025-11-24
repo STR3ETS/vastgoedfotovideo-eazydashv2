@@ -6,6 +6,7 @@ use App\Jobs\RunSeoAuditJob;
 use App\Models\Company;
 use App\Models\SeoAudit;
 use App\Services\SeoAuditInsightsService;
+use App\Services\SeoAuditTaskPlanService;
 use Illuminate\Http\Request;
 
 class SeoAuditController extends Controller
@@ -106,6 +107,7 @@ class SeoAuditController extends Controller
         $meta = [
             'locale'  => $data['locale'] ?? 'nl-NL',
             'country' => strtoupper($data['country'] ?? 'NL'),
+            'settings'=> config('seranking.default_audit_settings', []),
         ];
 
         $audit = SeoAudit::create([
@@ -129,9 +131,6 @@ class SeoAuditController extends Controller
 
     /**
      * Detailpagina van één audit met slimme inzichten en acties.
-     *
-     * LET OP: dit gebruikt SeoAuditInsightsService + je rule-config
-     * om alles te vertalen naar concrete acties voor de medewerker.
      */
     public function show(
         Request $request,
@@ -141,16 +140,15 @@ class SeoAuditController extends Controller
         $user = $request->user();
         $this->ensureAuthorized($user);
 
-        // Alles centraal uit de service halen
         $insights   = $insightsService->buildInsights($seoAudit);
         $summary    = $insights['summary'] ?? [];
         $quickWins  = $insights['quick_wins'] ?? [];
         $actions    = $insights['recommended_actions'] ?? [];
         $rawIssues  = $insights['raw_issues'] ?? [];
         $rawReport  = $insights['raw_report'] ?? [];
-
-        // Domein properties (backlinks, index, etc.)
         $domainProps = data_get($rawReport, 'domain_props', []);
+
+        $aiPlan = $seoAudit->ai_plan ?? null;
 
         return view('hub.seo.show', [
             'user'        => $user,
@@ -161,7 +159,50 @@ class SeoAuditController extends Controller
             'actions'     => $actions,
             'rawIssues'   => $rawIssues,
             'rawReport'   => $rawReport,
+            'aiPlan'      => $aiPlan,
         ]);
+    }
+
+    /**
+     * AI takenplan genereren of verversen op basis van een audit.
+     */
+    public function generatePlan(
+        Request $request,
+        SeoAudit $seoAudit,
+        SeoAuditInsightsService $insightsService,
+        SeoAuditTaskPlanService $taskPlanService
+    ) {
+        $user = $request->user();
+        $this->ensureAuthorized($user);
+
+        // Insights opnieuw ophalen zodat we actuele quick wins en acties hebben
+        $insights  = $insightsService->buildInsights($seoAudit);
+        $summary   = $insights['summary'] ?? [];
+        $quickWins = $insights['quick_wins'] ?? [];
+        $actions   = $insights['recommended_actions'] ?? [];
+
+        try {
+            $plan = $taskPlanService->generatePlan($seoAudit, $summary, $quickWins, $actions);
+
+            $seoAudit->ai_plan = [
+                'generated_at' => now()->toIso8601String(),
+                'model'        => config('openai.model', 'gpt-4o-mini'),
+                'plan'         => $plan,
+            ];
+            $seoAudit->save();
+
+            return redirect()
+                ->route('support.seo-audit.show', $seoAudit)
+                ->with('status', 'AI takenplan is succesvol gegenereerd.');
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('support.seo-audit.show', $seoAudit)
+                ->withErrors([
+                    'ai' => 'AI takenplan genereren is niet gelukt: ' . $e->getMessage(),
+                ]);
+        }
     }
 
     /**

@@ -20,7 +20,7 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'base_url' => env('SERANKING_BASE_URL', 'https://api.seranking.com/v1'),
+    'base_url' => env('SERANKING_BASE_URL', 'https://api.seranking.com'),
 
     /*
     |--------------------------------------------------------------------------

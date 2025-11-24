@@ -22,12 +22,14 @@ class SeoAudit extends Model
         'status',
         'overall_score',
         'meta',
+        'ai_plan',
         'started_at',
         'finished_at',
     ];
 
     protected $casts = [
         'meta'        => 'array',
+        'ai_plan'     => 'array',
         'started_at'  => 'datetime',
         'finished_at' => 'datetime',
     ];
@@ -78,9 +80,9 @@ class SeoAudit extends Model
 
     public function markCompleted(?int $overallScore = null): void
     {
-        $this->status       = 'completed';
+        $this->status        = 'completed';
         $this->overall_score = $overallScore;
-        $this->finished_at  = now();
+        $this->finished_at   = now();
         $this->save();
     }
 
