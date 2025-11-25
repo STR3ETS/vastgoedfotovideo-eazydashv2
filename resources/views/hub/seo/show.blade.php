@@ -65,16 +65,14 @@
                             'failed'    => 'bg-red-500',
                             default     => 'bg-gray-500',
                         };
+
+                        $score = $summary['score'] ?? $audit->overall_score;
                     @endphp
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $statusClasses }}">
                         <span class="w-2 h-2 rounded-full mr-1 {{ $dotClasses }}"></span>
                         {{ $statusLabel }}
                     </span>
                 </div>
-
-                @php
-                    $score = $summary['score'] ?? $audit->overall_score;
-                @endphp
 
                 <div class="flex items-baseline gap-1">
                     <span class="text-xs text-[#215558] opacity-80">Algemene SEO score</span>
@@ -96,6 +94,17 @@
             </div>
         </div>
 
+        @php
+            $criticalPages = $summary['critical_issues'] ?? ($summary['errors'] ?? 0);
+            $warningPages  = $summary['warning_issues'] ?? ($summary['warnings'] ?? 0);
+            $totalIssues   = $summary['issues_total'] ?? null;
+            $issuesByCat   = $summary['issues_by_category'] ?? [];
+
+            $ownerGroups   = data_get($audit->meta, 'insights.owner_groups', []);
+            $pageOverview  = data_get($audit->meta, 'insights.page_overview', []);
+            $topPages      = $pageOverview['top_pages'] ?? [];
+        @endphp
+
         {{-- Hoofdgrid --}}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 flex-1">
             {{-- Kolom 1: Samenvatting + belangrijkste issues --}}
@@ -111,24 +120,63 @@
                         </span>
                     </div>
                     <div class="bg-[#ffecec] rounded-lg px-3 py-2 flex flex-col">
-                        <span class="text-[11px] text-[#a12020] opacity-80 mb-1">Kritieke fouten</span>
+                        <span class="text-[11px] text-[#a12020] opacity-80 mb-1">Kritieke issues (pagina s)</span>
                         <span class="text-lg font-bold text-[#a12020]">
-                            {{ $summary['errors'] ?? '0' }}
+                            {{ $criticalPages ?? 0 }}
                         </span>
                     </div>
                     <div class="bg-[#fff7e6] rounded-lg px-3 py-2 flex flex-col">
-                        <span class="text-[11px] text-[#b06400] opacity-80 mb-1">Waarschuwingen</span>
+                        <span class="text-[11px] text-[#b06400] opacity-80 mb-1">Waarschuwingen (pagina s)</span>
                         <span class="text-lg font-bold text-[#b06400]">
-                            {{ $summary['warnings'] ?? '0' }}
+                            {{ $warningPages ?? 0 }}
                         </span>
                     </div>
                 </div>
 
+                @if(!is_null($totalIssues))
+                    <p class="text-[11px] text-[#215558] opacity-80 mb-2">
+                        Totaal aantal getroffen pagina s in dit rapport: <strong>{{ $totalIssues }}</strong>.
+                    </p>
+                @endif
+
                 <p class="text-[11px] text-[#215558] opacity-80 mb-4 leading-relaxed">
-                    Gebruik dit rapport als startpunt voor je advies. Begin met de kritieke fouten
-                    (techniek en zichtbaarheid), pak daarna de waarschuwingen op en sluit af met
+                    Gebruik dit rapport als startpunt voor je advies. Begin met de kritieke issues
+                    op de belangrijkste pagina s, pak daarna de waarschuwingen op en sluit af met
                     optimalisaties rond content en interne links.
                 </p>
+
+                {{-- Verdeling per categorie --}}
+                @if(!empty($issuesByCat))
+                    <h3 class="text-xs font-semibold text-[#215558] mb-2">
+                        Verdeling per categorie
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2 mb-4 text-[11px]">
+                        @foreach($issuesByCat as $cat => $data)
+                            @php
+                                $label = $cat ?: 'Overig';
+                                $pages = $data['pages'] ?? 0;
+                                $issuesCount = $data['issues'] ?? 0;
+                                $crit = $data['critical'] ?? 0;
+                                $warn = $data['warnings'] ?? 0;
+                            @endphp
+                            <div class="border border-[#e0f4f1] rounded-lg px-3 py-2 bg-[#f5faf9]">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-semibold text-[#215558]">{{ $label }}</span>
+                                    <span class="text-[10px] text-[#215558] opacity-70">
+                                        {{ $issuesCount }} issue{{ $issuesCount === 1 ? '' : 's' }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between text-[10px] text-[#215558] opacity-80">
+                                    <span>{{ $pages }} pagina s</span>
+                                    <span>
+                                        <span class="text-[#a12020]">{{ $crit }} kritieke</span>,
+                                        <span class="text-[#b06400]">{{ $warn }} waarschuwingen</span>
+                                    </span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
 
                 <h3 class="text-xs font-semibold text-[#215558] mb-2">
                     Belangrijkste verbeterpunten
@@ -188,9 +236,78 @@
                 @endif
             </div>
 
-            {{-- Kolom 2: Technische details + ruwe JSON --}}
+            {{-- Kolom 2: Wie moet wat doen + technische details --}}
             <div class="bg-white rounded-xl p-5 flex flex-col">
-                <h2 class="text-sm font-semibold text-[#215558] mb-3">Technische details</h2>
+                <h2 class="text-sm font-semibold text-[#215558] mb-3">Wie moet wat doen</h2>
+
+                <p class="text-[11px] text-[#215558] opacity-80 mb-3">
+                    Dit laat per rol zien waar de grootste pijn zit. Gebruik dit om snel taken te verdelen
+                    tussen developer, copywriter, SEO en designer.
+                </p>
+
+                @php
+                    $ownerLabels = [
+                        'developer' => 'Developer',
+                        'copywriter'=> 'Copywriter',
+                        'seo'       => 'SEO specialist',
+                        'designer'  => 'Designer',
+                        'marketing' => 'Marketing',
+                        'onbekend'  => 'Onbekend',
+                    ];
+                @endphp
+
+                @if(!empty($ownerGroups))
+                    <div class="space-y-2 mb-4 text-[11px]">
+                        @foreach($ownerGroups as $group)
+                            @php
+                                $ownerKey    = strtolower($group['owner'] ?? 'onbekend');
+                                $ownerLabel  = $ownerLabels[$ownerKey] ?? ucfirst($ownerKey);
+                                $critical    = $group['critical_pages'] ?? 0;
+                                $warning     = $group['warning_pages'] ?? 0;
+                                $totalIssues = $group['total_issues'] ?? 0;
+                            @endphp
+                            <div class="border border-[#e0f4f1] rounded-lg px-3 py-2 bg-[#f5faf9]">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-semibold text-[#215558]">
+                                        {{ $ownerLabel }}
+                                    </span>
+                                    <span class="text-[10px] text-[#215558] opacity-70">
+                                        {{ $totalIssues }} issue{{ $totalIssues === 1 ? '' : 's' }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between text-[10px] text-[#215558] opacity-80 mb-1">
+                                    <span>
+                                        <span class="text-[#a12020]">{{ $critical }} kritieke pagina s</span>
+                                        @if($warning > 0)
+                                            , <span class="text-[#b06400]">{{ $warning }} met waarschuwingen</span>
+                                        @endif
+                                    </span>
+                                </div>
+                                @if(!empty($group['top_issues']))
+                                    <div class="text-[10px] text-[#215558] opacity-80">
+                                        <span class="font-semibold">Belangrijkste issues:</span>
+                                        <ul class="list-disc list-inside mt-0.5 space-y-0.5">
+                                            @foreach($group['top_issues'] as $ti)
+                                                <li>
+                                                    {{ $ti['title'] ?? 'Issue' }}
+                                                    @if(!empty($ti['pages']))
+                                                        ({{ $ti['pages'] }} pagina s)
+                                                    @endif
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-[11px] text-[#215558] opacity-80 mb-4">
+                        Er zijn nog geen rol-specifieke inzichten beschikbaar voor deze audit.
+                    </p>
+                @endif
+
+                <h2 class="text-sm font-semibold text-[#215558] mb-3 mt-2">Technische details</h2>
 
                 <p class="text-[11px] text-[#215558] opacity-80 mb-4">
                     Dit blok is bedoeld als naslag voor jou als specialist. Hier zie je de
@@ -263,13 +380,13 @@
                 </p>
 
                 @php
-                    $plan = $aiPlan['plan'] ?? null;
+                    $plan  = $aiPlan['plan'] ?? null;
                     $tasks = collect($plan['tasks'] ?? []);
                     $tasksByOwner = $tasks->groupBy(function ($task) {
                         return strtolower($task['owner'] ?? 'seo');
                     });
 
-                    $ownerLabels = [
+                    $ownerLabelsPlan = [
                         'developer' => 'Developer',
                         'copywriter'=> 'Copywriter',
                         'seo'       => 'SEO specialist',
@@ -326,7 +443,7 @@
                             <div class="border border-[#e0f4f1] rounded-xl p-3">
                                 <div class="flex items-center justify-between mb-1">
                                     <span class="text-[11px] font-semibold text-[#215558]">
-                                        {{ $ownerLabels[$owner] ?? ucfirst($owner) }}
+                                        {{ $ownerLabelsPlan[$owner] ?? ucfirst($owner) }}
                                     </span>
                                     <span class="text-[10px] text-[#215558] opacity-60">
                                         {{ count($ownerTasks) }} taak{{ count($ownerTasks) === 1 ? '' : 'en' }}
@@ -413,6 +530,76 @@
                     </button>
                 </div>
             </div>
+        </div>
+
+        {{-- Onderste blok: Top probleempagina s --}}
+        <div class="bg-white rounded-xl p-5">
+            <h2 class="text-sm font-semibold text-[#215558] mb-2">
+                Top probleempagina s
+            </h2>
+            <p class="text-[11px] text-[#215558] opacity-80 mb-3">
+                Deze pagina s hebben de meeste en zwaarste issues. Gebruik dit als startpunt
+                voor je optimalisaties en klantgesprek.
+            </p>
+
+            @if(empty($topPages))
+                <p class="text-[11px] text-[#215558] opacity-80">
+                    Er zijn geen pagina specifieke data gevonden in dit rapport of SERanking geeft
+                    geen sample URLs terug voor de issues.
+                </p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-[11px] text-left text-[#215558]">
+                        <thead>
+                        <tr class="border-b border-[#e0f4f1]">
+                            <th class="py-2 pr-4 font-semibold">Pagina</th>
+                            <th class="py-2 px-2 font-semibold text-center">Totaal</th>
+                            <th class="py-2 px-2 font-semibold text-center text-[#a12020]">Kritiek</th>
+                            <th class="py-2 px-2 font-semibold text-center text-[#b06400]">Waarschuwingen</th>
+                            <th class="py-2 px-2 font-semibold">Categorieën</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach($topPages as $page)
+                            @php
+                                $cats = $page['categories'] ?? [];
+                            @endphp
+                            <tr class="border-b border-[#f3f7f6] last:border-0">
+                                <td class="py-2 pr-4 align-top max-w-xs">
+                                    <div class="flex flex-col gap-0.5">
+                                        <span class="truncate" title="{{ $page['url'] ?? '' }}">
+                                            {{ $page['url'] ?? '' }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="py-2 px-2 text-center align-top">
+                                    {{ $page['issues_total'] ?? 0 }}
+                                </td>
+                                <td class="py-2 px-2 text-center align-top text-[#a12020]">
+                                    {{ $page['critical'] ?? 0 }}
+                                </td>
+                                <td class="py-2 px-2 text-center align-top text-[#b06400]">
+                                    {{ $page['warnings'] ?? 0 }}
+                                </td>
+                                <td class="py-2 px-2 align-top">
+                                    @if(empty($cats))
+                                        <span class="text-[10px] opacity-70">Geen categorie informatie</span>
+                                    @else
+                                        <div class="flex flex-wrap gap-1">
+                                            @foreach($cats as $catName => $count)
+                                                <span class="px-1.5 py-0.5 rounded-full bg-[#f5faf9] text-[10px] text-[#215558]">
+                                                    {{ $catName }} ({{ $count }})
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
         </div>
     </div>
 @endsection

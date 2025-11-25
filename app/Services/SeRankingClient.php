@@ -30,14 +30,6 @@ class SeRankingClient
         $method = strtolower($method);
         $client = $this->http();
 
-        // TEMP LOGGING
-        logger()->warning('SERanking request', [
-            'method' => strtoupper($method),
-            'url'    => $this->baseUrl . $path,
-            'params' => $params,
-            'apiKey_starts_with' => substr($this->apiKey, 0, 6),
-        ]);
-
         if ($method === 'get') {
             $res = $client->get($path, $params);
         } else {
@@ -61,10 +53,9 @@ class SeRankingClient
         return $res->json();
     }
 
-
     /**
      * Start een standaard Website Audit.
-     * Zie: https://api.seranking.com/v1/site-audit/audits/standard
+     * POST /v1/site-audit/audits/standard
      */
     public function createStandardAudit(string $domain, array $settings = [], ?string $title = null): array
     {
@@ -76,7 +67,7 @@ class SeRankingClient
             $payload['title'] = $title;
         }
 
-        if (!empty($settings)) {
+        if (! empty($settings)) {
             $payload['settings'] = $settings;
         }
 
@@ -96,7 +87,7 @@ class SeRankingClient
 
     /**
      * Check status van een audit.
-     * GET /v1/site-audit/audits/status?audit_id=...
+     * GET /v1/site-audit/audits/status
      */
     public function getAuditStatus(int $auditId): array
     {
@@ -107,7 +98,7 @@ class SeRankingClient
 
     /**
      * Haal het volledige rapport op.
-     * GET /v1/site-audit/audits/report?audit_id=...
+     * GET /v1/site-audit/audits/report
      */
     public function getAuditReport(int $auditId): array
     {
@@ -122,5 +113,32 @@ class SeRankingClient
     public function getWebsiteAudit(string $remoteAuditId): array
     {
         return $this->getAuditReport((int) $remoteAuditId);
+    }
+
+    /**
+     * Alle gecrawlede pagina’s van een audit.
+     * GET /v1/site-audit/audits/pages
+     */
+    public function getAuditPages(int $auditId, int $limit = 100, int $offset = 0): array
+    {
+        return $this->request('get', '/v1/site-audit/audits/pages', [
+            'audit_id' => $auditId,
+            'limit'    => $limit,
+            'offset'   => $offset,
+        ]);
+    }
+
+    /**
+     * Alle URLs die geraakt worden door een specifieke issue-code.
+     * GET /v1/site-audit/audits/issue-pages
+     */
+    public function getIssuePages(int $auditId, string $code, int $limit = 50, int $offset = 0): array
+    {
+        return $this->request('get', '/v1/site-audit/audits/issue-pages', [
+            'audit_id' => $auditId,
+            'code'     => $code,
+            'limit'    => $limit,
+            'offset'   => $offset,
+        ]);
     }
 }
