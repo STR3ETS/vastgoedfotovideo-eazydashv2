@@ -86,19 +86,19 @@
         <div class="min-w-[300px] h-full pr-8">
           <h1 class="text-base font-black text-[#215558] pt-3.5 mb-4">Eazyonline Workspace</h1>
           <ul class="grid gap-2">
-            @if (request()->is('app') || request()->is('app/overzicht/offertes') || request()->is('app/overzicht/facturen'))
-              <li class="flex items-center gap-2 opacity-50">
-                <i class="fa-solid fa-star text-[#215558] fa-xs"></i>
-                <p href="#" class="text-[#215558] font-semibold text-sm">Favorieten</p>
-              </li>
-              <li class="flex items-center gap-2 opacity-50">
-                <i class="fa-solid fa-history text-[#215558] fa-xs"></i>
-                <p href="#" class="text-[#215558] font-semibold text-sm">Recent</p>
-              </li>
+            <li class="flex items-center gap-2 opacity-50">
+              <i class="fa-solid fa-star text-[#215558] fa-xs"></i>
+              <p href="#" class="text-[#215558] font-semibold text-sm">Favorieten</p>
+            </li>
+            <li class="flex items-center gap-2 opacity-50">
+              <i class="fa-solid fa-history text-[#215558] fa-xs"></i>
+              <p href="#" class="text-[#215558] font-semibold text-sm">Recent</p>
+            </li>
+            @if (request()->is('app') || request()->is('app/sales/offertes') || request()->is('app/overzicht/facturen'))
               <li class="grid gap-1" x-data="{ openSales: true }">
                 <!-- Rij: Sales + plusje -->
                 <div class="flex items-center justify-between gap-2">
-                  <a href="{{ url('/app/overzicht/offertes') }}"
+                  <a href="{{ url('/app/sales/offertes') }}"
                     class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
                     Sales
                   </a>
@@ -127,7 +127,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                       <hr class="w-[10px] border-1 border-[#215558]/25">
-                      <a href="{{ url('/app/overzicht/offertes') }}"
+                      <a href="{{ url('/app/sales/offertes') }}"
                         class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
                         Offertes
                       </a>
@@ -257,6 +257,137 @@
                                   </div>
                               </li>
                           </ul>
+                      </div>
+                  </li>
+              </ul>
+            @endif
+            @if (request()->is('app/marketing*'))
+              <ul class="grid gap-2" x-data="{ openMailing: true }">
+                  <li class="flex items-center justify-between gap-2">
+                      <a href="{{ url('/app/marketing/mailing') }}" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                          Mailing
+                      </a>
+                      <button
+                          type="button"
+                          class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                          @click="openMailing = !openMailing"
+                          :aria-expanded="openMailing.toString()"
+                      >
+                          <i
+                              class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+                              :class="openMailing ? 'rotate-45 text-[#0F9B9F]' : ''"
+                          ></i>
+                      </button>
+                  </li>
+                  <li x-show="openMailing" x-transition>
+                      <div class="border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+                          <div class="flex items-center gap-2">
+                              <hr class="w-[10px] border-1 border-[#215558]/25">
+                              <a href="{{ url('/app/marketing/mailing/nieuwsbrieven') }}" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                  Nieuwsbrieven
+                              </a>
+                          </div>
+                          <ul class="grid gap-2">
+                              <div class="flex items-center gap-2">
+                                  <hr class="w-[10px] border-1 border-[#215558]/25">
+                                  <a href="{{ url('/app/marketing/mailing/templates') }}" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                      Templates
+                                  </a>
+                              </div>
+                              <li>
+                                  <div class="ml-[18px] border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+                                      <div class="flex items-center gap-2">
+                                          <hr class="w-[10px] border-1 border-[#215558]/25">
+                                          <a href="{{ url('/app/marketing/mailing/templates/nieuwsbrief-templates') }}" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                              Nieuwsbrief-templates
+                                          </a>
+                                      </div>
+                                      <div class="flex items-center gap-2">
+                                          <hr class="w-[10px] border-1 border-[#215558]/25">
+                                          <a href="{{ url('/app/marketing/mailing/templates/actie-aanbod-templates') }}" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                              Actie / aanbod-templates
+                                          </a>
+                                      </div>
+                                      <div class="flex items-center gap-2">
+                                          <hr class="w-[10px] border-1 border-[#215558]/25">
+                                          <a href="{{ url('/app/marketing/mailing/templates/onboarding-opvolg-templates') }}" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                              Onboarding / opvolg-templates
+                                          </a>
+                                      </div>
+                                  </div>
+                              </li>
+                          </ul>
+                          <ul class="grid gap-2">
+                              <li class="flex items-center justify-between gap-2">
+                                  <div class="flex items-center gap-2">
+                                      <hr class="w-[10px] border-1 border-[#215558]/25">
+                                      <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                          Campagnes
+                                      </a>
+                                  </div>
+                                  <div
+                                      class="w-4 h-4 bg-[#0F9B9F] font-semibold text-[11px] rounded-full text-white flex items-center justify-center"
+                                  >
+                                      2
+                                  </div>
+                              </li>
+                              <li>
+                                  <div class="ml-[18px] border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+                                      <div class="flex items-center gap-2">
+                                          <hr class="w-[10px] border-1 border-[#215558]/25">
+                                          <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                              Winteractie
+                                          </a>
+                                      </div>
+                                      <div class="flex items-center gap-2">
+                                          <hr class="w-[10px] border-1 border-[#215558]/25">
+                                          <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                              Nieuwjaarskorting
+                                          </a>
+                                      </div>
+                                  </div>
+                              </li>
+                          </ul>
+                      </div>
+                  </li>
+              </ul>
+              <ul class="grid gap-2" x-data="{ openSocial: true }">
+                  <li class="flex items-center justify-between gap-2">
+                      <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                          Socials
+                      </a>
+                      <button
+                          type="button"
+                          class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                          @click="openSocial = !openSocial"
+                          :aria-expanded="openSocial.toString()"
+                      >
+                          <i
+                              class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+                              :class="openSocial ? 'rotate-45 text-[#0F9B9F]' : ''"
+                          ></i>
+                      </button>
+                  </li>
+                  <li x-show="openSocial" x-transition>
+                      <div class="border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+                          <div class="flex items-center gap-2">
+                              <hr class="w-[10px] border-1 border-[#215558]/25">
+                              <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                  Contentkalender
+                              </a>
+                          </div>
+                          <div class="flex items-center gap-2">
+                              <hr class="w-[10px] border-1 border-[#215558]/25">
+                              <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                  Posts
+                              </a>
+                          </div>
+                          <div class="flex items-center gap-2">
+                              <hr class="w-[10px] border-1 border-[#215558]/25">
+                              <a href="#" class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+                                  Activiteiten
+                              </a>
+                          </div>
                       </div>
                   </li>
               </ul>

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Models\Offerte;
+use App\Models\WorkSession;
 
 use App\Http\Controllers\AanvraagController;
 use App\Http\Controllers\PotentieleKlantenController;
@@ -19,6 +20,10 @@ use App\Http\Controllers\IntakeController;
 use App\Http\Controllers\ProjectenController;
 use App\Http\Controllers\ProjectPreviewController;
 use App\Http\Controllers\OfferteController;
+use App\Http\Controllers\WorkSessionController;
+use App\Http\Controllers\MarketingController;
+use App\Http\Controllers\MailingController;
+use App\Http\Controllers\SocialsController;
 
 // eazyonline.nl website
 Route::view('/', 'website.home')->name('pages.home');
@@ -80,10 +85,62 @@ Route::prefix('app')->group(function () {
         
         Route::get('/', function () {
             $user = auth()->user();
-            return view('hub.index', compact('user'));
+            $now  = now();
+            $today      = $now->toDateString();
+            $weekStart  = $now->copy()->startOfWeek();
+            $weekEnd    = $now->copy()->endOfWeek();
+            $monthStart = $now->copy()->startOfMonth();
+            $monthEnd   = $now->copy()->endOfMonth();
+            $activeSession = $user->workSessions()
+                ->whereNull('clock_out_at')
+                ->latest('clock_in_at')
+                ->first();
+            $activeSeconds = 0;
+            if ($activeSession) {
+                $activeSeconds = $now->diffInSeconds($activeSession->clock_in_at);
+            }
+            $calcTotal = function ($sessions) {
+                return $sessions->reduce(function ($carry, \App\Models\WorkSession $session) {
+                    if ($session->clock_out_at) {
+                        $seconds = $session->worked_seconds
+                            ?? $session->clock_out_at->diffInSeconds($session->clock_in_at);
+                    } else {
+                        // lopende sessie meenemen
+                        $seconds = now()->diffInSeconds($session->clock_in_at);
+                    }
+
+                    return $carry + max(0, $seconds);
+                }, 0);
+            };
+            $todaySeconds = $calcTotal(
+                $user->workSessions()
+                    ->whereDate('clock_in_at', $today)
+                    ->get()
+            );
+            $weekSeconds = $calcTotal(
+                $user->workSessions()
+                    ->whereBetween('clock_in_at', [$weekStart, $weekEnd])
+                    ->get()
+            );
+            $monthSeconds = $calcTotal(
+                $user->workSessions()
+                    ->whereBetween('clock_in_at', [$monthStart, $monthEnd])
+                    ->get()
+            );
+            return view('hub.index', [
+                'user'          => $user,
+                'activeSession' => $activeSession,
+                'activeSeconds' => $activeSeconds,
+                'todaySeconds'  => $todaySeconds,
+                'weekSeconds'   => $weekSeconds,
+                'monthSeconds'  => $monthSeconds,
+            ]);
         })->name('support.dashboard');
 
-        Route::get('/overzicht/offertes', function () {
+        Route::post('/work/clock-in',  [WorkSessionController::class, 'clockIn'])->name('support.work.clock_in');
+        Route::post('/work/clock-out', [WorkSessionController::class, 'clockOut'])->name('support.work.clock_out');
+
+        Route::get('/sales/offertes', function () {
             $user = auth()->user();
             $offertes = Offerte::with('project')
                 ->orderByDesc('created_at')
@@ -144,6 +201,40 @@ Route::prefix('app')->group(function () {
                 Route::patch('/{project}/offerte-complete', 'completeOfferteTask')->name('offerte.complete');
                 Route::post('/{project}/calls', 'storeCall')->name('calls.store');
                 Route::post('/{project}/offerte-generate', 'generateOfferte')->name('offerte.generate');
+        });
+
+        // Marketing
+        Route::prefix('marketing')
+            ->name('support.marketing.')
+            ->group(function () {
+                Route::get('/', [MarketingController::class, 'index'])->name('index');
+
+                Route::prefix('mailing')
+                    ->name('mailing.')
+                    ->controller(MailingController::class)
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+
+                        Route::get('/nieuwsbrieven', 'nieuwsbrievenIndex')->name('nieuwsbrievenIndex');
+
+                        Route::get('/templates', 'templatesIndex')->name('templatesIndex');
+                        Route::get('/templates/nieuwsbrief-templates', 'nieuwsbriefTemplates')->name('nieuwsbriefTemplates');
+                        Route::get('/templates/actie-aanbod-templates', 'actieAanbodTemplates')->name('actieAanbodTemplates');
+                        Route::get('/templates/onboarding-opvolg-templates', 'onboardingOpvolgTemplates')->name('onboardingOpvolgTemplates');
+
+                        Route::get('/campagnes', 'campagnesIndex')->name('campagnesIndex');
+                    });
+
+                Route::prefix('socials')
+                    ->name('socials.')
+                    ->controller(SocialsController::class)
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+
+                        Route::get('/contentkalender', 'contentkalenderIndex')->name('contentkalenderIndex');
+                        Route::get('/posts', 'postsIndex')->name('postsIndex');
+                        Route::get('/activiteiten', 'activiteitenIndex')->name('activiteitenIndex');
+                    });
         });
 
         // Gebruikers
