@@ -219,6 +219,7 @@ Route::prefix('app')->group(function () {
 
                         Route::get('/templates', 'templatesIndex')->name('templatesIndex');
                         Route::get('/templates/nieuwsbrief-templates', 'nieuwsbriefTemplates')->name('nieuwsbriefTemplates');
+                        Route::post('/templates/nieuwsbrief-templates/quick-create', 'quickCreateNieuwsbriefTemplate')->name('nieuwsbriefTemplates.quickCreate');
                         Route::get('/templates/actie-aanbod-templates', 'actieAanbodTemplates')->name('actieAanbodTemplates');
                         Route::get('/templates/onboarding-opvolg-templates', 'onboardingOpvolgTemplates')->name('onboardingOpvolgTemplates');
 
