@@ -70,6 +70,48 @@
         border-style: dashed;
         border-color: #0F9B9F;
     }
+
+    /* === Resize handles === */
+    .builder-resize-handle {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        border: 2px solid #0F9B9F;
+        background: #fff;
+        box-shadow: 0 0 0 1px rgba(15, 155, 159, 0.35);
+        opacity: 0;
+        pointer-events: auto;
+        transition: opacity 0.15s ease;
+        z-index: 5;
+    }
+
+    /* Toon handles als blok geselecteerd of bij hover */
+    .builder-canvas-item.builder-selected .builder-resize-handle,
+    .builder-canvas-item:hover .builder-resize-handle {
+        opacity: 1;
+    }
+
+    .builder-resize-handle[data-resize-corner="nw"] {
+        top: -6px;
+        left: -6px;
+        cursor: nwse-resize;
+    }
+    .builder-resize-handle[data-resize-corner="ne"] {
+        top: -6px;
+        right: -6px;
+        cursor: nesw-resize;
+    }
+    .builder-resize-handle[data-resize-corner="sw"] {
+        bottom: -6px;
+        left: -6px;
+        cursor: nesw-resize;
+    }
+    .builder-resize-handle[data-resize-corner="se"] {
+        bottom: -6px;
+        right: -6px;
+        cursor: nwse-resize;
+    }
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -173,6 +215,813 @@ document.addEventListener('DOMContentLoaded', function () {
         // Geen actieve template => geen canvas
         if (!canvas || !blocksWrap || !palette) return;
 
+        // ---- INSPECTOR STATE ----
+        let inspector = document.getElementById('email-builder-inspector');
+        let activeInspectorBlock = null;
+
+        if (!inspector) {
+            inspector = document.createElement('div');
+            inspector.id = 'email-builder-inspector';
+            inspector.style.position = 'absolute';
+            inspector.style.display = 'none';
+            inspector.style.zIndex = '9999';
+            inspector.style.pointerEvents = 'auto';
+            document.body.appendChild(inspector);
+        }
+
+        function closeInspector() {
+            if (!inspector) return;
+            inspector.style.display = 'none';
+            inspector.innerHTML = '';
+            activeInspectorBlock = null;
+        }
+
+        function openInspectorForColumn(colEl) {
+            if (!inspector || !colEl) return;
+
+            const rect = colEl.getBoundingClientRect();
+            const top  = rect.top + window.scrollY;
+            const left = rect.right + 16 + window.scrollX;
+
+            inspector.style.top  = top + 'px';
+            inspector.style.left = left + 'px';
+
+            const index = colEl.getAttribute('data-column-index') || '';
+            const styles = window.getComputedStyle(colEl);
+
+            const pt = parseInt(styles.paddingTop, 10)    || 0;
+            const pr = parseInt(styles.paddingRight, 10)  || 0;
+            const pb = parseInt(styles.paddingBottom, 10) || 0;
+            const pl = parseInt(styles.paddingLeft, 10)   || 0;
+
+            inspector.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-lg border border-[#21555820] p-4 w-72">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#215558]">
+                            Kolom ${index} instellingen
+                        </p>
+                        <button type="button"
+                                class="text-xs text-[#21555880] hover:text-[#215558]"
+                                data-inspector-close>&times;</button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label class="grid gap-1">
+                            <span class="text-[11px] font-semibold text-[#215558]">Padding (px)</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="number"
+                                    class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                    value="${pt}" data-col-pad="top" placeholder="Top">
+                                <input type="number"
+                                    class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                    value="${pb}" data-col-pad="bottom" placeholder="Bottom">
+                                <input type="number"
+                                    class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                    value="${pl}" data-col-pad="left" placeholder="Links">
+                                <input type="number"
+                                    class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                    value="${pr}" data-col-pad="right" placeholder="Rechts">
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            `;
+
+            const closeBtn = inspector.querySelector('[data-inspector-close]');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function () {
+                    closeInspector();
+                });
+            }
+
+            const padInputs = inspector.querySelectorAll('[data-col-pad]');
+            padInputs.forEach(function (input) {
+                const side = input.dataset.colPad;
+                input.addEventListener('input', function () {
+                    const v = parseInt(this.value, 10) || 0;
+                    if (side === 'top')    colEl.style.paddingTop    = v + 'px';
+                    if (side === 'right')  colEl.style.paddingRight  = v + 'px';
+                    if (side === 'bottom') colEl.style.paddingBottom = v + 'px';
+                    if (side === 'left')   colEl.style.paddingLeft   = v + 'px';
+                });
+            });
+
+            inspector.style.display = 'block';
+        }
+
+        function openInspectorForBlock(blockEl) {
+            if (!inspector || !blockEl) return;
+
+            const type = blockEl.dataset.blockType;
+            activeInspectorBlock = blockEl;
+
+            const rect = blockEl.getBoundingClientRect();
+            const top  = rect.top + window.scrollY;
+            const left = rect.right + 16 + window.scrollX;
+
+            inspector.style.top  = top + 'px';
+            inspector.style.left = left + 'px';
+
+            // ==== LOGO BLOK ====
+            if (type === 'logo') {
+                const container    = blockEl.querySelector('[data-logo-container]');
+                const resizeTarget = blockEl.querySelector('[data-resize-target]');
+                const blockStyles  = window.getComputedStyle(blockEl);
+                const inner        = blockEl.querySelector('.builder-block-inner') || blockEl;
+                const innerStyles  = window.getComputedStyle(inner);
+                const logoStyles   = resizeTarget ? window.getComputedStyle(resizeTarget) : null;
+
+                // Margin (4 kanten) – blijft op de outer wrapper
+                const mt = parseFloat(blockStyles.marginTop)    || 0;
+                const mr = parseFloat(blockStyles.marginRight)  || 0;
+                const mb = parseFloat(blockStyles.marginBottom) || 0;
+                const ml = parseFloat(blockStyles.marginLeft)   || 0;
+                const marginAll = mt;
+
+                // Padding (4 kanten) – nu van inner wrapper
+                const pt = parseFloat(innerStyles.paddingTop)    || 0;
+                const pr = parseFloat(innerStyles.paddingRight)  || 0;
+                const pb = parseFloat(innerStyles.paddingBottom) || 0;
+                const pl = parseFloat(innerStyles.paddingLeft)   || 0;
+                const padAll = pt;
+
+                // Breedte / hoogte van logo-element
+                const w = logoStyles ? (parseFloat(logoStyles.width)  || 128) : 128;
+                const h = logoStyles ? (parseFloat(logoStyles.height) || 48)  : 48;
+
+                // Huidige uitlijning
+                let align = 'center';
+                if (container) {
+                    if (container.classList.contains('justify-start')) align = 'left';
+                    else if (container.classList.contains('justify-end')) align = 'right';
+                }
+
+                inspector.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg border border-[#21555820] p-4 w-72">
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#215558]">
+                                Logo instellingen
+                            </p>
+                            <button type="button"
+                                    class="text-xs text-[#21555880] hover:text-[#215558]"
+                                    data-inspector-close>&times;</button>
+                        </div>
+
+                        <div class="space-y-4">
+                            <!-- MARGIN -->
+                            <label class="grid gap-1">
+                                <span class="text-[11px] font-semibold text-[#215558]">Margin</span>
+
+                                <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-center">
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${marginAll}"
+                                        data-logo-margin-all
+                                        placeholder="Alle kanten">
+                                    <select
+                                        class="border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558] bg-white"
+                                        data-logo-margin-unit>
+                                        <option value="px" selected>px</option>
+                                        <option value="rem">rem</option>
+                                        <option value="em">em</option>
+                                    </select>
+                                </div>
+                                <p class="text-[10px] text-[#21555880]">
+                                    Pas alle kanten tegelijk aan of verfijn per kant.
+                                </p>
+
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${mt}" placeholder="Boven"
+                                        data-logo-margin-top>
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${mr}" placeholder="Rechts"
+                                        data-logo-margin-right>
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${mb}" placeholder="Onder"
+                                        data-logo-margin-bottom>
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${ml}" placeholder="Links"
+                                        data-logo-margin-left>
+                                </div>
+                            </label>
+
+                            <!-- PADDING -->
+                            <label class="grid gap-1">
+                                <span class="text-[11px] font-semibold text-[#215558]">Padding</span>
+
+                                <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-center">
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${padAll}"
+                                        data-logo-pad-all
+                                        placeholder="Alle kanten">
+                                    <select
+                                        class="border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558] bg-white"
+                                        data-logo-pad-unit>
+                                        <option value="px" selected>px</option>
+                                        <option value="rem">rem</option>
+                                        <option value="em">em</option>
+                                    </select>
+                                </div>
+                                <p class="text-[10px] text-[#21555880]">
+                                    Padding rondom het blok, of per zijde.
+                                </p>
+
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${pt}" placeholder="Boven"
+                                        data-logo-pad-top>
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${pr}" placeholder="Rechts"
+                                        data-logo-pad-right>
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${pb}" placeholder="Onder"
+                                        data-logo-pad-bottom>
+                                    <input type="number"
+                                        class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                        value="${pl}" placeholder="Links"
+                                        data-logo-pad-left>
+                                </div>
+                            </label>
+
+                            <!-- LOGO BESTAND -->
+                            <label class="grid gap-1">
+                                <span class="text-[11px] font-semibold text-[#215558]">Logo bestand</span>
+                                <div class="flex gap-2">
+                                    <button type="button"
+                                            class="flex-1 px-3 py-1.5 rounded-full border border-[#21555820] text-[11px] font-semibold text-[#215558] hover:bg-[#21555805]"
+                                            data-logo-upload>
+                                        Afbeelding / video uploaden
+                                    </button>
+                                    <button type="button"
+                                            class="px-3 py-1.5 rounded-full border border-[#21555810] text-[11px] text-[#21555880] hover:bg-[#21555805]"
+                                            data-logo-reset>
+                                        Reset
+                                    </button>
+                                </div>
+                                <input type="file"
+                                    class="hidden"
+                                    accept="image/*,video/*"
+                                    data-logo-file-input>
+                            </label>
+
+                            <!-- UITLIJNING -->
+                            <label class="grid gap-1">
+                                <span class="text-[11px] font-semibold text-[#215558]">Uitlijning</span>
+                                <div class="flex items-center gap-1 bg-[#f3f8f8] rounded-full p-0.5" data-logo-align-group>
+                                    <button type="button"
+                                        class="flex-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center justify-center gap-1 text-[#21555880]"
+                                        data-logo-align="left">
+                                        <i class="fa-solid fa-align-left text-[10px]"></i>
+                                        <span>Links</span>
+                                    </button>
+                                    <button type="button"
+                                        class="flex-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center justify-center gap-1 text-[#21555880]"
+                                        data-logo-align="center">
+                                        <i class="fa-solid fa-align-center text-[10px]"></i>
+                                        <span>Midden</span>
+                                    </button>
+                                    <button type="button"
+                                        class="flex-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center justify-center gap-1 text-[#21555880]"
+                                        data-logo-align="right">
+                                        <i class="fa-solid fa-align-right text-[10px]"></i>
+                                        <span>Rechts</span>
+                                    </button>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                `;
+
+                const closeBtn = inspector.querySelector('[data-inspector-close]');
+                if (closeBtn) closeBtn.addEventListener('click', closeInspector);
+
+                // === MARGIN CONTROLS ===
+                const marginAllInput   = inspector.querySelector('[data-logo-margin-all]');
+                const marginUnitSelect = inspector.querySelector('[data-logo-margin-unit]');
+                const mTopInput        = inspector.querySelector('[data-logo-margin-top]');
+                const mRightInput      = inspector.querySelector('[data-logo-margin-right]');
+                const mBottomInput     = inspector.querySelector('[data-logo-margin-bottom]');
+                const mLeftInput       = inspector.querySelector('[data-logo-margin-left]');
+
+                function getMarginUnit() {
+                    return (marginUnitSelect && marginUnitSelect.value) || 'px';
+                }
+                function applyMargin(side, value) {
+                    const unit = getMarginUnit();
+                    const v = isNaN(value) ? 0 : value;
+
+                    if (side === 'all') {
+                        blockEl.style.marginTop    = v + unit;
+                        blockEl.style.marginRight  = v + unit;
+                        blockEl.style.marginBottom = v + unit;
+                        blockEl.style.marginLeft   = v + unit;
+
+                        if (mTopInput)    mTopInput.value    = v;
+                        if (mRightInput)  mRightInput.value  = v;
+                        if (mBottomInput) mBottomInput.value = v;
+                        if (mLeftInput)   mLeftInput.value   = v;
+                    } else {
+                        if (side === 'top')    blockEl.style.marginTop    = v + unit;
+                        if (side === 'right')  blockEl.style.marginRight  = v + unit;
+                        if (side === 'bottom') blockEl.style.marginBottom = v + unit;
+                        if (side === 'left')   blockEl.style.marginLeft   = v + unit;
+                    }
+                }
+
+                if (marginAllInput) {
+                    marginAllInput.addEventListener('input', function () {
+                        applyMargin('all', parseFloat(this.value));
+                    });
+                }
+                if (mTopInput) mTopInput.addEventListener('input', function () {
+                    applyMargin('top', parseFloat(this.value));
+                });
+                if (mRightInput) mRightInput.addEventListener('input', function () {
+                    applyMargin('right', parseFloat(this.value));
+                });
+                if (mBottomInput) mBottomInput.addEventListener('input', function () {
+                    applyMargin('bottom', parseFloat(this.value));
+                });
+                if (mLeftInput) mLeftInput.addEventListener('input', function () {
+                    applyMargin('left', parseFloat(this.value));
+                });
+
+                if (marginUnitSelect) {
+                    marginUnitSelect.addEventListener('change', function () {
+                        const unit = this.value || 'px';
+                        const topVal    = mTopInput    ? parseFloat(mTopInput.value)    : mt;
+                        const rightVal  = mRightInput  ? parseFloat(mRightInput.value)  : mr;
+                        const bottomVal = mBottomInput ? parseFloat(mBottomInput.value) : mb;
+                        const leftVal   = mLeftInput   ? parseFloat(mLeftInput.value)   : ml;
+
+                        blockEl.style.marginTop    = (isNaN(topVal)    ? 0 : topVal)    + unit;
+                        blockEl.style.marginRight  = (isNaN(rightVal)  ? 0 : rightVal)  + unit;
+                        blockEl.style.marginBottom = (isNaN(bottomVal) ? 0 : bottomVal) + unit;
+                        blockEl.style.marginLeft   = (isNaN(leftVal)   ? 0 : leftVal)   + unit;
+                    });
+                }
+
+                // === PADDING CONTROLS ===
+                const padAllInput   = inspector.querySelector('[data-logo-pad-all]');
+                const padUnitSelect = inspector.querySelector('[data-logo-pad-unit]');
+                const pTopInput     = inspector.querySelector('[data-logo-pad-top]');
+                const pRightInput   = inspector.querySelector('[data-logo-pad-right]');
+                const pBottomInput  = inspector.querySelector('[data-logo-pad-bottom]');
+                const pLeftInput    = inspector.querySelector('[data-logo-pad-left]');
+
+                function getPadUnit() {
+                    return (padUnitSelect && padUnitSelect.value) || 'px';
+                }
+                function applyPadding(side, value) {
+                    const unit = getPadUnit();
+                    const v = isNaN(value) ? 0 : value;
+
+                    if (side === 'all') {
+                        inner.style.paddingTop    = v + unit;
+                        inner.style.paddingRight  = v + unit;
+                        inner.style.paddingBottom = v + unit;
+                        inner.style.paddingLeft   = v + unit;
+
+                        if (pTopInput)    pTopInput.value    = v;
+                        if (pRightInput)  pRightInput.value  = v;
+                        if (pBottomInput) pBottomInput.value = v;
+                        if (pLeftInput)   pLeftInput.value   = v;
+                    } else {
+                        if (side === 'top')    inner.style.paddingTop    = v + unit;
+                        if (side === 'right')  inner.style.paddingRight  = v + unit;
+                        if (side === 'bottom') inner.style.paddingBottom = v + unit;
+                        if (side === 'left')   inner.style.paddingLeft   = v + unit;
+                    }
+                }
+
+                if (padAllInput) {
+                    padAllInput.addEventListener('input', function () {
+                        applyPadding('all', parseFloat(this.value));
+                    });
+                }
+                if (pTopInput) pTopInput.addEventListener('input', function () {
+                    applyPadding('top', parseFloat(this.value));
+                });
+                if (pRightInput) pRightInput.addEventListener('input', function () {
+                    applyPadding('right', parseFloat(this.value));
+                });
+                if (pBottomInput) pBottomInput.addEventListener('input', function () {
+                    applyPadding('bottom', parseFloat(this.value));
+                });
+                if (pLeftInput) pLeftInput.addEventListener('input', function () {
+                    applyPadding('left', parseFloat(this.value));
+                });
+
+                if (padUnitSelect) {
+                    padUnitSelect.addEventListener('change', function () {
+                        const unit = this.value || 'px';
+                        const topVal    = pTopInput    ? parseFloat(pTopInput.value)    : pt;
+                        const rightVal  = pRightInput  ? parseFloat(pRightInput.value)  : pr;
+                        const bottomVal = pBottomInput ? parseFloat(pBottomInput.value) : pb;
+                        const leftVal   = pLeftInput   ? parseFloat(pLeftInput.value)   : pl;
+
+                        inner.style.paddingTop    = (isNaN(topVal)    ? 0 : topVal)    + unit;
+                        inner.style.paddingRight  = (isNaN(rightVal)  ? 0 : rightVal)  + unit;
+                        inner.style.paddingBottom = (isNaN(bottomVal) ? 0 : bottomVal) + unit;
+                        inner.style.paddingLeft   = (isNaN(leftVal)   ? 0 : leftVal)   + unit;
+                    });
+                }
+
+                // === LOGO GROOTTE ===
+                const wInput = inspector.querySelector('[data-logo-size-width]');
+                const hInput = inspector.querySelector('[data-logo-size-height]');
+
+                if (wInput && resizeTarget) {
+                    wInput.addEventListener('input', function () {
+                        const v = parseFloat(this.value);
+                        resizeTarget.style.width = (isNaN(v) ? 0 : v) + 'px';
+                    });
+                }
+                if (hInput && resizeTarget) {
+                    hInput.addEventListener('input', function () {
+                        const v = parseFloat(this.value);
+                        resizeTarget.style.height = (isNaN(v) ? 0 : v) + 'px';
+                    });
+                }
+
+                // === LOGO UPLOAD / RESET ===
+                const uploadBtn = inspector.querySelector('[data-logo-upload]');
+                const resetBtn  = inspector.querySelector('[data-logo-reset]');
+                const fileInput = inspector.querySelector('[data-logo-file-input]');
+
+                function setLogoMedia(el) {
+                    if (!container) return;
+                    const wrapper   = blockEl.querySelector('[data-resize-container]') || container;
+                    const oldTarget = wrapper.querySelector('[data-resize-target]');
+
+                    el.setAttribute('data-resize-target', '1');
+                    el.style.display = 'block';
+                    el.style.height  = 'auto';
+                    el.style.width   = 'auto';
+
+                    if (oldTarget) {
+                        wrapper.replaceChild(el, oldTarget);
+                    } else {
+                        wrapper.insertBefore(el, wrapper.firstChild);
+                    }
+                }
+
+                if (uploadBtn && fileInput && container) {
+                    uploadBtn.addEventListener('click', function () {
+                        fileInput.click();
+                    });
+
+                    fileInput.addEventListener('change', function () {
+                        const file = this.files && this.files[0];
+                        if (!file) return;
+
+                        const url = URL.createObjectURL(file);
+
+                        if (file.type.startsWith('image/')) {
+                            const img = document.createElement('img');
+                            img.src = url;
+                            img.alt = 'Logo';
+                            setLogoMedia(img);
+                        } else if (file.type.startsWith('video/')) {
+                            const video = document.createElement('video');
+                            video.src = url;
+                            video.controls = true;
+                            setLogoMedia(video);
+                        }
+                    });
+                }
+
+                if (resetBtn && container) {
+                    resetBtn.addEventListener('click', function () {
+                        const wrapper   = blockEl.querySelector('[data-resize-container]') || container;
+                        const oldTarget = wrapper.querySelector('[data-resize-target]');
+
+                        const placeholder = document.createElement('div');
+                        placeholder.className = 'h-12 w-32 bg-[#21555820] rounded flex items-center justify-center text-[10px] font-semibold text-[#21555880] uppercase tracking-[0.15em]';
+                        placeholder.setAttribute('data-logo-placeholder', '1');
+                        placeholder.setAttribute('data-resize-target', '1');
+                        placeholder.textContent = 'LOGO';
+
+                        if (oldTarget) {
+                            wrapper.replaceChild(placeholder, oldTarget);
+                        } else {
+                            wrapper.insertBefore(placeholder, wrapper.firstChild);
+                        }
+                    });
+                }
+
+                // === UITLIJNING ICON-TABS ===
+                const alignButtons = inspector.querySelectorAll('[data-logo-align]');
+
+                function setAlignButtons(active) {
+                    alignButtons.forEach(function (btn) {
+                        const isActive = btn.dataset.logoAlign === active;
+                        btn.classList.toggle('bg-[#0F9B9F]', isActive);
+                        btn.classList.toggle('text-white', isActive);
+                        btn.classList.toggle('shadow-sm', isActive);
+                        btn.classList.toggle('text-[#21555880]', !isActive);
+                    });
+                }
+
+                setAlignButtons(align);
+
+                alignButtons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const val = this.dataset.logoAlign || 'center';
+                        setAlignButtons(val);
+
+                        if (container) {
+                            container.classList.remove('justify-start', 'justify-center', 'justify-end');
+                            if (val === 'left')   container.classList.add('justify-start');
+                            if (val === 'center') container.classList.add('justify-center');
+                            if (val === 'right')  container.classList.add('justify-end');
+                        }
+                    });
+                });
+
+            // ==== SPACER / WITRUIMTE ====
+            } else if (type === 'spacer') {
+                const spacerInner = blockEl.querySelector('[data-spacer-inner]');
+                if (!spacerInner) {
+                    inspector.innerHTML = '';
+                    inspector.style.display = 'none';
+                    return;
+                }
+
+                const spacerStyles = window.getComputedStyle(spacerInner);
+                const currentH     = parseInt(spacerStyles.height, 10) || 24;
+
+                inspector.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg border border-[#21555820] p-4 w-72">
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#215558]">
+                                Witruimte
+                            </p>
+                            <button type="button"
+                                    class="text-xs text-[#21555880] hover:text-[#215558]"
+                                    data-inspector-close>&times;</button>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] font-semibold text-[#215558]">Hoogte</span>
+                                <span class="text-[11px] font-semibold text-[#215558]" data-spacer-value>${currentH} px</span>
+                            </div>
+                            <input type="range"
+                                min="0"
+                                max="200"
+                                step="2"
+                                value="${currentH}"
+                                class="w-full accent-[#0F9B9F]"
+                                data-spacer-slider>
+                        </div>
+                    </div>
+                `;
+
+                const closeBtn = inspector.querySelector('[data-inspector-close]');
+                if (closeBtn) closeBtn.addEventListener('click', closeInspector);
+
+                const slider = inspector.querySelector('[data-spacer-slider]');
+                const valueLabel = inspector.querySelector('[data-spacer-value]');
+
+                if (slider) {
+                    slider.addEventListener('input', function () {
+                        const v = parseInt(this.value, 10) || 0;
+                        spacerInner.style.height = v + 'px';
+                        if (valueLabel) valueLabel.textContent = v + ' px';
+                    });
+                }
+
+            } else if (type === 'image') {
+                const mediaContainer = blockEl.querySelector('[data-image-container]');
+                if (!mediaContainer) {
+                    inspector.innerHTML = '';
+                    inspector.style.display = 'none';
+                    return;
+                }
+
+                inspector.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg border border-[#21555820] p-4 w-72">
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#215558]">
+                                Afbeelding / video
+                            </p>
+                            <button type="button"
+                                    class="text-xs text-[#21555880] hover:text-[#215558]"
+                                    data-inspector-close>&times;</button>
+                        </div>
+
+                        <div class="space-y-3">
+                            <p class="text-[11px] text-[#21555880]">
+                                Upload een afbeelding of video om de placeholder te vervangen.
+                                Video wordt alleen als voorbeeld in de builder getoond.
+                            </p>
+
+                            <div class="flex gap-2">
+                                <button type="button"
+                                        class="flex-1 px-3 py-1.5 rounded-full border border-[#21555820] text-[11px] font-semibold text-[#215558] hover:bg-[#21555805]"
+                                        data-image-upload>
+                                    Bestand kiezen
+                                </button>
+                                <button type="button"
+                                        class="px-3 py-1.5 rounded-full border border-[#21555810] text-[11px] text-[#21555880] hover:bg-[#21555805]"
+                                        data-image-reset>
+                                    Reset
+                                </button>
+                            </div>
+
+                            <input type="file"
+                                class="hidden"
+                                accept="image/*,video/*"
+                                data-image-file-input>
+                        </div>
+                    </div>
+                `;
+
+                const closeBtn   = inspector.querySelector('[data-inspector-close]');
+                const uploadBtn  = inspector.querySelector('[data-image-upload]');
+                const resetBtn   = inspector.querySelector('[data-image-reset]');
+                const fileInput  = inspector.querySelector('[data-image-file-input]');
+
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', closeInspector);
+                }
+
+                function setMediaElement(el) {
+                    const wrapper = mediaContainer; // data-resize-container
+                    const oldTarget = wrapper.querySelector('[data-resize-target]');
+
+                    el.setAttribute('data-resize-target', '1');
+                    el.style.display = 'block';
+                    el.style.width = '100%';
+                    el.style.height = 'auto';
+                    el.style.borderRadius = '0.75rem';
+
+                    if (oldTarget) {
+                        wrapper.replaceChild(el, oldTarget);
+                    } else {
+                        wrapper.insertBefore(el, wrapper.firstChild);
+                    }
+                }
+
+                if (uploadBtn && fileInput) {
+                    uploadBtn.addEventListener('click', function () {
+                        fileInput.click();
+                    });
+
+                    fileInput.addEventListener('change', function () {
+                        const file = this.files && this.files[0];
+                        if (!file) return;
+
+                        const url = URL.createObjectURL(file);
+
+                        if (file.type.startsWith('image/')) {
+                            const img = document.createElement('img');
+                            img.src = url;
+                            img.alt = 'Afbeelding';
+                            setMediaElement(img);
+                        } else if (file.type.startsWith('video/')) {
+                            const video = document.createElement('video');
+                            video.src = url;
+                            video.controls = true;
+                            setMediaElement(video);
+                        }
+                    });
+                }
+
+                if (resetBtn) {
+                    resetBtn.addEventListener('click', function () {
+                        const wrapper   = mediaContainer;
+                        const oldTarget = wrapper.querySelector('[data-resize-target]');
+
+                        const placeholder = document.createElement('div');
+                        placeholder.className = 'w-full aspect-[16/9] bg-[#21555810] border border-dashed border-[#21555840] rounded flex items-center justify-center text-[11px] text-[#21555880]';
+                        placeholder.setAttribute('data-image-placeholder', '1');
+                        placeholder.setAttribute('data-resize-target', '1');
+                        placeholder.textContent = 'Afbeelding placeholder';
+
+                        if (oldTarget) {
+                            wrapper.replaceChild(placeholder, oldTarget);
+                        } else {
+                            wrapper.insertBefore(placeholder, wrapper.firstChild);
+                        }
+                    });
+                }
+
+            // ==== 2/3/4 KOLUMNEN BLOK ALS GEHEEL ====
+            } else if (type === 'two-columns' || type === 'three-columns' || type === 'four-columns') {
+                const row = blockEl.querySelector('[data-columns-row]');
+                if (!row) {
+                    inspector.innerHTML = '';
+                    inspector.style.display = 'none';
+                    return;
+                }
+
+                const rowStyles = window.getComputedStyle(row);
+                const currentGap = parseInt(rowStyles.columnGap || rowStyles.gap, 10) || 16;
+                const alignCss   = rowStyles.alignItems || 'stretch';
+
+                let align = 'top';
+                if (alignCss === 'center')      align = 'middle';
+                else if (alignCss === 'flex-end') align = 'bottom';
+
+                inspector.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg border border-[#21555820] p-4 w-72">
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#215558]">
+                                Kolom lay-out
+                            </p>
+                            <button type="button"
+                                    class="text-xs text-[#21555880] hover:text-[#215558]"
+                                    data-inspector-close>&times;</button>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-semibold text-[#215558]">Afstand tussen kolommen</span>
+                                    <span class="text-[11px] font-semibold text-[#215558]" data-cols-gap-value>${currentGap} px</span>
+                                </div>
+                                <input type="range"
+                                    min="0"
+                                    max="96"
+                                    step="2"
+                                    value="${currentGap}"
+                                    class="w-full accent-[#0F9B9F]"
+                                    data-cols-gap-slider>
+                            </div>
+
+                            <label class="grid gap-1">
+                                <span class="text-[11px] font-semibold text-[#215558]">Verticale uitlijning</span>
+                                <select class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558] bg-white"
+                                        data-cols-align>
+                                    <option value="top"${align === 'top' ? ' selected' : ''}>Boven</option>
+                                    <option value="middle"${align === 'middle' ? ' selected' : ''}>Midden</option>
+                                    <option value="bottom"${align === 'bottom' ? ' selected' : ''}>Onder</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                `;
+
+                const closeBtn = inspector.querySelector('[data-inspector-close]');
+                if (closeBtn) closeBtn.addEventListener('click', closeInspector);
+
+                const gapSlider = inspector.querySelector('[data-cols-gap-slider]');
+                const gapLabel  = inspector.querySelector('[data-cols-gap-value]');
+                const alignSelect = inspector.querySelector('[data-cols-align]');
+
+                if (gapSlider) {
+                    gapSlider.addEventListener('input', function () {
+                        const v = parseInt(this.value, 10) || 0;
+                        row.style.columnGap = v + 'px';
+                        row.style.gap       = v + 'px';
+                        if (gapLabel) gapLabel.textContent = v + ' px';
+                    });
+                }
+
+                if (alignSelect) {
+                    alignSelect.addEventListener('change', function () {
+                        if (this.value === 'top')    row.style.alignItems = 'flex-start';
+                        if (this.value === 'middle') row.style.alignItems = 'center';
+                        if (this.value === 'bottom') row.style.alignItems = 'flex-end';
+                    });
+                }
+
+            // ==== DEFAULT ====
+            } else {
+                inspector.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg border border-[#21555820] p-4 w-64">
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#215558]">
+                                Blok instellingen
+                            </p>
+                            <button type="button"
+                                    class="text-xs text-[#21555880] hover:text-[#215558]"
+                                    data-inspector-close>&times;</button>
+                        </div>
+                        <p class="text-[12px] text-[#215558]">
+                            Voor dit bloktype zijn nog geen instellingen beschikbaar.
+                        </p>
+                    </div>
+                `;
+
+                const closeBtn = inspector.querySelector('[data-inspector-close]');
+                if (closeBtn) closeBtn.addEventListener('click', closeInspector);
+            }
+
+            inspector.style.display = 'block';
+        }
+
         // ---- STATE & HELPERS ----
         let draggingFromPalette = false;
         let dragSourceEl        = null;
@@ -183,9 +1032,9 @@ document.addEventListener('DOMContentLoaded', function () {
         let selectedBlock       = null;
 
         function setSelectedBlock(blockEl) {
-            // oude selectie resetten
             if (selectedBlock && selectedBlock !== blockEl) {
                 selectedBlock.classList.remove(
+                    'builder-selected',
                     'ring-1',
                     'ring-[#0F9B9F]',
                     'ring-offset-0',
@@ -198,6 +1047,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (selectedBlock) {
                 selectedBlock.classList.add(
+                    'builder-selected',
                     'ring-1',
                     'ring-[#0F9B9F]',
                     'ring-offset-0',
@@ -208,7 +1058,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function updatePlaceholder() {
-            // Alleen echte blokken tellen, niet de dropIndicator
             const hasBlocks = !!blocksWrap.querySelector('.builder-canvas-item');
 
             if (placeholder) {
@@ -217,25 +1066,69 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (canvas) {
                 if (hasBlocks) {
-                    // Als er blokken zijn: geen dashed rand, gewoon wit vlak
                     canvas.classList.remove('border-2', 'border-dashed', 'border-[#21555820]', 'bg-[#21555810]', 'p-4');
                     canvas.classList.add('bg-white');
                 } else {
-                    // Geen blokken: dashed rand + groene achtergrond
                     canvas.classList.add('border-2', 'border-dashed', 'border-[#21555820]', 'bg-[#21555810]', 'p-4');
                     canvas.classList.remove('bg-white');
                 }
             }
         }
 
+        // ---- RESIZE STATE ----
+        let resizeState = null;
+
+        function onResizeMouseMove(e) {
+            if (!resizeState) return;
+            e.preventDefault();
+
+            const dx = e.clientX - resizeState.startX;
+            const dy = e.clientY - resizeState.startY;
+
+            const corner = resizeState.corner;
+            const aspect = resizeState.startAspect || 1;
+
+            let newWidth;
+            let newHeight;
+
+            // Hoek rechts/links → base op horizontale beweging
+            if (corner.includes('e') || corner.includes('w')) {
+                const deltaX = corner.includes('e')
+                    ? dx
+                    : -dx;
+
+                newWidth  = resizeState.startWidth + deltaX;
+                newWidth  = Math.max(24, newWidth);
+                newHeight = newWidth / aspect;
+
+            // Hoek boven/onder (voor het geval je alleen verticaal wilt slepen)
+            } else {
+                const deltaY = corner.includes('s')
+                    ? dy
+                    : -dy;
+
+                newHeight = resizeState.startHeight + deltaY;
+                newHeight = Math.max(24, newHeight);
+                newWidth  = newHeight * aspect;
+            }
+
+            resizeState.target.style.width  = newWidth + 'px';
+            resizeState.target.style.height = newHeight + 'px';
+        }
+
+        function onResizeMouseUp() {
+            if (!resizeState) return;
+            document.removeEventListener('mousemove', onResizeMouseMove);
+            document.removeEventListener('mouseup', onResizeMouseUp);
+            resizeState = null;
+        }
+
         function attachBlockDragEvents(blockEl) {
             // ========== DRAG ==========
             blockEl.addEventListener('dragstart', function (e) {
-                // drag vanaf canvas
                 draggingFromPalette = false;
                 dragSourceEl = blockEl;
 
-                // CTRL (Windows) / CMD (Mac) = kopieer-drag
                 isCopyDrag = e.ctrlKey || e.metaKey;
 
                 e.dataTransfer.effectAllowed = isCopyDrag ? 'copyMove' : 'move';
@@ -249,42 +1142,72 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             // ========== SELECTIE OP KLIK ==========
-            // klik ergens op het blok = selecteren
-            blockEl.addEventListener('click', function (e) {
+            blockEl.addEventListener('click', function () {
                 setSelectedBlock(blockEl);
+            });
+
+            // ========== DUBBELKLIK: PROPERTIES ==========
+            blockEl.addEventListener('dblclick', function (e) {
+                e.stopPropagation();
+                setSelectedBlock(blockEl);
+                openInspectorForBlock(blockEl);
             });
 
             // ========== HOVER LABELS ==========
             const blockLabel = blockEl.querySelector('.builder-block-label');
 
-            // Label moet óók selecteren en niet bubbelen
             if (blockLabel) {
                 blockLabel.addEventListener('click', function (e) {
-                    e.stopPropagation(); // voorkom rare bubbling
+                    e.stopPropagation();
                     setSelectedBlock(blockEl);
                 });
             }
 
-            // Alleen het blok waar je overheen gaat, krijgt een label
             blockEl.addEventListener('mouseenter', function () {
                 if (blockLabel) {
-                    showLabel(blockLabel); // verbergt eerst alle andere labels
+                    showLabel(blockLabel);
                 }
             });
 
-            // Als je het blok verlaat:
             blockEl.addEventListener('mouseleave', function () {
-                // Check of we in een kolom zitten
                 const col = blockEl.closest('.builder-column-blocks');
                 if (col) {
                     const colLabel = col.querySelector('.column-label');
                     if (colLabel) {
-                        showLabel(colLabel); // weer terug naar kolom-label
+                        showLabel(colLabel);
                         return;
                     }
                 }
-                // Anders: helemaal niets tonen
                 hideAllLabels();
+            });
+
+            // ========== RESIZE HANDLES ==========
+            blockEl.querySelectorAll('.builder-resize-handle').forEach(function (handle) {
+                handle.addEventListener('mousedown', function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+
+                    const corner = handle.dataset.resizeCorner || 'se';
+                    const container = handle.closest('[data-resize-container]');
+                    if (!container) return;
+
+                    // Kies het fysieke element dat we willen schalen
+                    const target = container.querySelector('[data-resize-target]') || container;
+                    const rect   = target.getBoundingClientRect();
+
+                    resizeState = {
+                        target: target,
+                        corner: corner,
+                        startX: e.clientX,
+                        startY: e.clientY,
+                        startWidth: rect.width,
+                        startHeight: rect.height,
+                        startAspect: rect.width / rect.height || 1,
+                    };
+
+                    document.addEventListener('mousemove', onResizeMouseMove);
+                    document.addEventListener('mouseup', onResizeMouseUp);
+                });
             });
         }
 
@@ -292,16 +1215,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const columnBlocks = rootEl.querySelectorAll('.builder-column-blocks');
 
             columnBlocks.forEach(function (col) {
-                // HOVER: alleen kolom-label tonen
                 const colLabel = col.querySelector('.column-label');
                 if (colLabel) {
                     col.addEventListener('mouseenter', function () {
-                        showLabel(colLabel); // verbergt eerst alle andere labels
+                        showLabel(colLabel);
                     });
-                    // 'mouseleave' niet nodig: andere elementen overschrijven dit
                 }
 
-                // Highlight kolom tijdens drag
+                // Dubbelklik op kolom = kolom-instellingen
+                col.addEventListener('dblclick', function (e) {
+                    e.stopPropagation(); // voorkom dat de parent builder-canvas-item dblclick ook vuurt
+                    openInspectorForColumn(col);
+                });
+
                 col.addEventListener('dragenter', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -311,7 +1237,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
 
                 col.addEventListener('dragleave', function (e) {
-                    // Alleen resetten als we écht de kolom verlaten
                     if (e.relatedTarget && col.contains(e.relatedTarget)) return;
                     col.style.borderColor = '';
                     col.style.borderWidth = '';
@@ -319,7 +1244,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     clearDropIndicator();
                 });
 
-                // DRAG LOGICA
                 col.addEventListener('dragover', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -336,7 +1260,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         dropBefore = false;
                     }
 
-                    // Drop-indicator in kolom laten zien
                     showDropIndicator(currentContainer, currentDropTarget, dropBefore);
                 });
 
@@ -377,7 +1300,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     currentContainer = null;
                     dropBefore = false;
 
-                    // Kolom highlight + indicator resetten
                     col.style.borderColor = '';
                     col.style.borderWidth = '';
                     col.style.borderStyle = '';
@@ -409,7 +1331,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function createCanvasBlock(type) {
             const wrapper = document.createElement('div');
-            // wrapper zelf = blok dat je versleept
             wrapper.className = 'builder-canvas-item w-full relative group';
             wrapper.setAttribute('draggable', 'true');
             wrapper.dataset.blockType = type;
@@ -419,9 +1340,22 @@ document.addEventListener('DOMContentLoaded', function () {
             switch (type) {
                 case 'logo':
                     content = `
-                        <div class="w-full flex justify-center">
-                            <div class="h-12 w-32 bg-[#21555820] rounded flex items-center justify-center text-[10px] font-semibold text-[#21555880] uppercase tracking-[0.15em]">
-                                LOGO
+                        <div class="w-full flex justify-center"
+                            data-logo-container>
+                            <div class="relative inline-flex items-center justify-center"
+                                data-resize-container>
+                                <div
+                                    class="h-12 w-32 bg-[#21555820] rounded flex items-center justify-center text-[10px] font-semibold text-[#21555880] uppercase tracking-[0.15em]"
+                                    data-logo-placeholder
+                                    data-resize-target
+                                >
+                                    LOGO
+                                </div>
+
+                                <span class="builder-resize-handle" data-resize-corner="nw"></span>
+                                <span class="builder-resize-handle" data-resize-corner="ne"></span>
+                                <span class="builder-resize-handle" data-resize-corner="sw"></span>
+                                <span class="builder-resize-handle" data-resize-corner="se"></span>
                             </div>
                         </div>
                     `;
@@ -464,10 +1398,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 case 'image':
                     content = `
-                        <div class="w-full">
-                            <div class="w-full aspect-[16/9] bg-[#21555810] border border-dashed border-[#21555840] rounded flex items-center justify-center text-[11px] text-[#21555880]">
+                        <div class="w-full relative"
+                            data-image-container
+                            data-resize-container>
+                            <div class="w-full aspect-[16/9] bg-[#21555810] border border-dashed border-[#21555840] rounded flex items-center justify-center text-[11px] text-[#21555880]"
+                                data-image-placeholder
+                                data-resize-target>
                                 Afbeelding placeholder
                             </div>
+
+                            <span class="builder-resize-handle" data-resize-corner="nw"></span>
+                            <span class="builder-resize-handle" data-resize-corner="ne"></span>
+                            <span class="builder-resize-handle" data-resize-corner="sw"></span>
+                            <span class="builder-resize-handle" data-resize-corner="se"></span>
                         </div>
                     `;
                     break;
@@ -481,9 +1424,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     break;
 
                 case 'spacer':
-                    // Dit is de enige die écht witruimte mag maken
                     content = `
-                        <div class="w-full h-6"></div>
+                        <div class="w-full h-6" data-spacer-inner></div>
                     `;
                     break;
 
@@ -536,7 +1478,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         colsHtml += `
                             <div class="flex-1">
                                 <div class="builder-column-blocks relative flex flex-col gap-1 min-h-[48px]
-                                            border border-[#21555820] rounded">
+                                            border border-[#21555820] rounded"
+                                    data-column-index="${i + 1}">
                                     <span class="column-label pointer-events-none absolute -top-5 left-1 px-2 py-0.5 rounded-full bg-[#0F9B9F]
                                                 text-[10px] font-semibold text-[#fff] opacity-0 transition-opacity duration-150 leading-none">
                                         Kolom ${i + 1}
@@ -549,7 +1492,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     content = `
                         <div class="w-full">
-                            <div class="flex gap-4">
+                            <div class="flex gap-4" data-columns-row data-columns-count="${cols}">
                                 ${colsHtml}
                             </div>
                         </div>
@@ -568,23 +1511,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const label = BLOCK_DEFS[type]?.label || type;
 
-            // Voor layout-blokken (2/3/4 kolommen) GEEN buitenste label tonen
             if (type === 'two-columns' || type === 'three-columns' || type === 'four-columns') {
                 wrapper.innerHTML = `
-                    <div class="w-full rounded border border-transparent bg-white
+                    <div class="builder-block-inner w-full rounded border border-transparent bg-white
                                 group-hover:border-dashed group-hover:border-[#21555866]">
                         ${content}
                     </div>
                 `;
             } else {
-                // Normale blokken: eigen label dat we via JS tonen (niet meer met group-hover)
                 wrapper.innerHTML = `
                     <span class="builder-block-label pointer-events-none absolute -top-5 left-0 px-2.5 py-0.5 rounded-full bg-[#0F9B9F]
                                 text-[11px] font-semibold text-[#fff] opacity-0 transition-opacity duration-150
                                 leading-none">
                         ${label}
                     </span>
-                    <div class="w-full rounded border border-transparent bg-white
+                    <div class="builder-block-inner w-full rounded border border-transparent bg-white
                                 group-hover:border-dashed group-hover:border-[#21555866]">
                         ${content}
                     </div>
@@ -610,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        // ---- CANVAS DRAGOVER / DROP (hoofdniveau, buiten kolommen) ----
+        // ---- CANVAS DRAGOVER / DROP (hoofdniveau) ----
         canvas.addEventListener('dragover', function (e) {
             e.preventDefault();
 
@@ -626,7 +1567,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 dropBefore = false;
             }
 
-            // Drop-indicator tussen hoofdniveau blokken tonen
             showDropIndicator(currentContainer, currentDropTarget, dropBefore);
         });
 
@@ -637,7 +1577,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const container = currentContainer || blocksWrap;
 
             if ((draggingFromPalette || isCopyDrag) && type) {
-                // Vanuit palette OF ctrl+drag vanaf canvas => NIEUW blok
                 const newBlock = createCanvasBlock(type);
 
                 if (currentDropTarget && currentDropTarget.parentElement === container) {
@@ -652,7 +1591,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 updatePlaceholder();
             } else if (!draggingFromPalette && dragSourceEl) {
-                // Normale move binnen canvas / naar canvas
                 if (currentDropTarget && currentDropTarget !== dragSourceEl && currentDropTarget.parentElement === container) {
                     if (dropBefore) {
                         container.insertBefore(dragSourceEl, currentDropTarget);
@@ -678,7 +1616,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Als er ooit server-side blokken staan:
         blocksWrap.querySelectorAll('.builder-canvas-item').forEach(attachBlockDragEvents);
 
-        // (Re)bind globale keyboard handler voor selected block delete
+        // (Re)bind globale keyboard + click handlers
         if (emailBuilderKeyHandler) {
             document.removeEventListener('keydown', emailBuilderKeyHandler);
         }
@@ -697,18 +1635,21 @@ document.addEventListener('DOMContentLoaded', function () {
         emailBuilderKeyHandler = function (e) {
             if (e.key !== 'Backspace' && e.key !== 'Delete') return;
 
-            // Laat backspace/delete gewoon werken als je in een invoerveld of contenteditable zit
             if (isEditableTarget(e.target)) return;
-
             if (!selectedBlock || !selectedBlock.parentElement) return;
 
             e.preventDefault();
 
-            // Blok verwijderen
-            const parent    = selectedBlock.parentElement;
-            const colParent = parent.closest('.builder-column-blocks');
+            const blockToRemove = selectedBlock;
+            const parent        = blockToRemove.parentElement;
+            const colParent     = parent.closest('.builder-column-blocks');
 
-            parent.removeChild(selectedBlock);
+            parent.removeChild(blockToRemove);
+
+            if (activeInspectorBlock === blockToRemove) {
+                closeInspector();
+            }
+
             selectedBlock = null;
 
             if (colParent) {
@@ -720,20 +1661,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
         document.addEventListener('keydown', emailBuilderKeyHandler);
 
-        // === Klik buiten geselecteerd blok = selectie weg ===
         emailBuilderClickHandler = function (e) {
             if (!selectedBlock) return;
 
-            // Als je in het geselecteerde blok klikt: niets doen
             if (selectedBlock.contains(e.target)) return;
 
-            // Overal anders: selectie resetten
+            if (inspector && inspector.contains(e.target)) return;
+
             setSelectedBlock(null);
         };
 
         document.addEventListener('click', emailBuilderClickHandler);
 
-        // Init borders voor alle bestaande kolommen (server-side + nieuwe)
         blocksWrap.querySelectorAll('.builder-column-blocks').forEach(updateColumnBorder);
 
         updatePlaceholder();
@@ -743,7 +1682,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderTemplateDetail(html) {
         if (!detail) return;
         detail.innerHTML = html;
-        // Na elke soft reload opnieuw de builder aanzetten
         initEmailBuilder();
     }
 
@@ -818,7 +1756,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     submitBtn.disabled = false;
                     submitBtn.classList.remove('opacity-60', 'cursor-wait');
                 }
-                form.submit(); // fallback
+                form.submit();
             });
         });
     }
@@ -855,11 +1793,10 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(function (err) {
             console.error(err);
-            window.location.href = link.href; // fallback
+            window.location.href = link.href;
         });
     });
 
-    // Initial load: als er al een actieve template is, direct builder activeren
     initEmailBuilder();
 });
 </script>
