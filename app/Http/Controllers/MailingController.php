@@ -118,4 +118,25 @@ class MailingController extends Controller
         $user = auth()->user();
         return view('hub.marketing.mailing.campagnes.index', compact('user'));
     }
+
+    public function updateNieuwsbriefTemplate(Request $request, MailTemplate $template)
+    {
+        // Voorheen: $html = $request->input('html', '');
+        // Probleem: als 'html' ontbreekt, is dit toch null in jouw situatie
+
+        $html = $request->input('html') ?? '';
+
+        $template->update([
+            'html' => $html,
+        ]);
+
+        if ($request->ajax()) {
+            return response()->json([
+                'status'  => 'ok',
+                'message' => 'Template opgeslagen.',
+            ]);
+        }
+
+        return back()->with('status', 'Template opgeslagen.');
+    }
 }

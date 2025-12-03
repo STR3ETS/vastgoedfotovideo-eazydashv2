@@ -22,9 +22,9 @@
                 </button>
             </form>
 
-            <div class="grid grid-cols-4 gap-8 flex-1">
+            <div class="grid grid-cols-4 gap-8 flex-1 min-h-0">
                 {{-- LIJST LINKS --}}
-                <div class="bg-[#f3f8f8] rounded-4xl p-8">
+                <div class="bg-[#f3f8f8] rounded-4xl p-8 min-h-0 max-h-full flex flex-col overflow-y-auto">
                     @if($templates->isEmpty())
                         <p id="nieuwsbrief-template-empty"
                            class="text-xs font-semibold text-[#215558]/50">
@@ -53,7 +53,7 @@
                 </div>
 
                 {{-- DETAIL RECHTS --}}
-                <div class="bg-[#f3f8f8] rounded-4xl p-8 col-span-3 flex flex-col min-h-0">
+                <div class="bg-[#f3f8f8] rounded-4xl p-8 col-span-3 flex flex-col min-h-0 max-h-full overflow-hidden">
                     <div id="nieuwsbrief-template-detail" class="flex-1 flex flex-col min-h-0">
                         @include('hub.marketing.mailing.templates.partials.detail', [
                             'activeTemplate' => $activeTemplate
@@ -66,7 +66,7 @@
 
 <style>
     /* Alleen kolommen met inhoud krijgen bij hover een dashed turquoise rand */
-    .builder-column-blocks.has-content:hover {
+    .builder-column-inner.has-content:hover {
         border-style: dashed;
         border-color: #0F9B9F;
     }
@@ -146,6 +146,109 @@ document.addEventListener('DOMContentLoaded', function () {
         const placeholder = document.getElementById('email-builder-placeholder');
         const palette     = document.getElementById('email-builder-palette');
 
+        // === TEMPLATE SETTINGS: achtergrond linker vlak ===
+        const canvasBgWrapper   = document.querySelector('[data-email-bg-wrapper]');
+        const settingsToggle    = document.getElementById('email-builder-settings-toggle');
+        const settingsPanel     = document.getElementById('email-builder-settings-panel');
+        const bgColorInput      = document.getElementById('email-builder-bg-color');
+        const bgColorHexInput   = document.getElementById('email-builder-bg-color-hex');
+        const bgPresetButtons   = document.querySelectorAll('[data-bg-preset]');
+
+        const saveForm  = document.getElementById('email-builder-save-form');
+        const htmlInput = document.getElementById('email-builder-html-input');
+        const blocks    = document.getElementById('email-builder-blocks');
+
+        if (saveForm && htmlInput && blocks) {
+            // voorkom dubbele binding als initEmailBuilder vaker wordt aangeroepen
+            if (!saveForm.dataset.boundSave) {
+                saveForm.addEventListener('submit', function () {
+                    // pak de volledige inhoud van de builder
+                    htmlInput.value = blocks.innerHTML.trim();
+                });
+
+                saveForm.dataset.boundSave = '1';
+            }
+        }
+
+        function setCanvasBg(color) {
+            if (!canvasBgWrapper) return;
+            if (!color) return;
+
+            canvasBgWrapper.style.backgroundColor = color;
+
+            if (bgColorInput) {
+                // Probeer hex zonder alpha, anders default naar wit
+                try {
+                    const ctx = document.createElement('canvas').getContext('2d');
+                    ctx.fillStyle = color;
+                    const hex = ctx.fillStyle; // genormaliseerd
+                    if (hex.startsWith('#')) {
+                        bgColorInput.value = hex;
+                        if (bgColorHexInput) bgColorHexInput.value = hex;
+                    } else if (bgColorHexInput) {
+                        bgColorHexInput.value = color;
+                    }
+                } catch (e) {
+                    if (bgColorHexInput) bgColorHexInput.value = color;
+                }
+            } else if (bgColorHexInput) {
+                bgColorHexInput.value = color;
+            }
+        }
+
+        // Settings paneel toggle
+        if (settingsToggle && settingsPanel) {
+            settingsToggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const isHidden = settingsPanel.classList.contains('hidden');
+                settingsPanel.classList.toggle('hidden', !isHidden);
+            });
+
+            // Klik buiten panel = sluiten
+            document.addEventListener('click', function (e) {
+                if (!settingsPanel.classList.contains('hidden')) {
+                    if (!settingsPanel.contains(e.target) && e.target !== settingsToggle && !settingsToggle.contains(e.target)) {
+                        settingsPanel.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        // Color input -> wrapper
+        if (bgColorInput) {
+            bgColorInput.addEventListener('input', function () {
+                const c = this.value;
+                setCanvasBg(c);
+            });
+        }
+
+        // Hex input -> wrapper
+        if (bgColorHexInput) {
+            bgColorHexInput.addEventListener('input', function () {
+                const c = this.value.trim();
+                if (!c) return;
+                // Zorg dat er # voor staat
+                const normalized = c.startsWith('#') ? c : ('#' + c);
+                setCanvasBg(normalized);
+            });
+        }
+
+        // Preset buttons
+        if (bgPresetButtons && bgPresetButtons.length) {
+            bgPresetButtons.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const c = this.getAttribute('data-bg-preset');
+                    if (c) setCanvasBg(c);
+                });
+            });
+        }
+
+        // Init: pak huidige inline background van wrapper
+        if (canvasBgWrapper) {
+            const initialBg = canvasBgWrapper.style.backgroundColor || '#ffffff';
+            setCanvasBg(initialBg);
+        }
+
         // Root voor labels (binnen de canvas)
         const builderRoot = canvas;
 
@@ -199,21 +302,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function updateColumnBorder(col) {
             if (!col) return;
-            const hasItems = !!col.querySelector('.builder-canvas-item');
+
+            const inner = col.querySelector('.builder-column-inner') || col;
+            const hasItems = !!inner.querySelector('.builder-canvas-item');
 
             if (hasItems) {
                 // Kolom heeft inhoud: geen dashed + geen min-h
-                col.classList.remove('border-dashed', 'min-h-[48px]');
-                col.classList.add('has-content');
+                inner.classList.remove('border-dashed', 'min-h-[48px]');
+                inner.classList.add('has-content');
             } else {
                 // Lege kolom: wel dashed + wel min-h als dropzone
-                col.classList.add('border-dashed', 'min-h-[48px]');
-                col.classList.remove('has-content');
+                inner.classList.add('border-dashed', 'min-h-[48px]');
+                inner.classList.remove('has-content');
             }
         }
 
         // Geen actieve template => geen canvas
         if (!canvas || !blocksWrap || !palette) return;
+
+        // Zorg dat bestaande blokken geen eigen witte achtergrond hebben
+        blocksWrap.querySelectorAll('.builder-block-inner').forEach(function (inner) {
+            inner.classList.remove('bg-white');
+        });
 
         // ---- INSPECTOR STATE ----
         let inspector = document.getElementById('email-builder-inspector');
@@ -239,6 +349,8 @@ document.addEventListener('DOMContentLoaded', function () {
         function openInspectorForColumn(colEl) {
             if (!inspector || !colEl) return;
 
+            const contentEl = colEl.querySelector('.builder-column-inner') || colEl;
+
             const rect = colEl.getBoundingClientRect();
             const top  = rect.top + window.scrollY;
             const left = rect.right + 16 + window.scrollX;
@@ -246,8 +358,8 @@ document.addEventListener('DOMContentLoaded', function () {
             inspector.style.top  = top + 'px';
             inspector.style.left = left + 'px';
 
-            const index = colEl.getAttribute('data-column-index') || '';
-            const styles = window.getComputedStyle(colEl);
+            const index  = colEl.getAttribute('data-column-index') || '';
+            const styles = window.getComputedStyle(contentEl);
 
             const pt = parseInt(styles.paddingTop, 10)    || 0;
             const pr = parseInt(styles.paddingRight, 10)  || 0;
@@ -266,21 +378,38 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
 
                     <div class="space-y-3">
+                        <!-- PADDING -->
                         <label class="grid gap-1">
                             <span class="text-[11px] font-semibold text-[#215558]">Padding (px)</span>
                             <div class="grid grid-cols-2 gap-2">
                                 <input type="number"
-                                    class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
-                                    value="${pt}" data-col-pad="top" placeholder="Top">
+                                       class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                       value="${pt}" data-col-pad="top" placeholder="Top">
                                 <input type="number"
-                                    class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
-                                    value="${pb}" data-col-pad="bottom" placeholder="Bottom">
+                                       class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                       value="${pb}" data-col-pad="bottom" placeholder="Bottom">
                                 <input type="number"
-                                    class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
-                                    value="${pl}" data-col-pad="left" placeholder="Links">
+                                       class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                       value="${pl}" data-col-pad="left" placeholder="Links">
                                 <input type="number"
-                                    class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
-                                    value="${pr}" data-col-pad="right" placeholder="Rechts">
+                                       class="w-full border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                       value="${pr}" data-col-pad="right" placeholder="Rechts">
+                            </div>
+                        </label>
+
+                        <!-- ACHTERGRONDKLEUR -->
+                        <label class="grid gap-1">
+                            <span class="text-[11px] font-semibold text-[#215558]">Achtergrondkleur</span>
+                            <div class="flex items-center gap-2">
+                                <input type="color"
+                                       class="w-9 h-7 p-0 border-none bg-transparent cursor-pointer"
+                                       value="#ffffff"
+                                       data-col-bg-color>
+                                <input type="text"
+                                       class="flex-1 border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                       value=""
+                                       placeholder="#ffffff"
+                                       data-col-bg-hex>
                             </div>
                         </label>
                     </div>
@@ -299,12 +428,37 @@ document.addEventListener('DOMContentLoaded', function () {
                 const side = input.dataset.colPad;
                 input.addEventListener('input', function () {
                     const v = parseInt(this.value, 10) || 0;
-                    if (side === 'top')    colEl.style.paddingTop    = v + 'px';
-                    if (side === 'right')  colEl.style.paddingRight  = v + 'px';
-                    if (side === 'bottom') colEl.style.paddingBottom = v + 'px';
-                    if (side === 'left')   colEl.style.paddingLeft   = v + 'px';
+                    if (side === 'top')    contentEl.style.paddingTop    = v + 'px';
+                    if (side === 'right')  contentEl.style.paddingRight  = v + 'px';
+                    if (side === 'bottom') contentEl.style.paddingBottom = v + 'px';
+                    if (side === 'left')   contentEl.style.paddingLeft   = v + 'px';
                 });
             });
+
+            const bgColorInput = inspector.querySelector('[data-col-bg-color]');
+            const bgHexInput   = inspector.querySelector('[data-col-bg-hex]');
+
+            function setColBg(value) {
+                if (!value) return;
+                let v = value.trim();
+                if (!v) return;
+                if (!v.startsWith('#')) v = '#' + v.replace('#', '');
+                colEl.style.backgroundColor = v;
+                if (bgColorInput) bgColorInput.value = v;
+                if (bgHexInput)   bgHexInput.value   = v;
+            }
+
+            if (bgColorInput) {
+                bgColorInput.addEventListener('input', function () {
+                    setColBg(this.value);
+                });
+            }
+
+            if (bgHexInput) {
+                bgHexInput.addEventListener('input', function () {
+                    setColBg(this.value);
+                });
+            }
 
             inspector.style.display = 'block';
         }
@@ -917,6 +1071,229 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                 }
 
+            } else if (type === 'title' || type === 'subtitle' || type === 'paragraph') {
+                const textEl = blockEl.querySelector('h1, h2, p');
+                if (!textEl) {
+                    inspector.innerHTML = '';
+                    inspector.style.display = 'none';
+                    return;
+                }
+
+                const styles = window.getComputedStyle(textEl);
+
+                // === ALIGN INIT ===
+                let align = styles.textAlign || 'left';
+                if (align === 'start') align = 'left';
+                if (align === 'end')   align = 'right';
+                if (align !== 'left' && align !== 'center' && align !== 'right') {
+                    align = 'left';
+                }
+
+                // === MAX-WIDTH INIT ===
+                let currentMaxWidth = parseInt(styles.maxWidth, 10);
+                if (isNaN(currentMaxWidth) || !styles.maxWidth || styles.maxWidth === 'none') {
+                    const rect = textEl.getBoundingClientRect();
+                    currentMaxWidth = Math.round(rect.width || 640);
+                }
+                if (currentMaxWidth < 240) currentMaxWidth = 240;
+                if (currentMaxWidth > 960) currentMaxWidth = 960;
+
+                // === COLOR INIT ===
+                let initialColor = styles.color || '#215558';
+                // Als het geen hex is (rgb/rgba), val terug op je standaard turquoise
+                if (!initialColor.startsWith('#')) {
+                    initialColor = '#215558';
+                }
+
+                inspector.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg border border-[#21555820] p-4 w-72">
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#215558]">
+                                Tekst instellingen
+                            </p>
+                            <button type="button"
+                                    class="text-xs text-[#21555880] hover:text-[#215558]"
+                                    data-inspector-close>&times;</button>
+                        </div>
+
+                        <div class="space-y-4">
+                            <!-- UITLIJNING -->
+                            <label class="grid gap-1">
+                                <span class="text-[11px] font-semibold text-[#215558]">Uitlijning</span>
+                                <div class="flex items-center gap-1 bg-[#f3f8f8] rounded-full p-0.5" data-text-align-group>
+                                    <button type="button"
+                                        class="flex-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center justify-center gap-1 text-[#21555880]"
+                                        data-text-align="left">
+                                        <i class="fa-solid fa-align-left text-[10px]"></i>
+                                        <span>Links</span>
+                                    </button>
+                                    <button type="button"
+                                        class="flex-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center justify-center gap-1 text-[#21555880]"
+                                        data-text-align="center">
+                                        <i class="fa-solid fa-align-center text-[10px]"></i>
+                                        <span>Midden</span>
+                                    </button>
+                                    <button type="button"
+                                        class="flex-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center justify-center gap-1 text-[#21555880]"
+                                        data-text-align="right">
+                                        <i class="fa-solid fa-align-right text-[10px]"></i>
+                                        <span>Rechts</span>
+                                    </button>
+                                </div>
+                            </label>
+
+                            <!-- MAX BREEDTE -->
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-semibold text-[#215558]">Maximale breedte</span>
+                                    <span class="text-[11px] font-semibold text-[#215558]" data-text-width-value>${currentMaxWidth} px</span>
+                                </div>
+                                <input type="range"
+                                    min="240"
+                                    max="960"
+                                    step="10"
+                                    value="${currentMaxWidth}"
+                                    class="w-full accent-[#0F9B9F]"
+                                    data-text-width-slider>
+                                <button type="button"
+                                        class="mt-1 px-3 py-1.5 rounded-full border border-[#21555810] text-[11px] text-[#21555880] hover:bg-[#21555805]"
+                                        data-text-width-reset>
+                                    Volledige breedte
+                                </button>
+                            </div>
+
+                            <!-- TEKSTKLEUR -->
+                            <label class="grid gap-1">
+                                <span class="text-[11px] font-semibold text-[#215558]">Tekstkleur</span>
+                                <div class="flex items-center gap-2">
+                                    <input type="color"
+                                           class="w-9 h-7 p-0 border-none bg-transparent cursor-pointer"
+                                           value="${initialColor}"
+                                           data-text-color-picker>
+                                    <input type="text"
+                                           class="flex-1 border border-[#21555820] rounded-lg px-2 py-1 text-[11px] text-[#215558]"
+                                           value="${initialColor}"
+                                           placeholder="#215558"
+                                           data-text-color-hex>
+                                </div>
+                                <p class="text-[10px] text-[#21555880]">
+                                    Gebruik een hexkleur zoals #215558 of #0F9B9F.
+                                </p>
+                            </label>
+                        </div>
+                    </div>
+                `;
+
+                const closeBtn = inspector.querySelector('[data-inspector-close]');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', closeInspector);
+                }
+
+                // === ALIGN LOGICA ===
+                const alignButtons = inspector.querySelectorAll('[data-text-align]');
+
+                function applyAlign(val) {
+                    textEl.style.textAlign = val;
+
+                    if (val === 'center') {
+                        textEl.style.marginLeft  = 'auto';
+                        textEl.style.marginRight = 'auto';
+                    } else if (val === 'right') {
+                        textEl.style.marginLeft  = 'auto';
+                        textEl.style.marginRight = '0';
+                    } else {
+                        textEl.style.marginLeft  = '0';
+                        textEl.style.marginRight = 'auto';
+                    }
+                }
+
+                function setAlignButtons(active) {
+                    alignButtons.forEach(function (btn) {
+                        const isActive = btn.dataset.textAlign === active;
+                        btn.classList.toggle('bg-[#0F9B9F]', isActive);
+                        btn.classList.toggle('text-white', isActive);
+                        btn.classList.toggle('shadow-sm', isActive);
+                        btn.classList.toggle('text-[#21555880]', !isActive);
+                    });
+                }
+
+                applyAlign(align);
+                setAlignButtons(align);
+
+                alignButtons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const val = this.dataset.textAlign || 'left';
+                        applyAlign(val);
+                        setAlignButtons(val);
+                    });
+                });
+
+                // === MAX-WIDTH LOGICA ===
+                const widthSlider = inspector.querySelector('[data-text-width-slider]');
+                const widthLabel  = inspector.querySelector('[data-text-width-value]');
+                const widthReset  = inspector.querySelector('[data-text-width-reset]');
+
+                // Zorg dat tekstblok block is zodat max-width logisch werkt
+                textEl.style.display = 'block';
+
+                if (widthSlider) {
+                    widthSlider.addEventListener('input', function () {
+                        const v = parseInt(this.value, 10) || 0;
+                        textEl.style.maxWidth = v + 'px';
+                        if (widthLabel) widthLabel.textContent = v + ' px';
+                    });
+                }
+
+                if (widthReset) {
+                    widthReset.addEventListener('click', function () {
+                        textEl.style.maxWidth = 'none';
+                        if (widthLabel) widthLabel.textContent = 'Volledige breedte';
+                    });
+                }
+
+                // === TEKSTKLEUR LOGICA ===
+                const colorPicker = inspector.querySelector('[data-text-color-picker]');
+                const colorHex    = inspector.querySelector('[data-text-color-hex]');
+
+                function normalizeHex(value) {
+                    if (!value) return null;
+                    let v = value.trim();
+                    if (!v) return null;
+                    if (!v.startsWith('#')) v = '#' + v.replace('#', '');
+                    if (v.length === 4) {
+                        // #abc -> #aabbcc
+                        v = '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+                    }
+                    if (v.length !== 7) return null;
+                    return v;
+                }
+
+                function setTextColor(value) {
+                    const normalized = normalizeHex(value);
+                    if (!normalized) return;
+                    textEl.style.color = normalized;
+                    if (colorPicker) colorPicker.value = normalized;
+                    if (colorHex)    colorHex.value    = normalized;
+                }
+
+                // Init kleur toepassen (inline), anders blijft Tailwind-class dominant
+                setTextColor(initialColor);
+
+                if (colorPicker) {
+                    colorPicker.addEventListener('input', function () {
+                        setTextColor(this.value);
+                    });
+                }
+
+                if (colorHex) {
+                    colorHex.addEventListener('input', function () {
+                        const val = this.value;
+                        const normalized = normalizeHex(val);
+                        if (!normalized) return;
+                        setTextColor(normalized);
+                    });
+                }
+
             // ==== 2/3/4 KOLUMNEN BLOK ALS GEHEEL ====
             } else if (type === 'two-columns' || type === 'three-columns' || type === 'four-columns') {
                 const row = blockEl.querySelector('[data-columns-row]');
@@ -1063,16 +1440,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (placeholder) {
                 placeholder.style.display = hasBlocks ? 'none' : 'flex';
             }
-
-            if (canvas) {
-                if (hasBlocks) {
-                    canvas.classList.remove('border-2', 'border-dashed', 'border-[#21555820]', 'bg-[#21555810]', 'p-4');
-                    canvas.classList.add('bg-white');
-                } else {
-                    canvas.classList.add('border-2', 'border-dashed', 'border-[#21555820]', 'bg-[#21555810]', 'p-4');
-                    canvas.classList.remove('bg-white');
-                }
-            }
         }
 
         // ---- RESIZE STATE ----
@@ -1216,6 +1583,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             columnBlocks.forEach(function (col) {
                 const colLabel = col.querySelector('.column-label');
+                const colInner = col.querySelector('.builder-column-inner') || col;
+
                 if (colLabel) {
                     col.addEventListener('mouseenter', function () {
                         showLabel(colLabel);
@@ -1224,31 +1593,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Dubbelklik op kolom = kolom-instellingen
                 col.addEventListener('dblclick', function (e) {
-                    e.stopPropagation(); // voorkom dat de parent builder-canvas-item dblclick ook vuurt
-                    openInspectorForColumn(col);
+                    e.stopPropagation();
+                    openInspectorForColumn(col); // let op: we geven nog steeds de outer door
                 });
 
-                col.addEventListener('dragenter', function (e) {
+                colInner.addEventListener('dragenter', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    col.style.borderColor = '#0F9B9F';
-                    col.style.borderWidth = '2px';
-                    col.style.borderStyle = 'dashed';
+                    colInner.style.borderColor = '#0F9B9F';
+                    colInner.style.borderWidth = '2px';
+                    colInner.style.borderStyle = 'dashed';
                 });
 
-                col.addEventListener('dragleave', function (e) {
-                    if (e.relatedTarget && col.contains(e.relatedTarget)) return;
-                    col.style.borderColor = '';
-                    col.style.borderWidth = '';
-                    col.style.borderStyle = '';
+                colInner.addEventListener('dragleave', function (e) {
+                    if (e.relatedTarget && colInner.contains(e.relatedTarget)) return;
+                    colInner.style.borderColor = '';
+                    colInner.style.borderWidth = '';
+                    colInner.style.borderStyle = '';
                     clearDropIndicator();
                 });
 
-                col.addEventListener('dragover', function (e) {
+                colInner.addEventListener('dragover', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
 
-                    currentContainer = col;
+                    currentContainer = colInner;
 
                     const targetBlock = e.target.closest('.builder-canvas-item');
                     currentDropTarget = targetBlock || null;
@@ -1263,12 +1632,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     showDropIndicator(currentContainer, currentDropTarget, dropBefore);
                 });
 
-                col.addEventListener('drop', function (e) {
+                colInner.addEventListener('drop', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
 
                     const type = e.dataTransfer.getData('text/plain') || null;
-                    const container = currentContainer || col;
+                    const container = currentContainer || colInner;
 
                     if ((draggingFromPalette || isCopyDrag) && type) {
                         const newBlock = createCanvasBlock(type);
@@ -1300,9 +1669,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     currentContainer = null;
                     dropBefore = false;
 
-                    col.style.borderColor = '';
-                    col.style.borderWidth = '';
-                    col.style.borderStyle = '';
+                    colInner.style.borderColor = '';
+                    colInner.style.borderWidth = '';
+                    colInner.style.borderStyle = '';
                     clearDropIndicator();
 
                     updatePlaceholder();
@@ -1324,6 +1693,7 @@ document.addEventListener('DOMContentLoaded', function () {
             spacer:          { label: 'Witruimte' },
             unsubscribe:     { label: 'Afmeld-link' },
             html:            { label: 'HTML' },
+            'one-column':    { label: '1 kolom' },
             'two-columns':   { label: '2 kolommen' },
             'three-columns': { label: '3 kolommen' },
             'four-columns':  { label: '4 kolommen' },
@@ -1468,23 +1838,31 @@ document.addEventListener('DOMContentLoaded', function () {
                     `;
                     break;
 
+                case 'one-column':
                 case 'two-columns':
                 case 'three-columns':
                 case 'four-columns': {
-                    const cols = type === 'two-columns' ? 2 : (type === 'three-columns' ? 3 : 4);
+                    const cols =
+                        type === 'one-column'
+                            ? 1
+                            : (type === 'two-columns'
+                                ? 2
+                                : (type === 'three-columns' ? 3 : 4));
                     let colsHtml = '';
 
                     for (let i = 0; i < cols; i++) {
                         colsHtml += `
                             <div class="flex-1">
-                                <div class="builder-column-blocks relative flex flex-col gap-1 min-h-[48px]
-                                            border border-[#21555820] rounded"
-                                    data-column-index="${i + 1}">
+                                <div class="builder-column-blocks relative" data-column-index="${i + 1}">
                                     <span class="column-label pointer-events-none absolute -top-5 left-1 px-2 py-0.5 rounded-full bg-[#0F9B9F]
                                                 text-[10px] font-semibold text-[#fff] opacity-0 transition-opacity duration-150 leading-none">
                                         Kolom ${i + 1}
                                     </span>
-                                    <!-- Sleep hier elementen in deze kolom -->
+
+                                    <div class="builder-column-inner flex flex-col gap-1 min-h-[48px]
+                                                border border-[#21555820] rounded">
+                                        <!-- Sleep hier elementen in deze kolom -->
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -1511,9 +1889,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const label = BLOCK_DEFS[type]?.label || type;
 
-            if (type === 'two-columns' || type === 'three-columns' || type === 'four-columns') {
+            if (type === 'one-column' || type === 'two-columns' || type === 'three-columns' || type === 'four-columns') {
                 wrapper.innerHTML = `
-                    <div class="builder-block-inner w-full rounded border border-transparent bg-white
+                    <div class="builder-block-inner w-full rounded border border-transparent
                                 group-hover:border-dashed group-hover:border-[#21555866]">
                         ${content}
                     </div>
@@ -1525,7 +1903,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 leading-none">
                         ${label}
                     </span>
-                    <div class="builder-block-inner w-full rounded border border-transparent bg-white
+                    <div class="builder-block-inner w-full rounded border border-transparent
                                 group-hover:border-dashed group-hover:border-[#21555866]">
                         ${content}
                     </div>

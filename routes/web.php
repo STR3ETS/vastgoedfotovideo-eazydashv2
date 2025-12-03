@@ -235,6 +235,7 @@ Route::prefix('app')->group(function () {
                         Route::post('/templates/nieuwsbrief-templates/quick-create', 'quickCreateNieuwsbriefTemplate')->name('nieuwsbriefTemplates.quickCreate');
                         Route::get('/templates/actie-aanbod-templates', 'actieAanbodTemplates')->name('actieAanbodTemplates');
                         Route::get('/templates/onboarding-opvolg-templates', 'onboardingOpvolgTemplates')->name('onboardingOpvolgTemplates');
+                        Route::patch('/templates/nieuwsbrief-templates/{template}', 'updateNieuwsbriefTemplate')->name('nieuwsbriefTemplates.update');
 
                         Route::get('/campagnes', 'campagnesIndex')->name('campagnesIndex');
                     });
