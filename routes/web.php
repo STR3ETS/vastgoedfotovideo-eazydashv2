@@ -23,6 +23,7 @@ use App\Http\Controllers\OfferteController;
 use App\Http\Controllers\WorkSessionController;
 use App\Http\Controllers\MarketingController;
 use App\Http\Controllers\MailingController;
+use App\Http\Controllers\SeoProjectController;
 use App\Http\Controllers\SocialsController;
 
 // eazyonline.nl website
@@ -203,6 +204,18 @@ Route::prefix('app')->group(function () {
                 Route::post('/{project}/offerte-generate', 'generateOfferte')->name('offerte.generate');
         });
 
+        Route::prefix('seo')
+            ->name('support.seo.')
+            ->controller(SeoProjectController::class)
+            ->group(function () {
+                Route::get('/projects', 'index')->name('projects.index');
+                Route::get('/projects/create', 'create')->name('projects.create');
+                Route::post('/projects', 'store')->name('projects.store');
+                Route::get('/projects/{seoProject}', 'show')->name('projects.show');
+                Route::get('/projects/{seoProject}/edit', 'edit')->name('projects.edit');
+                Route::patch('/projects/{seoProject}', 'update')->name('projects.update');
+            });
+
         // Marketing
         Route::prefix('marketing')
             ->name('support.marketing.')
@@ -267,20 +280,6 @@ Route::prefix('app')->group(function () {
                 Route::get('/bedrijven/{company}/personen/lijst', 'bedrijfPersonenLijst')->name('bedrijven.personen.lijst');
                 Route::post('/bedrijven/{company}/personen/{user}/toggle-admin', 'bedrijfToggleAdmin')->name('bedrijven.admin.toggle');
         });
-
-        // SEO Audit
-        Route::prefix('seo-audit')
-            ->name('support.seo-audit.')
-            ->controller(SeoAuditController::class)
-            ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::post('/', 'store')->name('store');
-
-                Route::get('{seoAudit}', 'show')->name('show');
-                Route::post('{seoAudit}/generate-plan', 'generatePlan')->name('generate-plan');
-                Route::get('{seoAudit}/status', 'status')->name('status');
-                Route::get('{seoAudit}/download-json', 'downloadJson')->name('download-json');
-            });
 
         // Instellingen
         Route::prefix('instellingen')

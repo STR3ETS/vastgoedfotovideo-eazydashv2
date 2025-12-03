@@ -72,7 +72,7 @@
                 </a>
               </li>
               <li>
-                <a href="{{ url('/app/seo-audit') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                <a href="{{ route('support.seo.projects.index') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
                   <i class="fa-brands fa-google text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
                 </a>
               </li>

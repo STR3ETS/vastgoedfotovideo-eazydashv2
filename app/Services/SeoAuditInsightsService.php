@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\SeoAudit;
 use App\Models\SeoAuditResult;
-use Illuminate\Support\Arr;
 
 class SeoAuditInsightsService
 {
@@ -13,22 +12,23 @@ class SeoAuditInsightsService
      *
      * Doel:
      * - Rapport plat slaan naar een uniforme lijst van issues
-     * - Issues verrijken met categorie, severity, impact, effort, owner, priority
-     * - Issues opslaan in seo_audit_results
-     * - Samenvatting + issues ook in meta['insights'] bewaren
+     * - Issues verrijken met categorie, severity, impact, effort, priority
+     * - Issues opslaan in seo_audit_results (historiek / detail)
+     * - Modules + slimme takenstructuur in $audit->meta bewaren:
+     *   - meta['modules']['tech'] => summary + report
+     *   - meta['tasks']          => takenlijst over alle modules
+     *   - meta['insights']       => samenvatting + issue-lijsten voor de UI
      */
     public function storeResultsFromReport(SeoAudit $audit, array $report): void
     {
         $meta = $audit->meta ?? [];
 
-        // Genormaliseerde issues uit het rapport halen
+        // 1) Issues normaliseren en verrijken
         $rawIssues = $this->normalizeIssuesFromReport($report);
 
-        // Verrijken met categorie, severity, owner, impact, effort, priority
         $enriched = collect($rawIssues)->map(function (array $issue) {
             $issue['category'] = $this->categorizeIssue($issue);
             $issue['severity'] = $this->severityLabel($issue['status'] ?? null);
-            $issue['owner']    = $this->suggestOwnerForIssue($issue);
             $issue['impact']   = $this->impactForIssue($issue);
             $issue['effort']   = $this->effortForIssue($issue);
             $issue['priority'] = $this->priorityForIssue($issue);
@@ -36,15 +36,20 @@ class SeoAuditInsightsService
             return $issue;
         });
 
-        // Bestaande resultaten voor deze audit verwijderen
+        // 2) Bestaande results verwijderen en nieuwe seo_audit_results records aanmaken
         $audit->results()->delete();
 
-        // Nieuwe seo_audit_results records aanmaken
         foreach ($enriched as $issue) {
             $data = $issue['data'] ?? [];
 
-            // Proberen sample URLs eruit te halen als die in de data zitten
-            $sampleUrls = $this->extractSampleUrlsFromIssue($issue);
+            // Sample URLs uit de data halen als die er zijn
+            $sampleUrls = null;
+            if (is_array($data)) {
+                $sampleUrls = $data['sample_urls'] ?? $data['urls'] ?? null;
+                if (!is_null($sampleUrls) && !is_array($sampleUrls)) {
+                    $sampleUrls = [$sampleUrls];
+                }
+            }
 
             SeoAuditResult::create([
                 'seo_audit_id'   => $audit->id,
@@ -58,13 +63,13 @@ class SeoAuditInsightsService
                 'category'       => $issue['category'] ?? null,
                 'impact'         => $issue['impact'] ?? null,
                 'effort'         => $issue['effort'] ?? null,
-                'owner'          => $issue['owner'] ?? null,
+                'owner'          => null, // niet meer in gebruik, maar kolom bestaat nog
                 'priority'       => $issue['priority'] ?? null,
                 'data'           => $data,
             ]);
         }
 
-        // Basis summary op basis van rapport
+        // 3) Basis summary uit het rapport
         $summary = [
             'score'    => data_get($report, 'score_percent', $audit->overall_score),
             'pages'    => data_get($report, 'total_pages'),
@@ -74,64 +79,63 @@ class SeoAuditInsightsService
             'passed'   => data_get($report, 'total_passed'),
         ];
 
-        // Extra tellingen op basis van verrijkte issues
-        $collection = collect($enriched);
+        // 4) Modules-structuur (nu alleen tech-module, later uit te breiden met keywords/backlinks)
+        $techModule = [
+            'enabled'      => true,
+            'status'       => 'completed',
+            'score'        => (int) ($summary['score'] ?? 0),
+            'summary'      => $summary,
+            'report'       => $report,
+            'domain_props' => data_get($report, 'domain_props', []),
+        ];
 
-        $summary['critical_issues'] = $collection->where('severity', 'critical')->sum('value');
-        $summary['warning_issues']  = $collection->where('severity', 'warning')->sum('value');
-        $summary['info_issues']     = $collection->where('severity', 'info')->sum('value');
-        $summary['issues_total']    = $collection->sum('value');
+        $meta['modules']['tech'] = $techModule;
 
-        $summary['issues_by_category'] = $collection
-            ->groupBy('category')
-            ->map(function ($items) {
-                return [
-                    'issues'   => $items->count(),
-                    'pages'    => $items->sum('value'),
-                    'critical' => $items->where('severity', 'critical')->sum('value'),
-                    'warnings' => $items->where('severity', 'warning')->sum('value'),
-                ];
-            })
-            ->toArray();
+        // 5) Slimme takenlijst genereren vanuit issues
+        $tasks = $this->buildTasksFromIssues($enriched->all());
+        $meta['tasks'] = $tasks;
 
-        // Enriched issues + summary in meta bewaren voor snelle toegang in de UI
-        $meta['insights']['issues']        = $enriched->values()->all();
-        $meta['insights']['summary']       = $summary;
-        $meta['insights']['owner_groups']  = $this->buildOwnerGroups($enriched->all());
-        $meta['insights']['page_overview'] = $this->buildPageOverview($enriched->all());
+        // 6) Quick wins en aanbevolen acties (voor UI)
+        $quickWins = $this->buildQuickWins($enriched->all());
+        $actions   = $this->buildRecommendedActions($enriched->all());
+
+        $meta['insights'] = [
+            'summary'             => $summary,
+            'issues'              => $enriched->values()->all(),
+            'quick_wins'          => $quickWins,
+            'recommended_actions' => $actions,
+        ];
 
         $audit->meta = $meta;
         $audit->save();
     }
 
     /**
-     * Bouwt een slim insights object voor de detailpagina.
-     * Dit gebruik je in SeoAuditController@show.
+     * Bouwt een insights-object voor de detailpagina.
+     * Wordt gebruikt in SeoAuditController@show.
      */
     public function buildInsights(SeoAudit $audit): array
     {
-        $meta   = $audit->meta ?? [];
-        $report = data_get($meta, 'seranking.report', data_get($meta, 'report', []));
+        $meta = $audit->meta ?? [];
 
-        // Issues uit meta als ze al opgeslagen zijn, anders opnieuw uit report halen
+        // Rapport ophalen uit nieuwe modules-structuur, fallback naar oude seranking.meta
+        $report = data_get($meta, 'modules.tech.report', data_get($meta, 'seranking.report', []));
+
+        // Issues uit meta als ze zijn opgeslagen, anders opnieuw uit report halen
         $issues = data_get($meta, 'insights.issues');
-        if (! is_array($issues)) {
+        if (!is_array($issues)) {
             $issues = $this->normalizeIssuesFromReport(is_array($report) ? $report : []);
             $issues = collect($issues)->map(function (array $issue) {
                 $issue['category'] = $this->categorizeIssue($issue);
                 $issue['severity'] = $this->severityLabel($issue['status'] ?? null);
-                $issue['owner']    = $this->suggestOwnerForIssue($issue);
                 $issue['impact']   = $this->impactForIssue($issue);
                 $issue['effort']   = $this->effortForIssue($issue);
                 $issue['priority'] = $this->priorityForIssue($issue);
-
                 return $issue;
             })->values()->all();
         }
 
-        $collection = collect($issues);
-
-        // Basis summary; als die in meta staat, gebruiken we die als start
+        // Summary uit meta of opnieuw berekenen
         $summary = data_get($meta, 'insights.summary', [
             'score'    => data_get($report, 'score_percent', $audit->overall_score),
             'pages'    => data_get($report, 'total_pages'),
@@ -141,25 +145,13 @@ class SeoAuditInsightsService
             'passed'   => data_get($report, 'total_passed'),
         ]);
 
-        // Zeker weten dat de extra velden ook aanwezig zijn
+        $collection = collect($issues);
+
+        // Extra tellingen
         $summary['critical_issues'] = $collection->where('severity', 'critical')->sum('value');
         $summary['warning_issues']  = $collection->where('severity', 'warning')->sum('value');
-        $summary['info_issues']     = $collection->where('severity', 'info')->sum('value');
-        $summary['issues_total']    = $collection->sum('value');
 
-        $summary['issues_by_category'] = $collection
-            ->groupBy('category')
-            ->map(function ($items) {
-                return [
-                    'issues'   => $items->count(),
-                    'pages'    => $items->sum('value'),
-                    'critical' => $items->where('severity', 'critical')->sum('value'),
-                    'warnings' => $items->where('severity', 'warning')->sum('value'),
-                ];
-            })
-            ->toArray();
-
-        // Groepen per categorie voor de UI
+        // Groepen per categorie (voor de "issue_groups" UI)
         $groups = $collection
             ->groupBy('category')
             ->map(function ($items) {
@@ -171,36 +163,33 @@ class SeoAuditInsightsService
             })
             ->toArray();
 
-        $quickWins          = $this->buildQuickWins($collection->all());
-        $recommendedActions = $this->buildRecommendedActions($collection->all());
-
-        // Owner groepen (wie moet wat doen)
-        $ownerGroups = data_get($meta, 'insights.owner_groups');
-        if (! is_array($ownerGroups)) {
-            $ownerGroups = $this->buildOwnerGroups($collection->all());
+        // Quick wins en acties uit meta of opnieuw genereren
+        $quickWins = data_get($meta, 'insights.quick_wins');
+        if (!is_array($quickWins)) {
+            $quickWins = $this->buildQuickWins($collection->all());
         }
 
-        // Pagina overzicht (welke pagina's zijn het zwaarst getroffen)
-        $pageOverview = data_get($meta, 'insights.page_overview');
-        if (! is_array($pageOverview)) {
-            $pageOverview = $this->buildPageOverview($collection->all());
+        $actions = data_get($meta, 'insights.recommended_actions');
+        if (!is_array($actions)) {
+            $actions = $this->buildRecommendedActions($collection->all());
         }
+
+        // Taken uit meta (nieuwe structuur)
+        $tasks = data_get($meta, 'tasks', []);
 
         return [
             'summary'             => $summary,
             'issue_groups'        => $groups,
-            'owner_groups'        => $ownerGroups,
-            'page_overview'       => $pageOverview,
             'quick_wins'          => $quickWins,
-            'recommended_actions' => $recommendedActions,
+            'recommended_actions' => $actions,
             'raw_issues'          => $collection->all(),
             'raw_report'          => $report,
+            'tasks'               => $tasks,
         ];
     }
 
     /**
      * Slaat SERanking report plat naar een standaard issues-lijst.
-     * We houden hier ook de ruwe check data bij in 'data'.
      */
     protected function normalizeIssuesFromReport(array $report): array
     {
@@ -220,7 +209,7 @@ class SeoAuditInsightsService
 
                     'code'         => $issueCode,
                     'section'      => $sectionName,
-                    'status'       => $check['status'] ?? null, // error / warning / ok
+                    'status'       => $check['status'] ?? null, // error / warning / notice / ok
                     'name'         => $check['name']   ?? ($check['title'] ?? $issueCode),
                     'value'        => (int) ($check['value'] ?? 0), // aantal pagina's
 
@@ -246,12 +235,20 @@ class SeoAuditInsightsService
             str_contains($section, 'speed') ||
             str_contains($section, 'server') ||
             str_contains($section, 'https') ||
+            str_contains($section, 'security') ||
             str_contains($section, 'mobile') ||
+            str_contains($section, 'crawling') ||
             str_contains($section, 'index')
         ) {
             return 'Techniek';
         }
-        if (str_contains($code, 'core_web_vitals') || str_contains($code, 'page_speed')) {
+        if (
+            str_contains($code, 'core_web_vitals') ||
+            str_contains($code, 'page_speed') ||
+            str_contains($code, 'http') ||
+            str_contains($code, 'robots') ||
+            str_contains($code, 'sitemap')
+        ) {
             return 'Techniek';
         }
 
@@ -260,6 +257,7 @@ class SeoAuditInsightsService
             str_contains($section, 'content') ||
             str_contains($section, 'meta') ||
             str_contains($section, 'title') ||
+            str_contains($section, 'metatags') ||
             str_contains($section, 'headings')
         ) {
             return 'Content';
@@ -267,7 +265,10 @@ class SeoAuditInsightsService
         if (
             str_contains($code, 'meta_') ||
             str_contains($code, 'title') ||
-            str_contains($code, 'h1')
+            str_contains($code, 'description') ||
+            str_contains($code, 'h1') ||
+            str_contains($code, 'image_') ||
+            str_contains($code, 'image_no_alt')
         ) {
             return 'Content';
         }
@@ -276,7 +277,13 @@ class SeoAuditInsightsService
         if (str_contains($section, 'links') || str_contains($section, 'backlink')) {
             return 'Links';
         }
-        if (str_contains($code, 'backlink') || str_contains($code, 'anchor')) {
+        if (
+            str_contains($code, 'backlink') ||
+            str_contains($code, 'anchor') ||
+            str_contains($code, 'inlinks') ||
+            str_contains($code, 'extlinks') ||
+            str_contains($code, 'links')
+        ) {
             return 'Links';
         }
 
@@ -348,6 +355,8 @@ class SeoAuditInsightsService
 
         if (
             str_contains($code, 'page_speed') ||
+            str_contains($code, 'chrome_ux_') ||
+            str_contains($code, 'lighthouse_') ||
             str_contains($code, 'core_web_vitals')
         ) {
             return 'hoog';
@@ -357,14 +366,14 @@ class SeoAuditInsightsService
     }
 
     /**
-     * Prioriteit voor issue in het werk, los van quick wins in de UI.
+     * Basis prioriteit voor een issue.
      */
     protected function priorityForIssue(array $issue): string
     {
         $severity = $issue['severity'] ?? $this->severityLabel($issue['status'] ?? null);
         $pages    = (int) ($issue['value'] ?? 0);
 
-        if ($severity === 'critical' && $pages <= 50) {
+        if ($severity === 'critical' && $pages <= 50 && $pages > 0) {
             return 'quick_win';
         }
 
@@ -373,7 +382,7 @@ class SeoAuditInsightsService
         }
 
         if ($severity === 'warning' && $pages > 0) {
-            return 'normal';
+            return 'high';
         }
 
         return 'low';
@@ -386,7 +395,7 @@ class SeoAuditInsightsService
     {
         $collection = collect($issues)
             ->filter(function ($i) {
-                if (! in_array($i['severity'], ['critical', 'warning'], true)) {
+                if (!in_array($i['severity'], ['critical', 'warning'], true)) {
                     return false;
                 }
 
@@ -406,9 +415,8 @@ class SeoAuditInsightsService
             $quick[] = [
                 'title'       => $issue['name'] ?: ($issue['code'] ?: 'Onbekend probleem'),
                 'description' => $this->shortDescriptionForIssue($issue) . $pagesTxt,
-                'impact'      => $issue['impact'] ?? ($issue['severity'] === 'critical' ? 'hoog' : 'middelmatig'),
+                'impact'      => $issue['impact'] ?? ($issue['severity'] === 'critical' ? 'hoog' : 'middel'),
                 'effort'      => $issue['effort'] ?? 'laag',
-                'owner'       => $issue['owner'] ?? $this->suggestOwnerForIssue($issue),
                 'pages'       => $pages,
                 'category'    => $issue['category'] ?? 'Overig',
                 'code'        => $issue['code'],
@@ -452,8 +460,7 @@ class SeoAuditInsightsService
                 'title'           => $this->actionTitleForCategory($category),
                 'priority'        => $this->priorityForCategory($category),
                 'impact'          => 'hoog',
-                'effort'          => 'middelmatig',
-                'owner'           => $this->suggestOwnerForCategory($category),
+                'effort'          => 'middel',
                 'summary'         => 'Belangrijkste aandachtspunten: ' . implode(', ', $titles),
                 'linked_issues'   => $top,
                 'suggested_steps' => $this->suggestStepsForCategory($category),
@@ -473,7 +480,7 @@ class SeoAuditInsightsService
             return 'Titels controleren en optimaliseren voor zoekwoorden en klikratio';
         }
 
-        if (str_contains($code, 'meta_description')) {
+        if (str_contains($code, 'meta_description') || str_contains($code, 'description')) {
             return 'Meta descriptions toevoegen of verbeteren zodat elke pagina een duidelijke omschrijving heeft';
         }
 
@@ -481,32 +488,46 @@ class SeoAuditInsightsService
             return 'Per pagina een duidelijke H1 kop toevoegen of corrigeren';
         }
 
-        if (str_contains($code, 'image_alt')) {
+        if (str_contains($code, 'image_alt') || str_contains($code, 'image_no_alt')) {
             return 'Alt teksten toevoegen aan belangrijke afbeeldingen';
         }
 
-        if (str_contains($code, 'redirect') || str_contains($code, '4xx') || str_contains($code, '5xx')) {
-            return 'Kapotte links en redirects herstellen zodat alle pagina’s goed bereikbaar zijn';
+        if (str_contains($code, 'images4xx') || str_contains($code, 'images5xx')) {
+            return 'Kapotte afbeeldingen herstellen zodat alle visuals goed laden';
         }
 
-        if (str_contains($code, 'page_speed') || str_contains($code, 'core_web_vitals')) {
-            return 'Laadsnelheid verbeteren door afbeeldingen te optimaliseren en caching in te richten';
+        if (
+            str_contains($code, 'redirect') ||
+            str_contains($code, '4xx') ||
+            str_contains($code, '5xx') ||
+            str_contains($code, 'http4xx') ||
+            str_contains($code, 'http5xx')
+        ) {
+            return 'Kapotte pagina’s en redirects herstellen zodat alle URL’s goed bereikbaar zijn';
+        }
+
+        if (
+            str_contains($code, 'page_speed') ||
+            str_contains($code, 'chrome_ux_') ||
+            str_contains($code, 'lighthouse_') ||
+            str_contains($code, 'loading_speed')
+        ) {
+            return 'Laadsnelheid verbeteren door afbeeldingen en code te optimaliseren en caching in te richten';
+        }
+
+        if (str_contains($code, 'no_inlinks') || str_contains($code, 'less_inlink')) {
+            return 'Interne linkstructuur verbeteren zodat belangrijke pagina’s meer interne links krijgen';
+        }
+
+        if (str_contains($code, 'sitemap')) {
+            return 'XML sitemap nalopen, fouten herstellen en zorgen dat alleen juiste URL’s opgenomen zijn';
+        }
+
+        if (str_contains($code, 'robots')) {
+            return 'Robots.txt controleren en corrigeren zodat zoekmachines de juiste pagina’s kunnen crawlen';
         }
 
         return 'Los dit probleem op voor de belangrijkste pagina’s';
-    }
-
-    protected function suggestOwnerForIssue(array $issue): string
-    {
-        $category = $issue['category'] ?? '';
-
-        return match ($category) {
-            'Techniek' => 'developer',
-            'Content'  => 'copywriter',
-            'Links'    => 'seo',
-            'UX'       => 'designer',
-            default    => 'seo',
-        };
     }
 
     protected function actionTitleForCategory(string $category): string
@@ -515,7 +536,7 @@ class SeoAuditInsightsService
             'Techniek' => 'Technische basis van de website op orde brengen',
             'Content'  => 'Content en metadata optimaliseren',
             'Links'    => 'Autoriteit en interne links verbeteren',
-            'UX'       => 'Gebruikerservaring en mobile vriendelijkheid verbeteren',
+            'UX'       => 'Gebruikerservaring en mobiel vriendelijk verbeteren',
             default    => 'Belangrijkste SEO problemen aanpakken',
         };
     }
@@ -528,17 +549,6 @@ class SeoAuditInsightsService
             'Links'    => 3,
             'UX'       => 4,
             default    => 5,
-        };
-    }
-
-    protected function suggestOwnerForCategory(string $category): string
-    {
-        return match ($category) {
-            'Techniek' => 'developer',
-            'Content'  => 'copywriter',
-            'Links'    => 'seo',
-            'UX'       => 'designer',
-            default    => 'seo',
         };
     }
 
@@ -556,7 +566,7 @@ class SeoAuditInsightsService
                 'Controleer H1 koppen en heading-structuur.',
             ],
             'Links' => [
-                'Herstel kapotte interne links.',
+                'Herstel kapotte interne en externe links.',
                 'Check of belangrijke pagina’s voldoende interne links krijgen.',
                 'Maak een plan voor het verkrijgen van kwalitatieve backlinks.',
             ],
@@ -572,163 +582,213 @@ class SeoAuditInsightsService
     }
 
     /**
-     * Bouwt groepen per eigenaar (developer, copywriter, seo, designer).
+     * Bouwt een generieke takenlijst over alle issues.
+     * We groeperen per code zodat je 1 taak krijgt voor bijvoorbeeld alle 4xx pagina’s.
      */
-    protected function buildOwnerGroups(array $issues): array
+    protected function buildTasksFromIssues(array $issues): array
     {
-        $byOwner = collect($issues)
-            ->groupBy(function ($issue) {
-                return $issue['owner'] ?? $this->suggestOwnerForIssue($issue);
-            });
+        $collection = collect($issues);
 
-        $groups = [];
-
-        foreach ($byOwner as $owner => $items) {
-            $owner = $owner ?: 'onbekend';
-
-            $totalIssues    = $items->count();
-            $criticalPages  = $items->where('severity', 'critical')->sum('value');
-            $warningPages   = $items->where('severity', 'warning')->sum('value');
-
-            $topIssues = $items
-                ->sortByDesc('severity')
-                ->sortByDesc('value')
-                ->take(5)
-                ->map(function ($issue) {
-                    return [
-                        'title'    => $issue['name'] ?: $issue['code'],
-                        'code'     => $issue['code'],
-                        'pages'    => (int) ($issue['value'] ?? 0),
-                        'category' => $issue['category'] ?? 'Overig',
-                        'severity' => $issue['severity'] ?? 'info',
-                        'impact'   => $issue['impact'] ?? null,
-                        'effort'   => $issue['effort'] ?? null,
-                    ];
-                })
-                ->values()
-                ->all();
-
-            $groups[] = [
-                'owner'         => $owner,
-                'total_issues'  => $totalIssues,
-                'critical_pages'=> $criticalPages,
-                'warning_pages' => $warningPages,
-                'top_issues'    => $topIssues,
-            ];
-        }
-
-        usort($groups, function ($a, $b) {
-            // Sorteer eerst op critical_pages, dan op warning_pages
-            $cmp = ($b['critical_pages'] <=> $a['critical_pages']);
-            if ($cmp !== 0) {
-                return $cmp;
-            }
-
-            return $b['warning_pages'] <=> $a['warning_pages'];
-        });
-
-        return $groups;
-    }
-
-    /**
-     * Bouwt een overzicht per pagina op basis van sample URLs.
-     */
-    protected function buildPageOverview(array $issues): array
-    {
-        $pages = [];
-
-        foreach ($issues as $issue) {
-            $urls     = $this->extractSampleUrlsFromIssue($issue);
+        // Alleen issues die daadwerkelijk iets te fixen hebben
+        $filtered = $collection->filter(function (array $issue) {
             $severity = $issue['severity'] ?? $this->severityLabel($issue['status'] ?? null);
-            $category = $issue['category'] ?? 'Overig';
+            $pages    = (int) ($issue['value'] ?? 0);
 
-            if (empty($urls)) {
-                continue;
+            if ($pages <= 0) {
+                return false;
             }
 
-            foreach ($urls as $url) {
-                if (! isset($pages[$url])) {
-                    $pages[$url] = [
-                        'url'         => $url,
-                        'issues_total'=> 0,
-                        'critical'    => 0,
-                        'warnings'    => 0,
-                        'info'        => 0,
-                        'categories'  => [],
-                    ];
-                }
-
-                $pages[$url]['issues_total']++;
-
-                if ($severity === 'critical') {
-                    $pages[$url]['critical']++;
-                } elseif ($severity === 'warning') {
-                    $pages[$url]['warnings']++;
-                } else {
-                    $pages[$url]['info']++;
-                }
-
-                if (! isset($pages[$url]['categories'][$category])) {
-                    $pages[$url]['categories'][$category] = 0;
-                }
-                $pages[$url]['categories'][$category]++;
-            }
-        }
-
-        // Top pagina's bepalen
-        $pageList = array_values($pages);
-
-        usort($pageList, function ($a, $b) {
-            // Eerst op critical, dan warnings, dan totaal
-            $cmp = $b['critical'] <=> $a['critical'];
-            if ($cmp !== 0) {
-                return $cmp;
-            }
-
-            $cmp = $b['warnings'] <=> $a['warnings'];
-            if ($cmp !== 0) {
-                return $cmp;
-            }
-
-            return $b['issues_total'] <=> $a['issues_total'];
+            return in_array($severity, ['critical', 'warning'], true);
         });
 
-        $topPages = array_slice($pageList, 0, 10);
+        $groupedByCode = $filtered->groupBy(function (array $issue) {
+            return (string) ($issue['code'] ?? $issue['name'] ?? 'unknown');
+        });
 
-        return [
-            'pages'     => $pageList,
-            'top_pages' => $topPages,
+        $tasks = [];
+        $i     = 1;
+
+        foreach ($groupedByCode as $code => $items) {
+            /** @var array $first */
+            $first = $items->first();
+
+            $totalPages = (int) $items->sum('value');
+            $severity   = $first['severity'] ?? $this->severityLabel($first['status'] ?? null);
+            $category   = $first['category'] ?? $this->categorizeIssue($first);
+            $impact     = $this->impactForIssue($first);
+            $effort     = $this->effortForIssue($first);
+            $priority   = $this->priorityForIssue([
+                'severity' => $severity,
+                'value'    => $totalPages,
+            ]);
+
+            $title       = $this->taskTitleForCode($code, $first);
+            $description = $this->taskDescriptionForCode($code, $first, $totalPages);
+
+            $tasks[] = [
+                'id'            => 'task_' . $code . '_' . $i,
+                'title'         => $title,
+                'description'   => $description,
+                'source_module' => 'tech',
+                'category'      => $category,
+                'related_codes' => [$code],
+                'related_urls'  => [], // later kun je hier sample URLs aan koppelen
+                'related_keywords' => [],
+                'priority'      => $priority,
+                'impact'        => $impact,
+                'effort'        => $effort,
+                'status'        => 'open',
+                'estimated_min' => $this->estimateMinutesForCode($code, $effort, $totalPages),
+                'pages_affected'=> $totalPages,
+            ];
+
+            $i++;
+        }
+
+        // sorteer taken grofweg op prioriteit en impact
+        $priorityOrder = [
+            'must_fix'  => 1,
+            'quick_win' => 2,
+            'high'      => 3,
+            'normal'    => 4,
+            'low'       => 5,
         ];
+
+        usort($tasks, function (array $a, array $b) use ($priorityOrder) {
+            $pa = $priorityOrder[$a['priority']] ?? 99;
+            $pb = $priorityOrder[$b['priority']] ?? 99;
+
+            if ($pa === $pb) {
+                // bij gelijke prioriteit: meeste pagina’s eerst
+                return ($b['pages_affected'] ?? 0) <=> ($a['pages_affected'] ?? 0);
+            }
+
+            return $pa <=> $pb;
+        });
+
+        return $tasks;
     }
 
-    /**
-     * Haalt sample URLs uit issue of data.
-     */
-    protected function extractSampleUrlsFromIssue(array $issue): array
+    protected function taskTitleForCode(string $code, array $issue): string
     {
-        if (isset($issue['sample_urls']) && is_array($issue['sample_urls'])) {
-            return $issue['sample_urls'];
+        $codeL = mb_strtolower($code);
+
+        if (str_contains($codeL, 'http4xx') || str_contains($codeL, 'http5xx')) {
+            return 'Herstel pagina’s met 4xx en 5xx statuscodes';
         }
 
-        $data = $issue['data'] ?? [];
-
-        if (! is_array($data)) {
-            return [];
+        if (str_contains($codeL, 'images4xx') || str_contains($codeL, 'images5xx')) {
+            return 'Herstel kapotte afbeeldingen';
         }
 
-        $urls = $data['sample_urls'] ?? $data['urls'] ?? null;
-
-        if (is_null($urls)) {
-            return [];
+        if (
+            str_contains($codeL, 'meta_title') ||
+            str_contains($codeL, 'title_long') ||
+            str_contains($codeL, 'title_short') ||
+            str_contains($codeL, 'title_missing') ||
+            str_contains($codeL, 'title_duplicate')
+        ) {
+            return 'Titels (title tags) optimaliseren';
         }
 
-        if (! is_array($urls)) {
-            $urls = [$urls];
+        if (
+            str_contains($codeL, 'description_') ||
+            str_contains($codeL, 'meta_description')
+        ) {
+            return 'Meta descriptions toevoegen en verbeteren';
         }
 
-        // Schoonmaken en dubbelingen eruit
-        $urls = array_values(array_unique(array_filter($urls)));
+        if (
+            str_contains($codeL, 'h1_') ||
+            str_contains($codeL, 'h1')
+        ) {
+            return 'H1 koppen structureren en corrigeren';
+        }
 
-        return $urls;
+        if (
+            str_contains($codeL, 'image_no_alt') ||
+            str_contains($codeL, 'image_alt')
+        ) {
+            return 'Alt teksten voor afbeeldingen toevoegen';
+        }
+
+        if (
+            str_contains($codeL, 'loading_speed') ||
+            str_contains($codeL, 'page_speed') ||
+            str_contains($codeL, 'chrome_ux_') ||
+            str_contains($codeL, 'lighthouse_')
+        ) {
+            return 'Laadsnelheid en performance verbeteren';
+        }
+
+        if (
+            str_contains($codeL, 'sitemap') ||
+            str_contains($codeL, 'robots')
+        ) {
+            return 'Sitemap en robots.txt controleren en fixen';
+        }
+
+        if (str_contains($codeL, 'no_inlinks') || str_contains($codeL, 'less_inlink')) {
+            return 'Interne linkstructuur naar belangrijke pagina’s verbeteren';
+        }
+
+        return $issue['name'] ?? ($code ?: 'SEO taak');
+    }
+
+    protected function taskDescriptionForCode(string $code, array $issue, int $pages): string
+    {
+        $base = $this->shortDescriptionForIssue($issue);
+        if ($pages > 0) {
+            $base .= " (ca. {$pages} pagina’s getroffen)";
+        }
+
+        return $base;
+    }
+
+    protected function estimateMinutesForCode(string $code, string $effort, int $pages): int
+    {
+        $codeL = mb_strtolower($code);
+
+        // basis op effort
+        $base = match ($effort) {
+            'laag'   => 30,
+            'middel' => 60,
+            'hoog'   => 120,
+            default  => 45,
+        };
+
+        // kleine correcties per type issue
+        if (
+            str_contains($codeL, 'meta_title') ||
+            str_contains($codeL, 'title_') ||
+            str_contains($codeL, 'description_') ||
+            str_contains($codeL, 'h1_')
+        ) {
+            // content-issues zijn vaak sneller als het om weinig pagina’s gaat
+            if ($pages <= 5) {
+                return 30;
+            }
+            if ($pages <= 20) {
+                return 60;
+            }
+        }
+
+        if (str_contains($codeL, 'http4xx') || str_contains($codeL, 'http5xx')) {
+            if ($pages <= 5) {
+                return 45;
+            }
+        }
+
+        if (
+            str_contains($codeL, 'loading_speed') ||
+            str_contains($codeL, 'page_speed') ||
+            str_contains($codeL, 'chrome_ux_') ||
+            str_contains($codeL, 'lighthouse_')
+        ) {
+            // performance-taken zijn meestal wat zwaarder
+            return max($base, 90);
+        }
+
+        return $base;
     }
 }
