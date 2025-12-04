@@ -11,6 +11,9 @@ class SeoProject extends Model
 {
     use HasFactory;
 
+    /**
+     * Mass assignable velden.
+     */
     protected $fillable = [
         'company_id',
         'name',
@@ -21,6 +24,17 @@ class SeoProject extends Model
         'primary_keywords',
         'main_pages',
         'seranking_project_id',
+
+        // Nieuwe meta velden
+        'status',
+        'priority',
+        'visibility_index',
+        'organic_traffic',
+        'primary_goal',
+        'goal_notes',
+        'notes',
+
+        // Health + audit/sync
         'health_overall',
         'health_technical',
         'health_content',
@@ -29,12 +43,19 @@ class SeoProject extends Model
         'last_synced_at',
     ];
 
+    /**
+     * Type casting voor JSON & datum/nummer velden.
+     */
     protected $casts = [
         'extra_domains'    => 'array',
         'regions'          => 'array',
         'business_goals'   => 'array',
         'primary_keywords' => 'array',
         'main_pages'       => 'array',
+
+        'visibility_index' => 'decimal:2',
+        'organic_traffic'  => 'integer',
+
         'last_synced_at'   => 'datetime',
     ];
 
@@ -48,7 +69,7 @@ class SeoProject extends Model
 
     /**
      * Alle audits die bij dit project horen.
-     * SeoAudit heb je al of maken we in een volgende stap strak af.
+     * SeoAudit werken we in de volgende stappen verder uit.
      */
     public function audits(): HasMany
     {
@@ -65,7 +86,7 @@ class SeoProject extends Model
 
     /**
      * Alle SEO taken voor dit project.
-     * SeoTask maken we later met een aparte migratie.
+     * SeoTask komt later als aparte tabel.
      */
     public function tasks(): HasMany
     {
@@ -74,7 +95,7 @@ class SeoProject extends Model
 
     /**
      * Keyword snapshots in de tijd voor dit project.
-     * SeoKeywordSnapshot maken we ook later.
+     * SeoKeywordSnapshot komt later als aparte tabel.
      */
     public function keywordSnapshots(): HasMany
     {
