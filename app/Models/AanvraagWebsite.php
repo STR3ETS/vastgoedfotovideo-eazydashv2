@@ -26,6 +26,7 @@ class AanvraagWebsite extends Model
         'status',
         'intake_at',
         'intake_duration',
+        'ai_summary',
     ];
 
     protected $casts = [
@@ -53,5 +54,11 @@ class AanvraagWebsite extends Model
     public function project()
     {
         return $this->hasOne(\App\Models\Project::class, 'aanvraag_id');
+    }
+    public function emails()
+    {
+        return $this->hasMany(\App\Models\AanvraagEmail::class, 'aanvraag_id')
+            ->latest('received_at')
+            ->latest();
     }
 }

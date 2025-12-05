@@ -43,7 +43,8 @@ class PotentieleKlantenController extends Controller
                 'intake_at',
                 'intake_duration',
                 'intake_done',
-                'intake_completed_at'
+                'intake_completed_at',
+                'ai_summary'
             )
             ->latest()
             ->paginate(12);

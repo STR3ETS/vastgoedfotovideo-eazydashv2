@@ -45,4 +45,11 @@ return [
         'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
     ],
 
+    'm365' => [
+        'tenant_id'     => env('M365_TENANT_ID'),
+        'client_id'     => env('M365_CLIENT_ID'),
+        'client_secret' => env('M365_CLIENT_SECRET'),
+        'mailbox'       => env('M365_INFO_MAILBOX', 'info@eazyonline.nl'),
+        'webhook_secret'=> env('M365_WEBHOOK_SECRET'),
+    ],
 ];

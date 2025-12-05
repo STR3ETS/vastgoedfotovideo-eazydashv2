@@ -44,38 +44,38 @@
   $statusCounts = $statusCounts ?? []; // ['prospect' => 3, ...]
 @endphp
 
-<ul class="mt-3 space-y-2">
-  @foreach($statusMap as $label => $value)
-    @php
-      $c     = $colors[$value];
-      $count = $statusCounts[$value] ?? 0;
-    @endphp
+<div class="flex flex-wrap items-center justify-between p-2 rounded-full bg-[#f3f8f8]">
+  <ul class="flex items-center gap-2 w-full">
+    @foreach($statusMap as $label => $value)
+      @php
+        $c     = $colors[$value];
+        $count = $statusCounts[$value] ?? 0;
+      @endphp
 
-    <li class="w-full">
-      <div class="flex items-center justify-between gap-2 p-4 text-xs font-semibold rounded-xl border
-                  cursor-grab active:cursor-grabbing select-none
-                  {{ $c['bg'] }} {{ $c['border'] }} {{ $c['text'] }}"
-           draggable="true"
-           x-on:dragstart="onStatusDragStart('{{ $value }}', '{{ $label }}', $el, $event)"
-           x-on:dragend="onStatusDragEnd($el)">
+      <li class="w-1/5">
+        <div class="w-full flex items-center justify-between py-2 px-3 rounded-full text-xs font-semibold border
+                    cursor-grab active:cursor-grabbing select-none
+                    {{ $c['bg'] }} {{ $c['border'] }} {{ $c['text'] }}"
+            draggable="true"
+            x-on:dragstart="onStatusDragStart('{{ $value }}', '{{ $label }}', $el, $event)"
+            x-on:dragend="onStatusDragEnd($el)">
 
-        <div class="flex flex-col">
-          <span class="text-sm font-semibold">
-            {{ __('potentiele_klanten.statuses.' . $value) }}
-          </span>
-          <span class="text-xs opacity-80 mt-1"
-                x-text="formatStatusCount('{{ $value }}')">
-            {{ __(
-              $count === 1
-                ? 'potentiele_klanten.status_counts.singular'
-                : 'potentiele_klanten.status_counts.plural',
-              ['count' => $count]
-            ) }}
-          </span>
+          <div class="w-full flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold">
+              {{ __('potentiele_klanten.statuses.' . $value) }}
+            </span>
+            <span class="text-[11px] opacity-80"
+                  x-text="formatStatusCount('{{ $value }}')">
+              {{ __(
+                $count === 1
+                  ? 'potentiele_klanten.status_counts.singular'
+                  : 'potentiele_klanten.status_counts.plural',
+                ['count' => $count]
+              ) }}
+            </span>
+          </div>
         </div>
-
-        <div class="w-1.5 h-1.5 rounded-full {{ $c['dot'] }}"></div>
-      </div>
-    </li>
-  @endforeach
-</ul>
+      </li>
+    @endforeach
+  </ul>
+</div>

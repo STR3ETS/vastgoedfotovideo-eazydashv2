@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\AanvraagWebsite;
 use App\Models\AanvraagTask;
-use App\Models\AanvraagTaskQuestion;
 use Illuminate\Support\Facades\Log;
+use OpenAI\Laravel\Facades\OpenAI;
 
 class AanvraagController extends Controller
 {
@@ -32,6 +32,23 @@ class AanvraagController extends Controller
 
         $aanvraag = AanvraagWebsite::create($validated);
 
+        /**
+         * ✅ AI-samenvatting maken en opslaan
+         */
+        try {
+            $summary = $this->generateAiSummaryForAanvraag($aanvraag);
+
+            if ($summary) {
+                $aanvraag->ai_summary = $summary;
+                $aanvraag->save();
+            }
+        } catch (\Throwable $e) {
+            Log::warning('[Aanvraag AI summary] failed', [
+                'aanvraag_id' => $aanvraag->id,
+                'error'       => $e->getMessage(),
+            ]);
+        }
+
         // Default call-task + checklist
         $callTask = AanvraagTask::create([
             'aanvraag_website_id' => $aanvraag->id,
@@ -43,7 +60,6 @@ class AanvraagController extends Controller
 
         // Kies vragen op basis van choice: 'new' / 'renew'
         if ($aanvraag->choice === 'renew') {
-            // Vernieuwen
             $questions = [
                 "Zou je me wat kunnen vertellen over jullie bedrijf/huidige stand van zaken?",
                 "Wat mis je aan je huidige website?",
@@ -68,7 +84,6 @@ class AanvraagController extends Controller
                 "Vind je het goed dat we een groepsapp aanmaken waarin we je op de hoogte houden en jouw website preview sturen?",
             ];
         } else {
-            // Nieuwe website (default / 'new')
             $questions = [
                 "Zou je me wat kunnen vertellen over jullie bedrijf/huidige stand van zaken?",
                 "Wat wil je graag zien op de website?",
@@ -114,8 +129,49 @@ class AanvraagController extends Controller
         return response()->json([
             'success' => true,
             'id'      => $aanvraag->id,
-            'message' => 'Aanvraag succesvol opgeslagen 🚀'
+            'message' => 'Aanvraag succesvol opgeslagen 🚀',
+            'summary' => $aanvraag->ai_summary, // handig voor direct UI updaten
         ]);
+    }
+
+    private function generateAiSummaryForAanvraag(AanvraagWebsite $aanvraag): ?string
+    {
+        $choiceLabel = $aanvraag->choice === 'renew' ? 'Website vernieuwen' : 'Nieuwe website';
+
+        $payload = [
+            'type'        => $choiceLabel,
+            'url'         => $aanvraag->url,
+            'bedrijf'     => $aanvraag->company,
+            'omschrijving'=> $aanvraag->description,
+            'doel'        => $aanvraag->goal,
+            'voorbeelden' => array_values(array_filter([$aanvraag->example1, $aanvraag->example2])),
+            'contact'     => [
+                'naam'  => $aanvraag->contactName,
+                'email' => $aanvraag->contactEmail,
+                'tel'   => $aanvraag->contactPhone,
+            ],
+        ];
+
+        $instructions = <<<SYS
+Je bent een senior webstrateeg bij een webdesign agency.
+Maak een compacte, professionele samenvatting van deze website-aanvraag.
+Schrijf in het Nederlands, 3-6 zinnen.
+Noem: type aanvraag (nieuw/vernieuwen), bedrijf (indien bekend), URL (indien bekend),
+doel, opvallende wensen/voorbeelden en wat dit impliceert voor de intake.
+Geen bullets, geen emoji.
+SYS;
+
+        $response = OpenAI::responses()->create([
+            'model' => config('openai.model', 'gpt-5'),
+            'instructions' => $instructions,
+            'input' => "Aanvraag data (JSON):\n" . json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+            'temperature' => 0.2,
+            'max_output_tokens' => 220,
+        ]);
+
+        $text = trim($response->outputText ?? '');
+
+        return $text !== '' ? $text : null;
     }
 
     private function getVisitIdFromCookie(Request $request): ?string

@@ -714,11 +714,15 @@
     </div>
 @endsection
 
+@php
+    $summary  = $summary  ?? [];
+    $perMonth = $perMonth ?? [];
+@endphp
 {{-- Chart.js via CDN (een keer laden is genoeg, haal weg als je 'm al globaal hebt) --}}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const summary = @json($summary);
+        const summary = @json($summary ?? []);
         const statusOrder = ['concept', 'pending', 'signed', 'expired'];
 
         const perMonth = @json($perMonth ?? []);

@@ -1,9 +1,7 @@
 @extends('hub.layouts.app')
 
 @section('content')
-  <div class="col-span-1 w-full p-4 h-full bg-white rounded-xl"></div>
-
-  <div class="col-span-4 grid grid-cols-4 gap-4 bg-white rounded-xl p-4 min-h-0 overflow-hidden"
+  <div class="col-span-5 grid grid-cols-4 w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0 overflow-hidden"
       x-data="statusDnD({
           csrf: '{{ csrf_token() }}',
           updateUrlTemplate: '{{ route('support.potentiele-klanten.status.update', ['aanvraag' => '__ID__']) }}',
@@ -16,95 +14,231 @@
       })"
       x-init="init()">
 
-    <div class="col-span-1 w-full h-full">
-      <h3 class="text-lg text-[#215558] font-black leading-tight truncate opacity-50">
-        {{ __('potentiele_klanten.statuses_title') }}
-      </h3>
+    <div class="col-span-4 w-full h-full flex flex-col min-h-0">
       @include('hub.potentiele-klanten.partials.statuses', [
-          'statusMap'    => $statusMap ?? [],
-          'statusCounts' => $statusCounts ?? [],
+        'statusMap'    => $statusMap ?? [],
+        'statusCounts' => $statusCounts ?? [],
       ])
-    </div>
-
-    <div class="col-span-3 w-full h-full flex flex-col min-h-0">
-      {{-- Titel + filterbuttons --}}
-      <div class="flex items-center justify-between gap-3">
-        <h3 class="text-lg text-[#215558] font-black leading-tight truncate opacity-50">
-          {{ __('potentiele_klanten.page_title') }}
-        </h3>
-      </div>
-
-      {{-- Alleen deze inhoud krijgt een eigen scrollbar --}}
-      <div class="mt-3 flex-1 overflow-y-auto min-h-0 pr-2">
-        {{-- Status-filters --}}
-        <div class="flex flex-wrap items-center gap-2">
-          {{-- Prospect --}}
-          <button type="button"
-                  class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
-                  :class="activeFilters.includes('prospect')
-                    ? 'bg-[#b3e6ff] border-[#0f6199] text-[#0f6199]'
-                    : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
-                  @click="toggleFilter('prospect')">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#0f6199]"></span>
-            <span>{{ __('potentiele_klanten.filters.prospect') }}</span>
-          </button>
-
-          {{-- Contact --}}
-          <button type="button"
-                  class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
-                  :class="activeFilters.includes('contact')
-                    ? 'bg-[#C2F0D5] border-[#20603a] text-[#20603a]'
-                    : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
-                  @click="toggleFilter('contact')">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#20603a]"></span>
-            <span>{{ __('potentiele_klanten.filters.contact') }}</span>
-          </button>
-
-          {{-- Intake --}}
-          <button type="button"
-                  class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
-                  :class="activeFilters.includes('intake')
-                    ? 'bg-[#ffdfb3] border-[#a0570f] text-[#a0570f]'
-                    : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
-                  @click="toggleFilter('intake')">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#a0570f]"></span>
-            <span>{{ __('potentiele_klanten.filters.intake') }}</span>
-          </button>
-
-          {{-- Lead --}}
-          <button type="button"
-                  class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
-                  :class="activeFilters.includes('lead')
-                    ? 'bg-[#e0d4ff] border-[#4c2a9b] text-[#4c2a9b]'
-                    : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
-                  @click="toggleFilter('lead')">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#4c2a9b]"></span>
-            <span>{{ __('potentiele_klanten.filters.lead') }}</span>
-          </button>
-
-          {{-- Dead --}}
-          <button type="button"
-                  class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
-                  :class="activeFilters.includes('dead')
-                    ? 'bg-[#ffb3b3] border-[#8a2a2d] text-[#8a2a2d]'
-                    : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
-                  @click="toggleFilter('dead')">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#8a2a2d]"></span>
-            <span>{{ __('potentiele_klanten.filters.dead') }}</span>
-          </button>
-        </div>
-
-        @include('hub.potentiele-klanten.partials.list-cards', [
-          'aanvragen'      => $aanvragen ?? collect(),
-          'statusByValue'  => $statusByValue ?? [],
-        ])
-
-        @if(method_exists($aanvragen, 'links'))
-          <div class="mt-3 pb-2">
-            {{ $aanvragen->links() }}
+      <div class="mt-3 flex gap-4 items-center">
+        <div class="w-fit flex items-center gap-2 p-2 rounded-full bg-[#f3f8f8] overflow-x-auto">
+          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
+            <img src="/assets/eazyonline/memojis/boyd.webp" class="max-h-[80%]">
+            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Boyd Halfman</p>
           </div>
-        @endif
+          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
+            <img src="/assets/eazyonline/memojis/yael.webp" class="max-h-[80%]">
+            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Yael Scholten</p>
+          </div>
+          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
+            <img src="/assets/eazyonline/memojis/raphael.webp" class="max-h-[80%]">
+            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Raphael Muskitta</p>
+          </div>
+          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
+            <img src="/assets/eazyonline/memojis/johnny.webp" class="max-h-[80%]">
+            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Johnny Muskitta</p>
+          </div>
+          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
+            <img src="/assets/eazyonline/memojis/martijn.webp" class="max-h-[80%]">
+            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Martijn Visser</p>
+          </div>
+          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
+            <img src="/assets/eazyonline/memojis/laurenzo.webp" class="max-h-[80%]">
+            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Laurenzo Soemopawiro</p>
+          </div>
+          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
+            <img src="/assets/eazyonline/memojis/joris.webp" class="max-h-[80%]">
+            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Joris Lindner</p>
+          </div>
+          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
+            <img src="/assets/eazyonline/memojis/laurina.webp" class="max-h-[80%]">
+            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Laurina Pesulima</p>
+          </div>
+        </div>
       </div>
+      {{-- Scroll alleen rechts (detail) --}}
+      <div class="mt-3 flex-1 min-h-0 overflow-hidden flex flex-col">
+
+          {{-- Status-filters --}}
+          <div class="flex flex-wrap items-center gap-2 mt-6">
+              {{-- Prospect --}}
+              <button type="button"
+                      class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
+                      :class="activeFilters.includes('prospect')
+                        ? 'bg-[#b3e6ff] border-[#0f6199] text-[#0f6199]'
+                        : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
+                      @click="toggleFilter('prospect')">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0f6199]"></span>
+                <span>{{ __('potentiele_klanten.filters.prospect') }}</span>
+              </button>
+
+              {{-- Contact --}}
+              <button type="button"
+                      class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
+                      :class="activeFilters.includes('contact')
+                        ? 'bg-[#C2F0D5] border-[#20603a] text-[#20603a]'
+                        : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
+                      @click="toggleFilter('contact')">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#20603a]"></span>
+                <span>{{ __('potentiele_klanten.filters.contact') }}</span>
+              </button>
+
+              {{-- Intake --}}
+              <button type="button"
+                      class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
+                      :class="activeFilters.includes('intake')
+                        ? 'bg-[#ffdfb3] border-[#a0570f] text-[#a0570f]'
+                        : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
+                      @click="toggleFilter('intake')">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#a0570f]"></span>
+                <span>{{ __('potentiele_klanten.filters.intake') }}</span>
+              </button>
+
+              {{-- Lead --}}
+              <button type="button"
+                      class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
+                      :class="activeFilters.includes('lead')
+                        ? 'bg-[#e0d4ff] border-[#4c2a9b] text-[#4c2a9b]'
+                        : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
+                      @click="toggleFilter('lead')">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#4c2a9b]"></span>
+                <span>{{ __('potentiele_klanten.filters.lead') }}</span>
+              </button>
+
+              {{-- Dead --}}
+              <button type="button"
+                      class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition cursor-pointer"
+                      :class="activeFilters.includes('dead')
+                        ? 'bg-[#ffb3b3] border-[#8a2a2d] text-[#8a2a2d]'
+                        : 'bg-white border-gray-200 text-[#215558] opacity-60 hover:opacity-100'"
+                      @click="toggleFilter('dead')">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#8a2a2d]"></span>
+                <span>{{ __('potentiele_klanten.filters.dead') }}</span>
+              </button>
+          </div>
+
+          {{-- ✅ MASTER / DETAIL --}}
+          @php
+              $aanvragenCollection = $aanvragen ?? collect();
+
+              $firstAanvraagId = $aanvragenCollection->first()->id ?? null;
+
+              $choiceMap = [
+                  'new'   => __('potentiele_klanten.choices.new'),
+                  'renew' => __('potentiele_klanten.choices.renew'),
+              ];
+          @endphp
+
+          <div
+              class="mt-6 grid grid-cols-3 gap-6 flex-1 min-h-0"
+              x-data="{ activeId: @js($firstAanvraagId) }"
+          >
+              {{-- ===================== LEFT LIST ===================== --}}
+              <div class="space-y-2 bg-[#f3f8f8] rounded-4xl p-8 h-full min-h-0">
+                  @forelse($aanvragenCollection as $aanvraag)
+                      @php
+                          $rowStatus = $aanvraag->status ?? 'prospect';
+                      @endphp
+
+                      <button
+                          type="button"
+                          x-show="!activeFilters.length || activeFilters.includes(@js($rowStatus))"
+                          x-cloak
+                          class="w-full text-left pl-5 pr-2 py-4 transition duration-300
+                                border-l-4 rounded-tr-4xl rounded-br-4xl cursor-pointer"
+                          :class="activeId === {{ $aanvraag->id }}
+                              ? 'bg-white border-l-[#0F9B9F]'
+                              : 'bg-white border-l-[#215558]/20 hover:bg-gray-50'"
+                          @click="activeId = {{ $aanvraag->id }}"
+                      >
+                          <div class="flex items-start justify-between gap-4">
+                              <div class="w-full flex items-center justify-between">
+                                  <div class="w-full">
+                                      <p class="text-base font-bold text-[#215558] truncate mb-1">
+                                          {{ $choiceMap[$aanvraag->choice] ?? __('potentiele_klanten.choices.default') }}
+                                      </p>
+                                      <p class="text-sm font-medium text-[#215558] leading-[20px] opacity-75">
+                                          {{ $aanvraag->company
+                                              ?? $aanvraag->bedrijf
+                                              ?? $aanvraag->contact_person
+                                              ?? $aanvraag->contactpersoon
+                                              ?? '' }}
+                                      </p>
+                                  </div>
+
+                                  <div class="flex items-center gap-2">
+                                      @php
+                                          $status = $aanvraag->status ?? 'prospect';
+
+                                          $badgeMap = [
+                                              'prospect' => ['label' => __('potentiele_klanten.filters.prospect'), 'class' => 'bg-[#b3e6ff] text-[#0f6199]'],
+                                              'contact'  => ['label' => __('potentiele_klanten.filters.contact'),  'class' => 'bg-[#C2F0D5] text-[#20603a]'],
+                                              'intake'   => ['label' => __('potentiele_klanten.filters.intake'),   'class' => 'bg-[#ffdfb3] text-[#a0570f]'],
+                                              'lead'     => ['label' => __('potentiele_klanten.filters.lead'),     'class' => 'bg-[#e0d4ff] text-[#4c2a9b]'],
+                                              'dead'     => ['label' => __('potentiele_klanten.filters.dead'),     'class' => 'bg-[#ffb3b3] text-[#8a2a2d]'],
+                                          ];
+
+                                          $badge = $badgeMap[$status] ?? ['label' => ucfirst($status), 'class' => 'bg-gray-100 text-gray-600'];
+                                      @endphp
+
+                                      <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold {{ $badge['class'] }}">
+                                          {{ $badge['label'] }}
+                                      </span>
+
+                                      @if(!empty($aanvraag->budget_label))
+                                          <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-gray-100 text-gray-700">
+                                              {{ $aanvraag->budget_label }}
+                                          </span>
+                                      @endif
+                                  </div>
+                              </div>
+
+                              <div class="flex flex-col items-end gap-2 shrink-0">
+                                  <span class="text-[11px] text-[#215558] opacity-50">
+                                      {{ optional($aanvraag->updated_at)->format('H:i') }}
+                                  </span>
+
+                                  @if(!empty($aanvraag->owner_avatar_url))
+                                      <img src="{{ $aanvraag->owner_avatar_url }}"
+                                          class="w-6 h-6 rounded-full object-cover border border-gray-200">
+                                  @endif
+                              </div>
+                          </div>
+                      </button>
+                  @empty
+                      <div class="p-4">
+                          <p class="text-sm font-semibold text-[#215558] opacity-70">
+                              Geen potentiële klanten gevonden.
+                          </p>
+                      </div>
+                  @endforelse
+              </div>
+
+              {{-- ===================== RIGHT DETAIL ===================== --}}
+              <div class="col-span-2 min-h-0 bg-[#f3f8f8] rounded-4xl overflow-hidden flex flex-col">
+                  <div class="p-8 flex-1 min-h-0 overflow-y-auto">
+                      @forelse($aanvragenCollection as $aanvraag)
+                          <div
+                              x-show="activeId === {{ $aanvraag->id }}"
+                              x-cloak
+                          >
+                              @include('hub.potentiele-klanten.partials.card', [
+                                  'aanvraag'      => $aanvraag,
+                                  'statusByValue' => $statusByValue ?? [],
+                                  'showListRow'   => false,
+                              ])
+                          </div>
+                      @empty
+                          <div class="bg-white rounded-2xl border border-gray-200 p-4">
+                              <p class="text-sm font-semibold text-[#215558] opacity-70">
+                                  Selecteer een klant om details te zien.
+                              </p>
+                          </div>
+                      @endforelse
+                  </div>
+              </div>
+          </div>
+      </div>
+
     </div>
     {{-- Lead → project overlay --}}
     <div
