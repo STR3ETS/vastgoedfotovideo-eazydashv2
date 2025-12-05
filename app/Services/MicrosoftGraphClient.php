@@ -78,7 +78,9 @@ class MicrosoftGraphClient
             ->post('https://graph.microsoft.com/v1.0/' . $url, $payload);
 
         if (!$res->ok()) {
-            throw new \RuntimeException("Graph POST {$url} mislukt: " . $res->body());
+            throw new \RuntimeException(
+                "Graph POST {$url} mislukt ({$res->status()}): " . $res->body()
+            );
         }
 
         return (array) $res->json();
