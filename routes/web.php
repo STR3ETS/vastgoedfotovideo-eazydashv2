@@ -204,7 +204,7 @@ Route::prefix('app')->group(function () {
                         ? route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id])
                         : '#';
 
-                    // Minuten vanaf 09:00
+                    // Minuten vanaf startHour (09:00)
                     $minutesFromStart = max(
                         0,
                         (($start->hour - $startHour) * 60) + $start->minute
@@ -219,12 +219,20 @@ Route::prefix('app')->group(function () {
                     // Top = center - helft van de hoogte
                     $topPx = (int) max(0, round($centerY - ($heightPx / 2)));
 
+                    // We schuiven alles 1 slot omhoog (jouw fix)
+                    $finalTopPx = $topPx - $slotPx;
+
+                    // 👇 Extra mini-fix: bij exact 09:00 nog ~10px omhoog
+                    if ($minutesFromStart === 0) {
+                        $finalTopPx -= 8; // beetje tunen: 8 / 12 mag ook
+                    }
+
                     return (object) [
                         'aanvraag_id'  => $aanvraag->id,
                         'company'      => $companyName,
                         'start'        => $start,
                         'duration'     => $duration,
-                        'topPx'        => $topPx,
+                        'topPx'        => $finalTopPx,
                         'heightPx'     => $heightPx,
                         'leftOffsetPx' => $leftOffsetPx,
                         'url'          => $intakeUrl,
