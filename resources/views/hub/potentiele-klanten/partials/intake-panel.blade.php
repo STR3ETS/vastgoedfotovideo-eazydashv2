@@ -144,7 +144,7 @@
     }"
 >
   <div class="flex items-center justify-between gap-2">
-    <div class="flex items-center gap-2">
+    <div class="flex flex-col gap-2">
       <p class="text-xs font-semibold text-[#215558] truncate">
         {{ $__dateLabel }} {{ $__timeRange }}
       </p>

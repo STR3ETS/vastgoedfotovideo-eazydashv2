@@ -12,6 +12,7 @@ class AanvraagWebsite extends Model
     protected $table = 'aanvraag_websites';
 
     protected $fillable = [
+        'owner_id',
         'choice',
         'url',
         'company',
@@ -26,6 +27,8 @@ class AanvraagWebsite extends Model
         'status',
         'intake_at',
         'intake_duration',
+        'intake_done',
+        'intake_completed_at',
         'ai_summary',
     ];
 
@@ -35,26 +38,43 @@ class AanvraagWebsite extends Model
         'intake_completed_at' => 'datetime',
     ];
 
+    /**
+     * ⚠️ BELANGRIJK:
+     * We maken tasks nu expliciet in de AanvraagController.
+     * Dus geen auto-create via model events meer,
+     * anders krijg je dubbele/rare task_id's.
+     */
+
     public function tasks()
     {
         return $this->hasMany(\App\Models\AanvraagTask::class, 'aanvraag_website_id');
     }
+
     public function callLogs()
     {
         return $this->hasMany(\App\Models\AanvraagCallLog::class, 'aanvraag_website_id');
     }
+
     public function statusLogs()
     {
         return $this->hasMany(\App\Models\AanvraagStatusLog::class);
     }
+
     public function files()
     {
         return $this->hasMany(\App\Models\AanvraagFile::class, 'aanvraag_website_id');
     }
+
     public function project()
     {
         return $this->hasOne(\App\Models\Project::class, 'aanvraag_id');
     }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
     public function emails()
     {
         return $this->hasMany(\App\Models\AanvraagEmail::class, 'aanvraag_id')

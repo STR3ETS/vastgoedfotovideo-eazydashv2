@@ -26,6 +26,7 @@ class PotentieleKlantenController extends Controller
         $user = auth()->user();
 
         $aanvragen = AanvraagWebsite::with([
+                'owner', // ✅ toevoegen
                 'tasks.questions',
                 'callLogs' => fn ($q) => $q->latest()->with('user'),
                 'statusLogs' => fn ($q) => $q->latest()->with('user'),
@@ -33,6 +34,7 @@ class PotentieleKlantenController extends Controller
             ])
             ->select(
                 'id',
+                'owner_id', // ✅ HIER
                 'choice',
                 'company',
                 'contactName',
@@ -103,8 +105,14 @@ class PotentieleKlantenController extends Controller
             ], 422);
         }
 
-        // 🚫 Lead alleen toegestaan als intake_done = 1
-        if ($newStatus === 'lead' && !$aanvraag->intake_done) {
+        // ✅ Nieuwe bron van waarheid: conduct_intake taak
+        $conductDone = $aanvraag->tasks()
+            ->where('type', 'conduct_intake')
+            ->whereIn('status', ['done', 'completed', 'closed'])
+            ->exists();
+
+        // 🚫 Lead alleen toegestaan als conduct_intake = done
+        if ($newStatus === 'lead' && !$conductDone) {
             return response()->json([
                 'success' => false,
                 'message' => __('potentiele_klanten.errors.lead_requires_intake'),
@@ -113,9 +121,17 @@ class PotentieleKlantenController extends Controller
 
         $aanvraag->status = $newStatus;
 
-        if ($newStatus === 'intake' && !empty($data['intake_at_local'])) {
+        // ✅ Houd intake_done consistent met conduct_intake
+        if ($newStatus === 'lead' && $conductDone) {
+            $aanvraag->intake_done = true;
+            $aanvraag->intake_completed_at = $aanvraag->intake_completed_at ?? now();
+        }
+
+        // ✅ Intake plannen mag ook terwijl status nog 'contact' blijft
+        if (!empty($data['intake_at_local']) && in_array($newStatus, ['contact', 'intake'], true)) {
             $tz = $data['tz'] ?? config('app.timezone', 'Europe/Amsterdam');
             $local = \Carbon\Carbon::createFromFormat('Y-m-d\TH:i:s', $data['intake_at_local'], $tz);
+
             $aanvraag->intake_at = $local;
             $aanvraag->intake_duration = (int) ($data['intake_duration'] ?? 30);
         }
@@ -181,7 +197,7 @@ class PotentieleKlantenController extends Controller
             'id'      => $aanvraag->id,
             'status'  => $aanvraag->status,
             'label'   => $label,
-            'intake_done' => (bool) $aanvraag->intake_done,
+            'intake_done' => (bool) $conductDone,
             'log'     => [
                 'id'          => $log->id,
                 'from_status' => $log->from_status,

@@ -49,16 +49,37 @@ class AanvraagController extends Controller
             ]);
         }
 
-        // Default call-task + checklist
-        $callTask = AanvraagTask::create([
+        /**
+         * ✅ Sales + intake taken (GEEN convert_to_project hier)
+         */
+        AanvraagTask::create([
             'aanvraag_website_id' => $aanvraag->id,
             'type'                => 'call_customer',
-            'title'               => 'Bel klant voor intake',
+            'title'               => 'Aanvraag bespreken',
             'status'              => 'open',
             'due_at'              => now()->addDay(),
+            'order'               => 10,
         ]);
 
-        // Kies vragen op basis van choice: 'new' / 'renew'
+        AanvraagTask::create([
+            'aanvraag_website_id' => $aanvraag->id,
+            'type'                => 'schedule_intake',
+            'title'               => 'Intakegesprek inplannen',
+            'status'              => 'open',
+            'order'               => 20,
+        ]);
+
+        $conductTask = AanvraagTask::create([
+            'aanvraag_website_id' => $aanvraag->id,
+            'type'                => 'conduct_intake',
+            'title'               => 'Intakegesprek voeren',
+            'status'              => 'open',
+            'order'               => 30,
+        ]);
+
+        /**
+         * ✅ Intake vragen bepalen op basis van choice
+         */
         if ($aanvraag->choice === 'renew') {
             $questions = [
                 "Zou je me wat kunnen vertellen over jullie bedrijf/huidige stand van zaken?",
@@ -109,13 +130,19 @@ class AanvraagController extends Controller
             ];
         }
 
-        // ✚ Altijd als laatste: vrije notitie-vraag (niet verplicht)
+        /**
+         * ✅ Altijd als laatste: vrije notitie-vraag
+         */
         $notesQuestion = "Notities (vrij veld)";
         $questions[] = $notesQuestion;
 
-        $callTask->questions()->createMany(
+        /**
+         * ✅ Vragen horen aan conduct_intake te hangen
+         */
+        $conductTask->questions()->createMany(
             collect($questions)->map(function ($q, $index) use ($notesQuestion) {
                 $isNotes = mb_strtolower($q) === mb_strtolower($notesQuestion);
+
                 return [
                     'question' => $q,
                     'order'    => $index + 1,
@@ -130,7 +157,7 @@ class AanvraagController extends Controller
             'success' => true,
             'id'      => $aanvraag->id,
             'message' => 'Aanvraag succesvol opgeslagen 🚀',
-            'summary' => $aanvraag->ai_summary, // handig voor direct UI updaten
+            'summary' => $aanvraag->ai_summary,
         ]);
     }
 
@@ -153,20 +180,41 @@ class AanvraagController extends Controller
         ];
 
         $instructions = <<<SYS
-Je bent een senior webstrateeg bij een webdesign agency.
-Maak een compacte, professionele samenvatting van deze website-aanvraag.
-Schrijf in het Nederlands, 3-6 zinnen.
-Noem: type aanvraag (nieuw/vernieuwen), bedrijf (indien bekend), URL (indien bekend),
-doel, opvallende wensen/voorbeelden en wat dit impliceert voor de intake.
-Geen bullets, geen emoji.
-SYS;
+            Je bent een senior webstrateeg bij een webdesign agency.
+
+            Schrijf een overzichtelijke samenvatting van deze website-aanvraag.
+            Output-formaat is Markdown.
+
+            Structuur:
+            1) Eerst een korte intro van exact 3 zinnen (geen bullets).
+            2) Daarna een lege regel.
+            3) Daarna 4 tot 6 bullet points met de belangrijkste highlights.
+            Let op: die lege regel moet letterlijk een lege regel zijn tussen de intro en de bullets.
+
+            Bullets-regels:
+            - Begin elke bullet met een vetgedrukt label.
+            - Houd elke bullet 1 zin.
+            - Professioneel, compact, Nederlands.
+            - Geen emoji.
+            - Geen genummerde lijst.
+
+            Gebruik bij voorkeur deze labels:
+            - **Type aanvraag**
+            - **Bedrijf**
+            - **URL**
+            - **Doel**
+            - **Wensen & voorbeelden**
+            - **Implicaties voor intake**
+
+            Als data ontbreekt, zet "Onbekend" of laat het kort neutraal.
+        SYS;
 
         $response = OpenAI::responses()->create([
             'model' => config('openai.model', 'gpt-5'),
             'instructions' => $instructions,
             'input' => "Aanvraag data (JSON):\n" . json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
             'temperature' => 0.2,
-            'max_output_tokens' => 220,
+            'max_output_tokens' => 260,
         ]);
 
         $text = trim($response->outputText ?? '');

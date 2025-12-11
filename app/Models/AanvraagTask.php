@@ -12,6 +12,7 @@ class AanvraagTask extends Model
         'title',
         'status',
         'due_at',
+        'order', // ✅ toevoegen
     ];
 
     public function aanvraag()

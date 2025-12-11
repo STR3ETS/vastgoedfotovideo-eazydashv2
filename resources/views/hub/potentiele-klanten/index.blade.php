@@ -1,10 +1,36 @@
 @extends('hub.layouts.app')
 
 @section('content')
+  @php
+      use App\Models\User;
+      use Illuminate\Support\Str;
+
+      // Medewerkers = users zonder company_id
+      $assignees = User::query()
+          ->whereNull('company_id')
+          ->orderBy('name')
+          ->get();
+
+      // Voor JS: map op ID -> naam + avatar
+      $assigneesById = $assignees->mapWithKeys(function ($user) {
+          // Als je ooit een kolom 'memoji_key' hebt, wordt die gebruikt
+          $avatarKey = $user->memoji_key
+              ?? Str::lower(Str::before($user->name, ' ')); // eerste naam als key
+
+          return [
+              $user->id => [
+                  'name'   => $user->name,
+                  'avatar' => "/assets/eazyonline/memojis/{$avatarKey}.webp",
+              ],
+          ];
+      })->all();
+  @endphp
   <div class="col-span-5 grid grid-cols-4 w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0 overflow-hidden"
       x-data="statusDnD({
           csrf: '{{ csrf_token() }}',
           updateUrlTemplate: '{{ route('support.potentiele-klanten.status.update', ['aanvraag' => '__ID__']) }}',
+          ownerUpdateUrlTemplate: '{{ route('support.potentiele-klanten.owner.update', ['aanvraag' => '__ID__']) }}',
+          assigneesById: @js($assigneesById),
           labelsByValue: @js($statusByValue ?? []),
           statusCounts: @js($statusCounts ?? []),
           statusCountTexts: @js([
@@ -21,38 +47,22 @@
       ])
       <div class="mt-3 flex gap-4 items-center">
         <div class="w-fit flex items-center gap-2 p-2 rounded-full bg-[#f3f8f8] overflow-x-auto">
-          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
-            <img src="/assets/eazyonline/memojis/boyd.webp" class="max-h-[80%]">
-            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Boyd Halfman</p>
-          </div>
-          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
-            <img src="/assets/eazyonline/memojis/yael.webp" class="max-h-[80%]">
-            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Yael Scholten</p>
-          </div>
-          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
-            <img src="/assets/eazyonline/memojis/raphael.webp" class="max-h-[80%]">
-            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Raphael Muskitta</p>
-          </div>
-          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
-            <img src="/assets/eazyonline/memojis/johnny.webp" class="max-h-[80%]">
-            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Johnny Muskitta</p>
-          </div>
-          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
-            <img src="/assets/eazyonline/memojis/martijn.webp" class="max-h-[80%]">
-            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Martijn Visser</p>
-          </div>
-          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
-            <img src="/assets/eazyonline/memojis/laurenzo.webp" class="max-h-[80%]">
-            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Laurenzo Soemopawiro</p>
-          </div>
-          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
-            <img src="/assets/eazyonline/memojis/joris.webp" class="max-h-[80%]">
-            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Joris Lindner</p>
-          </div>
-          <div class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab">
-            <img src="/assets/eazyonline/memojis/laurina.webp" class="max-h-[80%]">
-            <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">Laurina Pesulima</p>
-          </div>
+          @foreach($assignees as $user)
+            @php
+                $avatar = $assigneesById[$user->id]['avatar'] ?? '/assets/eazyonline/memojis/default.webp';
+            @endphp
+
+            <div
+              class="px-2 h-8 bg-white rounded-full border border-[#215558]/25 hover:border-[#0F9B9F] transition duration-300 flex items-center justify-center cursor-grab"
+              data-assignee-pill
+              draggable="true"
+              @dragstart="onOwnerDragStart({{ $user->id }}, @js($user->name), @js($avatar), $event)"
+              @dragend="onOwnerDragEnd()"
+            >
+              <img src="{{ $avatar }}" class="max-h-[80%]">
+              <p class="text-xs font-semibold text-[#215558] ml-1 whitespace-nowrap">{{ $user->name }}</p>
+            </div>
+          @endforeach
         </div>
       </div>
       {{-- Scroll alleen rechts (detail) --}}
@@ -129,11 +139,11 @@
           @endphp
 
           <div
-              class="mt-6 grid grid-cols-3 gap-6 flex-1 min-h-0"
+              class="mt-6 grid grid-cols-4 gap-6 flex-1 min-h-0"
               x-data="{ activeId: @js($firstAanvraagId) }"
           >
               {{-- ===================== LEFT LIST ===================== --}}
-              <div class="space-y-2 bg-[#f3f8f8] rounded-4xl p-8 h-full min-h-0">
+              <div class="space-y-2 bg-[#f3f8f8] rounded-4xl p-8 h-full min-h-0 overflow-y-auto">
                   @forelse($aanvragenCollection as $aanvraag)
                       @php
                           $rowStatus = $aanvraag->status ?? 'prospect';
@@ -141,8 +151,11 @@
 
                       <button
                           type="button"
-                          x-show="!activeFilters.length || activeFilters.includes(@js($rowStatus))"
-                          x-cloak
+                          data-card-id="{{ $aanvraag->id }}"
+                          data-status="{{ $rowStatus }}"
+                          @dragover.prevent="onCardDragOver($event)"
+                          @dragleave="onCardDragLeave($event)"
+                          @drop="onCardDrop($event)"
                           class="w-full text-left pl-5 pr-2 py-4 transition duration-300
                                 border-l-4 rounded-tr-4xl rounded-br-4xl cursor-pointer"
                           :class="activeId === {{ $aanvraag->id }}
@@ -153,8 +166,8 @@
                           <div class="flex items-start justify-between gap-4">
                               <div class="w-full flex items-center justify-between">
                                   <div class="w-full">
-                                      <p class="text-base font-bold text-[#215558] truncate mb-1">
-                                          {{ $choiceMap[$aanvraag->choice] ?? __('potentiele_klanten.choices.default') }}
+                                      <p class="text-base font-bold text-[#215558] truncate">
+                                        {{ $choiceMap[$aanvraag->choice] ?? __('potentiele_klanten.choices.default') }}
                                       </p>
                                       <p class="text-sm font-medium text-[#215558] leading-[20px] opacity-75">
                                           {{ $aanvraag->company
@@ -180,7 +193,11 @@
                                           $badge = $badgeMap[$status] ?? ['label' => ucfirst($status), 'class' => 'bg-gray-100 text-gray-600'];
                                       @endphp
 
-                                      <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold {{ $badge['class'] }}">
+                                      <span
+                                          class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold {{ $badge['class'] }}"
+                                          data-status-badge
+                                          data-status-value="{{ $status }}"
+                                      >
                                           {{ $badge['label'] }}
                                       </span>
 
@@ -197,24 +214,28 @@
                                       {{ optional($aanvraag->updated_at)->format('H:i') }}
                                   </span>
 
-                                  @if(!empty($aanvraag->owner_avatar_url))
-                                      <img src="{{ $aanvraag->owner_avatar_url }}"
-                                          class="w-6 h-6 rounded-full object-cover border border-gray-200">
-                                  @endif
+                                  <img
+                                    data-owner-list-avatar
+                                    data-owner-id="{{ $aanvraag->owner_id ?? '' }}"
+                                    src="{{ $aanvraag->owner_avatar_url ?? '' }}"
+                                    class="w-6 h-6 rounded-full object-cover border border-gray-200"
+                                    @if(empty($aanvraag->owner_avatar_url)) style="display:none;" @endif
+                                    alt=""
+                                  >
                               </div>
                           </div>
                       </button>
                   @empty
-                      <div class="p-4">
-                          <p class="text-sm font-semibold text-[#215558] opacity-70">
-                              Geen potentiële klanten gevonden.
+                      <div>
+                          <p class="text-xs font-semibold text-[#215558]/50">
+                              Nog geen potentiële klanten gevonden.
                           </p>
                       </div>
                   @endforelse
               </div>
 
               {{-- ===================== RIGHT DETAIL ===================== --}}
-              <div class="col-span-2 min-h-0 bg-[#f3f8f8] rounded-4xl overflow-hidden flex flex-col">
+              <div class="col-span-3 min-h-0 bg-[#f3f8f8] rounded-4xl overflow-hidden flex flex-col">
                   <div class="p-8 flex-1 min-h-0 overflow-y-auto">
                       @forelse($aanvragenCollection as $aanvraag)
                           <div
@@ -228,11 +249,12 @@
                               ])
                           </div>
                       @empty
-                          <div class="bg-white rounded-2xl border border-gray-200 p-4">
-                              <p class="text-sm font-semibold text-[#215558] opacity-70">
-                                  Selecteer een klant om details te zien.
-                              </p>
-                          </div>
+                      <div class="flex items-center gap-4">
+                        <span class="text-4xl">👈</span>
+                        <p class="text-base font-bold text-[#215558]/80 mt-1">
+                            Selecteer een potentiële klant om te beginnen.
+                        </p>
+                      </div>
                       @endforelse
                   </div>
               </div>
@@ -530,7 +552,7 @@ function getTransparentDragImage() {
   return img;
 }
 
-function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statusCountTexts }) {
+function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statusCountTexts, ownerUpdateUrlTemplate = null, assigneesById = {}, }) {
   return {
     draggingValue: null,
     draggingLabel: null,
@@ -539,6 +561,7 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
       singular: ':count project',
       plural: ':count projecten',
     },
+    assigneesById: assigneesById || {},
 
     // lead → project overlay
     leadConfirmOpen: false,
@@ -557,6 +580,26 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
     dragGhostOffsetX: 0,
     dragGhostOffsetY: 0,
     lastGhostX: null,
+
+    draggingOwnerId: null,
+    draggingOwnerName: null,
+    draggingOwnerAvatar: null,
+
+    onOwnerDragStart(id, name, avatar, event) {
+      this.draggingOwnerId = id;
+      this.draggingOwnerName = name;
+      this.draggingOwnerAvatar = avatar;
+
+      if (event && event.dataTransfer) {
+        event.dataTransfer.setDragImage(getTransparentDragImage(), 0, 0);
+      }
+    },
+
+    onOwnerDragEnd() {
+      this.draggingOwnerId = null;
+      this.draggingOwnerName = null;
+      this.draggingOwnerAvatar = null;
+    },
 
     // ✅ Drop-logic & visuele hints (intake/dead/lead)
     _isDroppableFor(card, dragging) {
@@ -600,10 +643,141 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
       });
     },
 
+    _updateAllInstances(id, finalValue, data) {
+      const els = document.querySelectorAll(`[data-card-id="${id}"]`);
+      if (!els.length) return;
+
+      els.forEach(el => {
+        this._updateBadge(el, finalValue);
+        this._syncStatusProgress(el, finalValue);
+
+        if (data && data.log) {
+          this._appendStatusLog(el, data.log);
+        }
+
+        // ✅ intakeDone DOM sync als server dit terugstuurt
+        if (data && typeof data.intake_done !== 'undefined') {
+          el.dataset.intakeDone = data.intake_done ? '1' : '0';
+        }
+
+        if (finalValue === 'lead') {
+          el.dataset.intakeDone = '1';
+        }
+      });
+
+      // ✅ Filters opnieuw toepassen
+      this.filterCards();
+
+      // ✅ NIEUW: laat de taken-component mee-updaten
+      window.dispatchEvent(new CustomEvent('potkl-card-status-changed', {
+        detail: {
+          id: String(id),
+          newValue: finalValue,
+          data: data || {}
+        }
+      }));
+    },
+
+    _getOwnerData(ownerId) {
+      if (!ownerId) return null;
+
+      const map = this.assigneesById || {};
+      const key = String(ownerId);
+      const numericKey = parseInt(key, 10);
+
+      const base =
+        map[key] ||
+        (Number.isFinite(numericKey) ? map[numericKey] : null) ||
+        null;
+
+      if (!base) return null;
+
+      return {
+        id: ownerId,
+        name: base.name || 'Onbekend',
+        avatar: base.avatar || '/assets/eazyonline/memojis/default.webp',
+      };
+    },
+
+    _updateOwnerUi(id, ownerId) {
+      const owner = this._getOwnerData(ownerId);
+
+      // 🔍 Pak alleen de detail-kaart (rechts): die heeft data-intake-done
+      const cards = document.querySelectorAll(
+        `[data-card-id="${id}"][data-intake-done]`
+      );
+      if (!cards.length) return;
+
+      cards.forEach(card => {
+        card.dataset.ownerId = ownerId || '';
+
+        // Alleen de badge rechts, NIET de lijst links
+        const badge = card.querySelector('[data-owner-badge]');
+        if (!badge) return;
+
+        const avatarImg   = badge.querySelector('[data-owner-badge-avatar]');
+        const nameEl      = badge.querySelector('[data-owner-badge-name]');
+        const placeholder = badge.querySelector('[data-owner-badge-placeholder]');
+
+        if (owner) {
+          // ✅ Owner ingevuld
+          if (avatarImg) {
+            avatarImg.src = owner.avatar;
+            avatarImg.classList.remove('hidden');
+          }
+
+          if (nameEl) {
+            nameEl.textContent = owner.name;
+            nameEl.classList.remove('text-[#215558]/60');
+            nameEl.classList.add('text-[#215558]');
+          }
+
+          if (placeholder) {
+            placeholder.style.display = 'none';
+          }
+
+          badge.classList.remove('bg-[#f3f8f8]', 'border-dashed', 'border-[#215558]/30');
+          badge.classList.add('bg-white', 'border-[#215558]/25');
+        } else {
+          // ❌ Geen owner (meer)
+          if (avatarImg) {
+            avatarImg.classList.add('hidden');
+          }
+
+          if (nameEl) {
+            nameEl.textContent = ownerId
+              ? 'Nog niet toegewezen'
+              : 'Niet toegewezen';
+            nameEl.classList.remove('text-[#215558]');
+            nameEl.classList.add('text-[#215558]/60');
+          }
+
+          if (placeholder) {
+            placeholder.style.display = '';
+          }
+
+          badge.classList.remove('bg-white', 'border-[#215558]/25');
+          badge.classList.add('bg-[#f3f8f8]', 'border-dashed', 'border-[#215558]/30');
+        }
+      });
+    },
+
     init() {
       window.addEventListener('dragover', (e) => {
         if (!this.dragGhost) return;
         this._updateGhostPosition(e.clientX, e.clientY);
+      });
+
+      // ✅ NIEUW: externe soft updates (bijv. vanuit intakePlanner)
+      window.addEventListener('potkl-status-soft-update', (e) => {
+        const { id, oldValue, newValue, data } = e.detail || {};
+        if (!id || !newValue) return;
+
+        if (oldValue && oldValue !== newValue) {
+          this._updateCounts(oldValue, newValue);
+        }
+
+        this._updateAllInstances(String(id), newValue, data || {});
       });
 
       // direct bij load cards filteren (default: alles zichtbaar)
@@ -757,12 +931,44 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
       return this.humanize(value);
     },
 
+    // ✅ Sync progress-balk + labels in card (Prospect/Contact/Intake/Lead)
+    _syncStatusProgress(cardEl, statusValue) {
+      const wrapper = cardEl.querySelector('[data-status-progress-wrapper]');
+      if (!wrapper) return;
+
+      const order = ['prospect', 'contact', 'intake', 'lead'];
+      const idx = order.indexOf(statusValue);
+      const pct = idx === -1 ? 0 : ((idx + 1) / order.length) * 100;
+
+      const bar = wrapper.querySelector('[data-status-progress-bar]');
+      if (bar) {
+        bar.style.width = `${pct}%`;
+      }
+
+      wrapper.querySelectorAll('[data-status-label]').forEach(labelEl => {
+        const v = labelEl.dataset.statusLabel;
+        const isActive = v === statusValue;
+
+        labelEl.classList.toggle('opacity-50', !isActive);
+
+        // optioneel accent (past bij je style)
+        if (isActive) {
+          labelEl.classList.add('text-[#0F9B9F]');
+        } else {
+          labelEl.classList.remove('text-[#0F9B9F]');
+        }
+      });
+    },
+
     _updateBadge(cardEl, newValue) {
+      // ✅ altijd data-status updaten (ook als er geen badge is)
+      cardEl.dataset.status = newValue;
+
+      // ✅ altijd progress syncen
+      this._syncStatusProgress(cardEl, newValue);
+
       const badge = cardEl.querySelector('[data-status-badge]');
       if (!badge) return;
-
-      // 👉 HIER: data-status van de card updaten
-      cardEl.dataset.status = newValue;
 
       const label = this._getLabelFor(newValue);
       badge.dataset.statusValue = newValue;
@@ -791,6 +997,9 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
 
       badge.classList.add('bg-[#0F9B9F]/20');
       setTimeout(() => badge.classList.remove('bg-[#0F9B9F]/20'), 250);
+
+      // ✅ NIEUW: progress-balk + labels ook updaten
+      this._syncStatusProgress(cardEl, newValue);
     },
 
     _updateCounts(oldValue, newValue) {
@@ -823,17 +1032,71 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
 
     async onCardDrop(e) {
       e.preventDefault();
+
       const card = e.target.closest('[data-card-id]') || e.currentTarget;
+      if (!card) return;
+
+      // reset hover border
       card.classList.remove('border-[#0F9B9F]');
       card.classList.add('border-gray-200');
+
+      // ✅ OWNER DROP heeft voorrang op status
+      if (this.draggingOwnerId && ownerUpdateUrlTemplate) {
+        const id  = card.dataset.cardId;
+        const url = ownerUpdateUrlTemplate.replace('__ID__', id);
+
+        try {
+          const res = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': csrf,
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ owner_id: this.draggingOwnerId })
+          });
+
+          const data = await res.json().catch(() => null);
+
+          if (!res.ok || !data?.success) {
+            showToast(data?.message || 'Owner kon niet worden bijgewerkt.', 'error');
+            return;
+          }
+
+          const newOwnerId = data?.owner_id ?? this.draggingOwnerId ?? null;
+
+          // 🔥 lijst + rechter badge direct in sync
+          this._updateOwnerUi(id, newOwnerId);
+
+          showToast('Gelukt! De medewerker is gekoppeld aan de aanvraag.', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Owner kon niet worden bijgewerkt.', 'error');
+        } finally {
+          this.onOwnerDragEnd();
+        }
+
+        return; // ⛔️ stop status-logica
+      }
+
+      // ===========================
+      // ✅ STATUS DROP (jouw logica)
+      // ===========================
 
       if (!this.draggingValue) return;
 
       const id  = card.dataset.cardId;
       const url = updateUrlTemplate.replace('__ID__', id);
 
-      const badge    = card.querySelector('[data-status-badge]');
-      const oldValue = badge ? badge.dataset.statusValue : null;
+      const badge = card.querySelector('[data-status-badge]');
+
+      // ✅ fallback naar data-status als badge ontbreekt (detail view)
+      const oldValue = (badge && badge.dataset.statusValue)
+        ? badge.dataset.statusValue
+        : (card.dataset.status || null);
+
       const newValue = this.draggingValue;
 
       // 🚫 Intake alleen toegestaan vanaf 'contact'
@@ -851,10 +1114,10 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
 
         this.draggingValue = null;
         this.draggingLabel = null;
-        return; // ⛔️ stop hier
+        return;
       }
 
-      // Als status niet verandert: meld en klaar
+      // Als status niet verandert
       if (oldValue === newValue) {
         const label = this._getLabelFor(newValue);
         showToast(
@@ -909,7 +1172,6 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
 
       // ✅ Lead: alleen doorgaan als kaart droppable is, en dan eerst overlay openen
       if (newValue === 'lead') {
-        // kaart mag deze status niet krijgen → melding + resetten en stoppen
         if (!this._isDroppableFor(card, newValue)) {
           showToast(
             potklTrans('toast.status_lead_requires_intake'),
@@ -925,7 +1187,6 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
           return;
         }
 
-        // kaart is WÉL droppable → overlay openen, PATCH gebeurt pas in confirmLead()
         this.leadConfirmCard     = card;
         this.leadConfirmUrl      = url;
         this.leadConfirmOldValue = oldValue;
@@ -957,7 +1218,6 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
 
         const data = await res.json().catch(() => null);
         if (!res.ok) {
-          // ⬇️ Serverboodschap (bijv. lead_requires_intake) als die er is
           showToast(
             data?.message || potklTrans('toast.status_update_error'),
             'error'
@@ -967,24 +1227,20 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
 
         const finalValue = (data && data.status) || newValue;
 
-        // ✅ dataset.intakeDone bijwerken als server het meestuurt
         if (data && typeof data.intake_done !== 'undefined') {
           card.dataset.intakeDone = data.intake_done ? '1' : '0';
         }
 
-        // ✅ en als we naar LEAD gingen, is intake_done sowieso voldaan
         if (finalValue === 'lead') {
           card.dataset.intakeDone = '1';
         }
 
         this._updateCounts(oldValue, finalValue);
-        this._updateBadge(card, finalValue);
 
-        if (data && data.log) {
-          this._appendStatusLog(card, data.log);
-        }
+        this._updateAllInstances(id, finalValue, data);
 
         const label = this._getLabelFor(finalValue);
+
         showToast(
           potklTrans('toast.status_update_success', { status: label }),
           'success'
@@ -1049,13 +1305,13 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
         }
 
         this._updateCounts(oldValue, finalValue);
-        this._updateBadge(card, finalValue);
 
-        if (data && data.log) {
-          this._appendStatusLog(card, data.log);
-        }
+        // ✅ update alle instanties (list + detail)
+        const id = card.dataset.cardId;
+        this._updateAllInstances(id, finalValue, data);
 
         const label = this._getLabelFor(finalValue);
+
         showToast(
           potklTrans('toast.status_update_success', { status: label }),
           'success'
@@ -1299,6 +1555,12 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
     async confirm() {
       if (!this.picked) return;
       this.loading = true;
+
+      // ✅ Status behouden i.p.v. naar intake zetten
+      const keepStatus = String(
+        this.oldValue || this.cardEl?.dataset?.status || 'contact'
+      ).toLowerCase();
+
       try {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Amsterdam';
 
@@ -1312,7 +1574,10 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
           },
           credentials: 'same-origin',
           body: JSON.stringify({
-            status: 'intake',
+            // ✅ stuur dezelfde status terug -> DB blijft gelijk
+            status: keepStatus,
+
+            // ✅ intake data blijft gewoon mee
             intake_at_local: this.picked.startLocal,
             intake_duration: this.durationMinutes,
             tz
@@ -1320,29 +1585,9 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
         });
 
         const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error('Status+intake plannen mislukt');
+        if (!res.ok) throw new Error('Intake plannen mislukt');
 
-        // 1) Badge updaten
-        if (this.cardEl) {
-          const badge = this.cardEl.querySelector('[data-status-badge]');
-          if (badge) {
-            this.cardEl.dataset.status = 'intake';
-            badge.dataset.statusValue = 'intake';
-            badge.textContent = (data && data.label) || 'Intake';
-
-            const all = [
-              'bg-[#b3e6ff]','text-[#0f6199]',
-              'bg-[#C2F0D5]','text-[#20603a]',
-              'bg-[#ffdfb3]','text-[#a0570f]',
-              'bg-[#ffb3b3]','text-[#8a2a2d]',
-              'bg-[#e0d4ff]','text-[#4c2a9b]',
-            ];
-            badge.classList.remove(...all);
-            badge.classList.add('bg-[#ffdfb3]', 'text-[#a0570f]');
-          }
-        }
-
-        // 2) Intake-panel direct updaten
+        // ✅ Intake-panel direct updaten (dit mag blijven)
         if (data && data.intake_html && this.cardEl) {
           const panel = this.cardEl.querySelector(`#intake-panel-${this.aanvraagId}`);
           if (panel) {
@@ -1354,19 +1599,20 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
           }
         }
 
-        // 3) Logboek direct updaten (zelfde idee als _appendStatusLog)
-        if (data && data.log && this.cardEl) {
-          const list  = this.cardEl.querySelector('[data-status-log-list]');
-          const empty = this.cardEl.querySelector('[data-status-log-empty]');
-          if (list) {
-            if (empty) empty.style.display = 'none';
+        // ❌ Verwijder/laat weg:
+        // 1) "Badge updaten" block dat forced naar intake zet
+        // 3) "Logboek direct updaten" block
+        //    (statusDnD doet dit straks via soft update)
 
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = data.log.html.trim();
-            const li = wrapper.firstElementChild;
-            if (li) list.prepend(li);
+        // ✅ Laat statusDnD list+detail syncen ZONDER status wijziging
+        window.dispatchEvent(new CustomEvent('potkl-status-soft-update', {
+          detail: {
+            id: this.aanvraagId,
+            oldValue: keepStatus,
+            newValue: keepStatus,
+            data
           }
-        }
+        }));
 
         showToast(potklTrans('toast.intake_planned'), 'success');
         this.close();
@@ -1510,6 +1756,235 @@ function filesManager({ csrf, uploadUrl, deleteUrlTemplate, initialFiles }) {
         showToast(potklTrans('toast.file_delete_error'), 'error');
       } finally {
         this.removingId = null;
+      }
+    },
+  };
+}
+
+function aanvraagTasks(config) {
+  const {
+    csrf,
+    updateUrl,
+
+    // ✅ optioneel: als je UI-only status buttons gebruikt
+    // geef in je tasksPayload mee:
+    // statusUpdateUrl: route('support.potentiele-klanten.status.update', ['aanvraag' => $aanvraag->id]),
+    statusUpdateUrl = null,
+
+    initial = {},
+    cardId,
+    initialStatus = 'prospect',
+    initialIntakeDone = false,
+  } = config || {};
+
+  return {
+    tasks: { ...initial },
+    loadingTypes: {},
+
+    cardId: String(cardId || ''),
+    currentStatus: String(initialStatus || 'prospect').toLowerCase(),
+    intakeDone: !!initialIntakeDone,
+
+    init() {
+      // ✅ Sync vanuit drag/drop of andere status-updates
+      window.addEventListener('potkl-card-status-changed', (e) => {
+        const { id, newValue, data } = e.detail || {};
+        if (!id || String(id) !== this.cardId) return;
+
+        if (newValue) {
+          this.currentStatus = String(newValue).toLowerCase();
+        }
+
+        if (data && typeof data.intake_done !== 'undefined') {
+          this.intakeDone = !!data.intake_done;
+        }
+      });
+    },
+
+    /**
+     * ✅ Zichtbaarheid per status
+     * - Prospect: GEEN echte taken tonen (lost jouw issue op)
+     * - Contact: bespreken + intake plannen
+     * - Intake: intake voeren
+     * - Lead/Dead: niets in deze module
+     *
+     * UI-only status taken (als je ze render't in Blade):
+     * - status_to_contact: zichtbaar bij prospect
+     * - status_to_intake: zichtbaar bij contact als call + schedule done
+     * - status_to_lead: zichtbaar bij intake als conduct done
+     */
+    isVisible(type) {
+      // UI-only status actions
+      if (type === 'status_to_contact') {
+        return this.currentStatus === 'prospect';
+      }
+
+      if (type === 'status_to_intake') {
+        return this.currentStatus === 'contact'
+          && !!this.tasks.call_customer
+          && !!this.tasks.schedule_intake;
+      }
+
+      if (type === 'status_to_lead') {
+        return this.currentStatus === 'intake'
+          && !!this.tasks.conduct_intake;
+      }
+
+      // Echte taken
+      if (type === 'call_customer' || type === 'schedule_intake') {
+        return this.currentStatus === 'contact';
+      }
+
+      if (type === 'conduct_intake') {
+        return this.currentStatus === 'intake';
+      }
+
+      // ❌ Niet tonen in deze module
+      if (type === 'convert_to_project') {
+        return false;
+      }
+
+      return false;
+    },
+
+    /**
+     * ✅ Afvink-regels
+     */
+    canCheck(type) {
+      // UI-only types hebben geen checkbox-logica
+      if (['status_to_contact','status_to_intake','status_to_lead'].includes(type)) {
+        return false;
+      }
+
+      switch (type) {
+        case 'call_customer':
+        case 'schedule_intake':
+          return this.currentStatus === 'contact';
+
+        case 'conduct_intake':
+          return this.currentStatus === 'intake';
+
+        // ❌ buiten scope
+        case 'convert_to_project':
+          return false;
+
+        default:
+          return false;
+      }
+    },
+
+    /**
+     * ✅ Toggle echte taak → server
+     * (houdt jouw huidige PATCH style aan)
+     */
+    async toggle(type, checked, evt) {
+      if (this.loadingTypes[type]) return;
+
+      // Guard
+      if (!this.canCheck(type)) {
+        if (evt?.target) evt.target.checked = !!this.tasks[type];
+        return;
+      }
+
+      const prev = !!this.tasks[type];
+      this.tasks[type] = checked;
+      this.loadingTypes[type] = true;
+
+      const newStatus = checked ? 'done' : 'open';
+
+      try {
+        const res = await fetch(updateUrl, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrf,
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ type, status: newStatus }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.message || 'Taak update mislukt');
+
+        const serverStatus = String(data?.status || newStatus).toLowerCase();
+        this.tasks[type] = serverStatus === 'done';
+
+        showToast(
+          this.tasks[type]
+            ? 'Gelukt! De taak is gemarkeerd als voltooid'
+            : 'Gelukt! De taak is opnieuw geopend',
+          'success'
+        );
+      } catch (e) {
+        this.tasks[type] = prev;
+        if (evt?.target) evt.target.checked = prev;
+
+        showToast('Oeps! De taak kon niet worden bijgewerkt.', 'error');
+      } finally {
+        this.loadingTypes[type] = false;
+      }
+    },
+
+    /**
+     * ✅ UI-only status knop support
+     * Werkt samen met jouw statusDnD soft-update systeem.
+     *
+     * Vereist dat je statusUpdateUrl meegeeft vanuit Blade tasksPayload.
+     */
+    async setStatus(newStatus) {
+      if (!statusUpdateUrl) {
+        showToast('Status URL ontbreekt in tasksPayload.', 'error');
+        return;
+      }
+
+      const oldValue = this.currentStatus;
+
+      try {
+        const res = await fetch(statusUpdateUrl, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrf,
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ status: newStatus }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showToast(data?.message || potklTrans('toast.status_update_error'), 'error');
+          return;
+        }
+
+        const finalValue = String(data?.status || newStatus).toLowerCase();
+
+        this.currentStatus = finalValue;
+
+        if (data && typeof data.intake_done !== 'undefined') {
+          this.intakeDone = !!data.intake_done;
+        }
+
+        // ✅ Laat statusDnD list+detail synch updaten
+        window.dispatchEvent(new CustomEvent('potkl-status-soft-update', {
+          detail: {
+            id: this.cardId,
+            oldValue,
+            newValue: finalValue,
+            data
+          }
+        }));
+
+        showToast(
+          potklTrans('toast.status_update_success', { status: finalValue }),
+          'success'
+        );
+      } catch (e) {
+        console.error(e);
+        showToast(potklTrans('toast.status_update_error'), 'error');
       }
     },
   };

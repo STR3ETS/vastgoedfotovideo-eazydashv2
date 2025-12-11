@@ -258,59 +258,50 @@
                             </div>
                         </div>
                         <div class="bg-[#f3f8f8] rounded-4xl p-8">
-                            <div class="grid gap-4 relative">
-                                <!-- 09:00 -->
-                                <div class="flex items-center gap-4 h-7 relative">
-                                    <p class="w-[40px] text-[#21555880] text-xs font-semibold">09:00</p>
-                                    <div class="flex-1 h-px bg-[#21555810]"></div>
-                                </div>
+                            @php
+                                $timeline  = $intakeTimeline ?? [];
+                                $startHour = $timeline['startHour'] ?? 9;
+                                $endHour   = $timeline['endHour'] ?? 17;
+                            @endphp
 
-                                <!-- 10:00 – voorbeeld: HEEL uur blok (10:00–11:00) -->
-                                <div class="flex items-center gap-4 h-7 relative">
-                                    <p class="w-[40px] text-[#21555880] text-xs font-semibold">10:00</p>
-                                    <div class="flex-1 h-px bg-[#21555810]"></div>
-                                </div>
+                            <div class="relative">
+                                @if(($intakeCards ?? collect())->isNotEmpty())
+                                    <div class="absolute inset-0">
+                                        @foreach($intakeCards as $card)
+                                            <div
+                                                class="absolute z-10 right-0 pr-2"
+                                                style="left: {{ $card->leftOffsetPx }}px; top: {{ $card->topPx }}px; height: {{ $card->heightPx }}px;"
+                                            >
+                                                <a href="{{ $card->url }}" class="block h-full">
+                                                    <div class="h-full rounded-2xl bg-white/95 border border-[#215558]/10 px-4 py-2
+                                                                hover:bg-white transition cursor-pointer flex items-center justify-between">
+                                                        <div class="h-full flex items-center gap-2">
+                                                            <p class="text-[11px] font-bold text-[#215558] truncate">
+                                                                Intakegesprek met {{ $card->company }}
+                                                            </p>
+                                                            <p class="text-[10px] font-semibold text-[#21555880] truncate">
+                                                                Start: {{ $card->start->format('H:i') }}
+                                                            </p>
+                                                        </div>
+                                                        <a href="#" class="w-6 h-6 rounded-full flex items-center justify-center bg-[#215558]/20">
+                                                            <i class="fa-solid fa-phone text-[11px] text-[#215558] mb-0.5"></i>
+                                                        </a>
+                                                    </div>
+                                                </a>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
 
-                                <!-- 11:00 -->
-                                <div class="flex items-center gap-4 h-7 relative">
-                                    <p class="w-[40px] text-[#21555880] text-xs font-semibold">11:00</p>
-                                    <div class="flex-1 h-px bg-[#21555810]"></div>
-                                </div>
-
-                                <!-- 12:00 -->
-                                <div class="flex items-center gap-4 h-7 relative">
-                                    <p class="w-[40px] text-[#21555880] text-xs font-semibold">12:00</p>
-                                    <div class="flex-1 h-px bg-[#21555810]"></div>
-                                </div>
-
-                                <!-- 13:00 -->
-                                <div class="flex items-center gap-4 h-7 relative">
-                                    <p class="w-[40px] text-[#21555880] text-xs font-semibold">13:00</p>
-                                    <div class="flex-1 h-px bg-[#21555810]"></div>
-                                </div>
-
-                                <!-- 14:00 -->
-                                <div class="flex items-center gap-4 h-7 relative">
-                                    <p class="w-[40px] text-[#21555880] text-xs font-semibold">14:00</p>
-                                    <div class="flex-1 h-px bg-[#21555810]"></div>
-                                </div>
-
-                                <!-- 15:00 -->
-                                <div class="flex items-center gap-4 h-7 relative">
-                                    <p class="w-[40px] text-[#21555880] text-xs font-semibold">15:00</p>
-                                    <div class="flex-1 h-px bg-[#21555810]"></div>
-                                </div>
-
-                                <!-- 16:00 – voorbeeld: HALF uur blok (16:00–16:30) -->
-                                <div class="flex items-center gap-4 h-7 relative">
-                                    <p class="w-[40px] text-[#21555880] text-xs font-semibold">16:00</p>
-                                    <div class="flex-1 h-px bg-[#21555810]"></div>
-                                </div>
-
-                                <!-- 17:00 -->
-                                <div class="flex items-center gap-4 h-7 relative">
-                                    <p class="w-[40px] text-[#21555880] text-xs font-semibold">17:00</p>
-                                    <div class="flex-1 h-px bg-[#21555810]"></div>
+                                <div class="grid gap-4">
+                                    @for($h = $startHour; $h <= $endHour; $h++)
+                                        <div class="flex items-center gap-4 h-7 relative">
+                                            <p class="w-[40px] text-[#21555880] text-xs font-semibold">
+                                                {{ sprintf('%02d:00', $h) }}
+                                            </p>
+                                            <div class="flex-1 h-px bg-[#21555810]"></div>
+                                        </div>
+                                    @endfor
                                 </div>
                             </div>
                         </div>

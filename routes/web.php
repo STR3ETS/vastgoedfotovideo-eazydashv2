@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Models\Offerte;
 use App\Models\WorkSession;
+use App\Models\AanvraagWebsite;
 
 use App\Http\Controllers\AanvraagController;
 use App\Http\Controllers\PotentieleKlantenController;
@@ -25,6 +26,8 @@ use App\Http\Controllers\MarketingController;
 use App\Http\Controllers\MailingController;
 use App\Http\Controllers\SeoProjectController;
 use App\Http\Controllers\SocialsController;
+use App\Http\Controllers\AanvraagTaskController;
+use App\Http\Controllers\AanvraagWebsiteOwnerController;
 
 // eazyonline.nl website
 Route::view('/', 'website.home')->name('pages.home');
@@ -87,54 +90,178 @@ Route::prefix('app')->group(function () {
         Route::get('/', function () {
             $user = auth()->user();
             $now  = now();
-            $today      = $now->toDateString();
+
+            $todayDate  = $now->toDateString();
             $weekStart  = $now->copy()->startOfWeek();
             $weekEnd    = $now->copy()->endOfWeek();
             $monthStart = $now->copy()->startOfMonth();
             $monthEnd   = $now->copy()->endOfMonth();
+
+            // Actieve work session
             $activeSession = $user->workSessions()
                 ->whereNull('clock_out_at')
                 ->latest('clock_in_at')
                 ->first();
+
             $activeSeconds = 0;
             if ($activeSession) {
                 $activeSeconds = $now->diffInSeconds($activeSession->clock_in_at);
             }
+
+            // Totalen helper
             $calcTotal = function ($sessions) {
                 return $sessions->reduce(function ($carry, \App\Models\WorkSession $session) {
                     if ($session->clock_out_at) {
                         $seconds = $session->worked_seconds
                             ?? $session->clock_out_at->diffInSeconds($session->clock_in_at);
                     } else {
-                        // lopende sessie meenemen
                         $seconds = now()->diffInSeconds($session->clock_in_at);
                     }
 
                     return $carry + max(0, $seconds);
                 }, 0);
             };
+
             $todaySeconds = $calcTotal(
                 $user->workSessions()
-                    ->whereDate('clock_in_at', $today)
+                    ->whereDate('clock_in_at', $todayDate)
                     ->get()
             );
+
             $weekSeconds = $calcTotal(
                 $user->workSessions()
                     ->whereBetween('clock_in_at', [$weekStart, $weekEnd])
                     ->get()
             );
+
             $monthSeconds = $calcTotal(
                 $user->workSessions()
                     ->whereBetween('clock_in_at', [$monthStart, $monthEnd])
                     ->get()
             );
+
+            // ✅ Intakes van vandaag (AanvraagWebsite is je "intake")
+            $intakesToday = AanvraagWebsite::with('owner')
+                ->whereNotNull('intake_at')
+                ->whereDate('intake_at', $todayDate)
+                ->whereHas('owner', function ($q) use ($user) {
+                    $q->where('id', $user->id); // alleen intakes die aan deze user gekoppeld zijn
+                })
+                ->orderBy('intake_at')
+                ->get();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Timeline layout config
+            |--------------------------------------------------------------------------
+            |
+            | Eén uur-slot = hoogte van een rij (h-7 = 28px) + grid-gap (gap-4 = 16px)
+            | => 44px per uur. We rekenen alles t.o.v. 09:00.
+            */
+            $startHour   = 9;
+            $endHour     = 17;
+
+            $rowHeightPx = 28; // h-7
+            $gapPx       = 16; // gap-4
+            $slotPx      = $rowHeightPx + $gapPx; // 44px per uur
+            $pxPerMinute = $slotPx / 60;
+
+            $leftOffsetPx = 65;
+
+            /*
+            |--------------------------------------------------------------------------
+            | Cards voorbereiden
+            |--------------------------------------------------------------------------
+            |
+            | Center van een uur-lijn in de grid:
+            |   centerY(h) = ( (h - $startHour) * 60 / 60 ) * $slotPx + ($rowHeightPx / 2)
+            |              = (h - 9) * 44 + 14
+            |
+            | Dus:
+            |   09:00 -> 14px
+            |   10:00 -> 58px
+            |   11:00 -> 102px
+            |   ...
+            */
+            $intakeCards = $intakesToday
+                ->map(function (AanvraagWebsite $aanvraag) use (
+                    $startHour,
+                    $pxPerMinute,
+                    $leftOffsetPx,
+                    $rowHeightPx,
+                    $slotPx
+                ) {
+                    if (!$aanvraag->intake_at) {
+                        return null;
+                    }
+
+                    $start    = \Carbon\Carbon::parse($aanvraag->intake_at);
+                    $duration = (int) ($aanvraag->intake_duration ?? 30);
+
+                    $companyName = $aanvraag->company ?? 'bedrijf';
+
+                    $intakeUrl = \Illuminate\Support\Facades\Route::has('support.potentiele-klanten.show')
+                        ? route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id])
+                        : '#';
+
+                    // Minuten vanaf 09:00
+                    $minutesFromStart = max(
+                        0,
+                        (($start->hour - $startHour) * 60) + $start->minute
+                    );
+
+                    // Card-hoogte (minimaal 1 uur-slot hoog)
+                    $heightPx = (int) max(44, round(($duration / 60) * $slotPx));
+
+                    // Middelpunt van de card precies op de juiste uur-lijn
+                    $centerY = ($minutesFromStart / 60) * $slotPx + ($rowHeightPx / 2);
+
+                    // Top = center - helft van de hoogte
+                    $topPx = (int) max(0, round($centerY - ($heightPx / 2)));
+
+                    return (object) [
+                        'aanvraag_id'  => $aanvraag->id,
+                        'company'      => $companyName,
+                        'start'        => $start,
+                        'duration'     => $duration,
+                        'topPx'        => $topPx,
+                        'heightPx'     => $heightPx,
+                        'leftOffsetPx' => $leftOffsetPx,
+                        'url'          => $intakeUrl,
+                    ];
+                })
+                ->filter()
+                ->values();
+
+            // Formatter (voor je cards bovenaan)
+            $formatDuration = function (int $seconds): string {
+                $h = intdiv($seconds, 3600);
+                $m = intdiv($seconds % 3600, 60);
+                return sprintf('%d uur %02d minuten', $h, $m);
+            };
+
             return view('hub.index', [
-                'user'          => $user,
-                'activeSession' => $activeSession,
-                'activeSeconds' => $activeSeconds,
-                'todaySeconds'  => $todaySeconds,
-                'weekSeconds'   => $weekSeconds,
-                'monthSeconds'  => $monthSeconds,
+                'user'            => $user,
+                'activeSession'   => $activeSession,
+                'activeSeconds'   => $activeSeconds,
+                'todaySeconds'    => $todaySeconds,
+                'weekSeconds'     => $weekSeconds,
+                'monthSeconds'    => $monthSeconds,
+
+                'intakesToday'    => $intakesToday,
+
+                'intakeTimeline'  => [
+                    'startHour'     => $startHour,
+                    'endHour'       => $endHour,
+                    'rowHeightPx'   => $rowHeightPx,
+                    'gapPx'         => $gapPx,
+                    'slotPx'        => $slotPx,
+                    'pxPerMinute'   => $pxPerMinute,
+                    'leftOffsetPx'  => $leftOffsetPx,
+                ],
+                'intakeCards'     => $intakeCards,
+
+                'formatDuration'  => $formatDuration,
             ]);
         })->name('support.dashboard');
 
@@ -184,7 +311,9 @@ Route::prefix('app')->group(function () {
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::patch('/{aanvraag}/status', 'updateStatus')->name('status.update');
+                Route::patch('/{aanvraag}/owner', [AanvraagWebsiteOwnerController::class, 'update'])->name('owner.update');
                 Route::post('/{aanvraag}/calls', 'storeCall')->name('calls.store');
+                Route::patch('/{aanvraag}/tasks/status', [AanvraagTaskController::class, 'updateStatus'])->name('tasks.status.update');
                 Route::post('/{aanvraag}/files', [AanvraagFileController::class, 'store'])->name('files.store');
                 Route::delete('/files/{file}', [AanvraagFileController::class, 'destroy'])->name('files.destroy');
                 Route::get('/files/{file}/download', [AanvraagFileController::class, 'download'])->name('files.download');

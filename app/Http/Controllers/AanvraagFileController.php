@@ -11,24 +11,82 @@ class AanvraagFileController extends Controller
 {
     public function store(Request $request, AanvraagWebsite $aanvraag)
     {
-        $data = $request->validate([
-            'files'   => ['required', 'array'],
-            'files.*' => ['file', 'max:10240'], // 10MB per bestand, pas aan naar wens
-        ]);
+        // ✅ 1) Eerst: check of er überhaupt files binnenkomen
+        if (!$request->hasFile('files')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Geen bestanden ontvangen (files ontbreekt).',
+            ], 422);
+        }
+
+        // ✅ 2) Haal files op en normaliseer altijd naar array
+        $files = $request->file('files');
+
+        if ($files instanceof \Illuminate\Http\UploadedFile) {
+            $files = [$files];
+        }
+
+        if (!is_array($files)) {
+            $files = [];
+        }
+
+        // ✅ 3) Extra validatie op de daadwerkelijke file items
+        // (niet alleen op input-structuur)
+        foreach ($files as $f) {
+            if (!$f instanceof \Illuminate\Http\UploadedFile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ongeldig bestandstype ontvangen.',
+                ], 422);
+            }
+        }
 
         $created = [];
 
-        foreach ($data['files'] as $uploaded) {
-            $path = $uploaded->store('aanvragen/'.$aanvraag->id, 'private'); // of 'public'
+        foreach ($files as $file) {
+            // ✅ 4) Upload error check
+            if (!$file->isValid()) {
+                continue;
+            }
 
-            $file = $aanvraag->files()->create([
-                'original_name' => $uploaded->getClientOriginalName(),
+            // ✅ 5) HARD GUARD tegen jouw specifieke crash
+            $realPath = $file->getRealPath();
+            if (!$realPath || !is_string($realPath) || trim($realPath) === '') {
+                \Log::warning('[AanvraagFile] Empty real path skip', [
+                    'aanvraag_id' => $aanvraag->id,
+                    'original'    => $file->getClientOriginalName(),
+                    'error'       => $file->getError(),
+                ]);
+                continue;
+            }
+
+            // ✅ 6) Opslaan
+            $path = $file->store("aanvragen/{$aanvraag->id}", 'private');
+
+            $dbFile = $aanvraag->files()->create([
+                'name'          => basename($path),
+                'original_name' => $file->getClientOriginalName(),
+                'disk'          => 'private',
                 'path'          => $path,
-                'mime_type'     => $uploaded->getClientMimeType(),
-                'size'          => $uploaded->getSize(),
+                'mime_type'     => $file->getClientMimeType(),
+                'size'          => $file->getSize(),
             ]);
 
-            $created[] = $this->toFrontendArray($file);
+            $created[] = [
+                'id'          => $dbFile->id,
+                'name'        => $dbFile->original_name ?? $dbFile->name,
+                'url'         => route('support.potentiele-klanten.files.download', $dbFile),
+                'extension'   => strtolower(pathinfo($dbFile->original_name ?? $dbFile->name, PATHINFO_EXTENSION)),
+                'size_human'  => $dbFile->size_human ?? null,
+                'uploaded_at' => optional($dbFile->created_at)->format('d-m-Y H:i'),
+            ];
+        }
+
+        if (!count($created)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Geen geldig bestand ontvangen.',
+            ], 422);
         }
 
         return response()->json([
