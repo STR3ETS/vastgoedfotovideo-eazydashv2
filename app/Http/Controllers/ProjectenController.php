@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Offerte;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use App\Models\User;
 
 class ProjectenController extends Controller
 {
@@ -91,6 +92,35 @@ class ProjectenController extends Controller
             'status'       => $project->status,
             'label'        => $label,
             'offerte_task' => $offerteTaskData,
+        ]);
+    }
+
+    public function updateAssignee(Request $request, Project $project)
+    {
+        $data = $request->validate([
+            'assignee_id' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+
+        if (!is_null($data['assignee_id'])) {
+            $isStaff = User::whereKey($data['assignee_id'])
+                ->whereNull('company_id')
+                ->exists();
+
+            if (!$isStaff) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ongeldige medewerker.',
+                ], 422);
+            }
+        }
+
+        $project->assignee_id = $data['assignee_id'] ?? null;
+        $project->save();
+
+        return response()->json([
+            'success'     => true,
+            'id'          => $project->id,
+            'assignee_id' => $project->assignee_id,
         ]);
     }
 

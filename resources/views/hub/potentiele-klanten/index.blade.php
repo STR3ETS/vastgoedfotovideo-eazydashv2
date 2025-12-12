@@ -358,6 +358,7 @@
             </label>
             <input type="date"
                 x-model="date"
+                :min="today"
                 @change="loadDay()"
                 class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-[#215558] outline-none focus:border-[#3b8b8f] transition" />
           </div>
@@ -368,8 +369,6 @@
             <select x-model.number="durationMinutes"
                     @change="rebuildSlots()"
                     class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-[#215558] outline-none focus:border-[#3b8b8f] transition">
-              <option value="30">{{ __('potentiele_klanten.intake_modal.duration_30') }}</option>
-              <option value="45">{{ __('potentiele_klanten.intake_modal.duration_45') }}</option>
               <option value="60">{{ __('potentiele_klanten.intake_modal.duration_60') }}</option>
             </select>
           </div>
@@ -1150,9 +1149,21 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
 
       // ✅ Intercept: intake -> open overlay en stop
       if (newValue === 'intake') {
+        // Owner achterhalen (eerst van deze card, anders van detail-card)
+        let ownerId = card.dataset.ownerId || null;
+        if (!ownerId) {
+          const detailCard = document.querySelector(
+            `[data-card-id="${id}"][data-owner-id]`
+          );
+          if (detailCard) {
+            ownerId = detailCard.dataset.ownerId || null;
+          }
+        }
+
         window.dispatchEvent(new CustomEvent('open-intake-planner', {
           detail: {
             aanvraagId: id,
+            ownerId,
             cardEl: card,
             oldValue,
             newValue,
@@ -1435,37 +1446,54 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
     cardEl: null,
     oldValue: null,
     newValue: 'intake',
+    ownerId: null,
 
-    date: new Date().toISOString().slice(0,10),
-    durationMinutes: 30,
-    workDay: { start: '09:00', end: '16:30' },
+    today: new Date().toISOString().slice(0, 10),
+    date:  new Date().toISOString().slice(0, 10),
+
+    // ✅ Altijd hele uren
+    durationMinutes: 60,
+
+    // ✅ 09:00 t/m 17:00
+    workDay: { start: '09:00', end: '17:00' },
+
     slots: [],
     picked: null,
 
     init() {
       window.addEventListener('open-intake-planner', (e) => {
-        const { aanvraagId, updateUrl, cardEl, oldValue, newValue } = e.detail || {};
+        const { aanvraagId, updateUrl, cardEl, oldValue, newValue, ownerId } = e.detail || {};
+
         this.aanvraagId = aanvraagId;
         this.updateUrl  = updateUrl;
         this.cardEl     = cardEl;
         this.oldValue   = oldValue;
         this.newValue   = newValue || 'intake';
-        this.picked     = null;
-        this.open       = true;
+        this.ownerId    = ownerId || null;
+
+        // Altijd vanaf vandaag
+        this.date   = this.today;
+        this.picked = null;
+        this.open   = true;
         this.loadDay();
       });
     },
 
     close() {
-      this.open   = false;
+      this.open    = false;
       this.loading = false;
-      this.picked = null;
+      this.picked  = null;
     },
 
     prettyDate(yyyyMmDd) {
       if (!yyyyMmDd) return '';
       const d = new Date(yyyyMmDd + 'T00:00:00');
-      return d.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      return d.toLocaleDateString('nl-NL', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
     },
 
     slotRange(slot) {
@@ -1492,16 +1520,31 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
     },
 
     async loadDay() {
-      this.slots = [];
+      // 🔒 Nooit terug in de tijd
+      if (this.date < this.today) {
+        this.date = this.today;
+      }
+
+      this.slots  = [];
       this.picked = null;
 
       let busy = [];
       try {
         if (availabilityUrlTemplate) {
-          const url = availabilityUrlTemplate.replace('__DATE__', this.date);
-          const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+          const base = availabilityUrlTemplate.replace('__DATE__', this.date);
+          const url  = new URL(base, window.location.origin);
+
+          // 👤 Owner-specifieke beschikbaarheid
+          if (this.ownerId) {
+            url.searchParams.set('owner_id', this.ownerId);
+          }
+
+          const res = await fetch(url.toString(), {
+            headers: { 'Accept': 'application/json' },
+          });
+
           if (res.ok) {
-            const data = await res.json().catch(()=>null);
+            const data = await res.json().catch(() => null);
             busy = Array.isArray(data?.busy) ? data.busy : [];
           }
         }
@@ -1512,10 +1555,16 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
       const dayStart = this.makeLocalDate(this.date, `${this.workDay.start}:00`);
       const dayEnd   = this.makeLocalDate(this.date, `${this.workDay.end}:00`);
 
+      const todayStr = this.today;
+      const now      = new Date();
+
       const slots = [];
+
+      // ✅ Alleen hele uren: 09–10, 10–11, …, 16–17
       for (let t = new Date(dayStart); t < dayEnd; ) {
         const start = new Date(t);
-        const end   = new Date(t); end.setMinutes(end.getMinutes() + this.durationMinutes);
+        const end   = new Date(t);
+        end.setMinutes(end.getMinutes() + this.durationMinutes);
         if (end > dayEnd) break;
 
         const label    = start.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
@@ -1527,26 +1576,33 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
           return start < bEnd && end > bStart;
         });
 
+        // 🔒 Slots in het verleden blokkeren
+        let isPast = false;
+        if (this.date < todayStr) {
+          isPast = true;
+        } else if (this.date === todayStr && end <= now) {
+          isPast = true;
+        }
+
         const pad = (n) => String(n).padStart(2, '0');
 
         slots.push({
           date: this.date,
 
-          // Bewaar ook UTC (alleen nodig voor overlap-checks / debugging)
           startUtc: start.toISOString(),
           endUtc:   end.toISOString(),
 
-          // 👇 LOKALE tijd (zonder Z). DIT sturen we later naar de server.
           startLocal: `${this.date}T${pad(start.getHours())}:${pad(start.getMinutes())}:00`,
           endLocal:   `${this.date}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`,
 
           startLabel: label,
           endLabel,
           label,
-          state: overlapsBusy ? 'busy' : 'free'
+          state: (overlapsBusy || isPast) ? 'busy' : 'free',
         });
 
-        t.setMinutes(t.getMinutes() + 30);
+        // ⏩ per uur opschuiven
+        t.setMinutes(t.getMinutes() + this.durationMinutes);
       }
 
       this.slots = slots;
@@ -1556,7 +1612,6 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
       if (!this.picked) return;
       this.loading = true;
 
-      // ✅ Status behouden i.p.v. naar intake zetten
       const keepStatus = String(
         this.oldValue || this.cardEl?.dataset?.status || 'contact'
       ).toLowerCase();
@@ -1574,20 +1629,16 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
           },
           credentials: 'same-origin',
           body: JSON.stringify({
-            // ✅ stuur dezelfde status terug -> DB blijft gelijk
             status: keepStatus,
-
-            // ✅ intake data blijft gewoon mee
             intake_at_local: this.picked.startLocal,
             intake_duration: this.durationMinutes,
-            tz
-          })
+            tz,
+          }),
         });
 
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error('Intake plannen mislukt');
 
-        // ✅ Intake-panel direct updaten (dit mag blijven)
         if (data && data.intake_html && this.cardEl) {
           const panel = this.cardEl.querySelector(`#intake-panel-${this.aanvraagId}`);
           if (panel) {
@@ -1599,19 +1650,13 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
           }
         }
 
-        // ❌ Verwijder/laat weg:
-        // 1) "Badge updaten" block dat forced naar intake zet
-        // 3) "Logboek direct updaten" block
-        //    (statusDnD doet dit straks via soft update)
-
-        // ✅ Laat statusDnD list+detail syncen ZONDER status wijziging
         window.dispatchEvent(new CustomEvent('potkl-status-soft-update', {
           detail: {
             id: this.aanvraagId,
             oldValue: keepStatus,
             newValue: keepStatus,
-            data
-          }
+            data,
+          },
         }));
 
         showToast(potklTrans('toast.intake_planned'), 'success');
@@ -1622,8 +1667,8 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
       } finally {
         this.loading = false;
       }
-    }
-  }
+    },
+  };
 }
 
 function filesManager({ csrf, uploadUrl, deleteUrlTemplate, initialFiles }) {

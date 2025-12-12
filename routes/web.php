@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Models\Offerte;
 use App\Models\WorkSession;
 use App\Models\AanvraagWebsite;
+use App\Models\User;
 
 use App\Http\Controllers\AanvraagController;
 use App\Http\Controllers\PotentieleKlantenController;
@@ -152,6 +153,55 @@ Route::prefix('app')->group(function () {
 
             /*
             |--------------------------------------------------------------------------
+            | Teamleden + online/offline status (alle users zonder company_id)
+            |--------------------------------------------------------------------------
+            */
+            $teamMembers = User::whereNull('company_id')
+                ->orderBy('name')
+                ->get()
+                ->map(function (User $member) use ($now) {
+                    // Laatste work session
+                    $lastSession = $member->workSessions()
+                        ->orderByDesc('clock_in_at')
+                        ->first();
+
+                    $isOnline   = false;
+                    $statusText = 'Nog geen sessies';
+
+                    if ($lastSession) {
+                        // Online als er nog geen clock_out_at is
+                        $isOnline = is_null($lastSession->clock_out_at);
+
+                        if ($isOnline) {
+                            $statusText = 'Online sinds ' . $lastSession->clock_in_at->format('H:i');
+                        } else {
+                            $clockOut = $lastSession->clock_out_at;
+
+                            if ($clockOut->isYesterday()) {
+                                $statusText = 'Offline sinds gisteren ' . $clockOut->format('H:i');
+                            } elseif ($clockOut->lt($now->copy()->startOfDay())) {
+                                $statusText = 'Offline sinds ' . $clockOut->format('d-m H:i');
+                            } else {
+                                $statusText = 'Offline sinds ' . $clockOut->format('H:i');
+                            }
+                        }
+                    }
+
+                    // Avatar: voornaam.webp in /assets/eazyonline/memojis/
+                    $firstName = strtolower(explode(' ', trim($member->name))[0] ?? '');
+                    $avatar    = "/assets/eazyonline/memojis/{$firstName}.webp";
+
+                    return (object) [
+                        'id'          => $member->id,
+                        'name'        => $member->name,
+                        'avatar'      => $avatar,
+                        'is_online'   => $isOnline,
+                        'status_text' => $statusText,
+                    ];
+                });
+
+            /*
+            |--------------------------------------------------------------------------
             | Timeline layout config
             |--------------------------------------------------------------------------
             |
@@ -222,9 +272,9 @@ Route::prefix('app')->group(function () {
                     // We schuiven alles 1 slot omhoog (jouw fix)
                     $finalTopPx = $topPx - $slotPx;
 
-                    // 👇 Extra mini-fix: bij exact 09:00 nog ~10px omhoog
+                    // Extra mini-fix: bij exact 09:00 nog een beetje omhoog
                     if ($minutesFromStart === 0) {
-                        $finalTopPx -= 8; // beetje tunen: 8 / 12 mag ook
+                        $finalTopPx -= 8;
                     }
 
                     return (object) [
@@ -241,7 +291,7 @@ Route::prefix('app')->group(function () {
                 ->filter()
                 ->values();
 
-            // Formatter (voor je cards bovenaan)
+            // Formatter (voor je kaarten bovenaan)
             $formatDuration = function (int $seconds): string {
                 $h = intdiv($seconds, 3600);
                 $m = intdiv($seconds % 3600, 60);
@@ -257,7 +307,6 @@ Route::prefix('app')->group(function () {
                 'monthSeconds'    => $monthSeconds,
 
                 'intakesToday'    => $intakesToday,
-
                 'intakeTimeline'  => [
                     'startHour'     => $startHour,
                     'endHour'       => $endHour,
@@ -270,6 +319,9 @@ Route::prefix('app')->group(function () {
                 'intakeCards'     => $intakeCards,
 
                 'formatDuration'  => $formatDuration,
+
+                // 👇 deze erbij
+                'teamMembers'     => $teamMembers,
             ]);
         })->name('support.dashboard');
 
@@ -334,6 +386,7 @@ Route::prefix('app')->group(function () {
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::patch('/{project}/status', 'updateStatus')->name('status.update');
+                Route::patch('/{project}/assignee', 'updateAssignee')->name('assignee.update');
                 Route::patch('/{project}/preview', 'updatePreview')->name('preview.update');
                 Route::patch('/{project}/offerte-notes', 'updateOfferteNotes')->name('offerte_notes.update');
                 Route::patch('/{project}/offerte-complete', 'completeOfferteTask')->name('offerte.complete');

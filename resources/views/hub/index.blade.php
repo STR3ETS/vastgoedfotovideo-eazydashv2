@@ -88,173 +88,48 @@
                     <div class="grid grid-cols-2 gap-6 mt-6 flex-1 min-h-0">
                         <div class="bg-[#f3f8f8] rounded-4xl p-8 h-full min-h-0 flex flex-col">
                             <div class="flex-1 min-h-0 grid gap-2 overflow-y-auto pr-3 -mr-3 custom-scroll">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
-                                            <div class="flex w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-red-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
+                                @forelse($teamMembers ?? [] as $member)
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
+                                                <div class="{{ $member->is_online ? 'hidden' : 'flex' }} w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
+                                                    <div class="w-3 h-3 rounded-full bg-red-500 absolute z-2"></div>
+                                                    <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
+                                                </div>
+                                                <div class="{{ $member->is_online ? 'flex' : 'hidden' }} w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
+                                                    <div class="w-3 h-3 rounded-full bg-green-500 absolute z-2"></div>
+                                                    <div class="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
+                                                </div>
+
+                                                <img src="{{ $member->avatar }}" alt="{{ $member->name }}">
                                             </div>
-                                            <div class="hidden w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-green-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
+                                            <div>
+                                                <p class="text-[#215558] font-bold text-sm shrink-0">
+                                                    {{ $member->name }}
+                                                </p>
+                                                <p class="text-[#215558] font-semibold text-xs shrink-0">
+                                                    {{ $member->status_text }}
+                                                </p>
                                             </div>
-                                            <img src="/assets/eazyonline/memojis/raphael.webp" alt="">
                                         </div>
-                                        <div>
-                                            <p class="text-[#215558] font-bold text-sm shrink-0">Raphael Muskitta</p>
-                                            <p class="text-[#215558] font-semibold text-xs shrink-0">Offline sinds gisteren 18:05</p>
-                                        </div>
+                                        @if($member->is_online)
+                                            <span class="text-[11px] font-semibold text-green-700 bg-green-200 px-2.5 py-0.5 rounded-full">
+                                                Beschikbaar
+                                            </span>
+                                        @else
+                                            <span class="text-[11px] font-semibold text-red-700 bg-red-200 px-2.5 py-0.5 rounded-full">
+                                                Niet beschikbaar
+                                            </span>
+                                        @endif
                                     </div>
-                                    <span class="text-[11px] font-semibold text-red-700 bg-red-200 px-2.5 py-0.5 rounded-full">Niet beschikbaar</span>
-                                </div>
-                                <hr class="border-[#215558]/10">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
-                                            <div class="flex w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-red-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-                                            </div>
-                                            <div class="hidden w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-green-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
-                                            </div>
-                                            <img src="/assets/eazyonline/memojis/martijn.webp" alt="">
-                                        </div>
-                                        <div>
-                                            <p class="text-[#215558] font-bold text-sm shrink-0">Martijn Visser</p>
-                                            <p class="text-[#215558] font-semibold text-xs shrink-0">Offline sinds gisteren 14:52</p>
-                                        </div>
-                                    </div>
-                                    <span class="text-[11px] font-semibold text-red-700 bg-red-200 px-2.5 py-0.5 rounded-full">Niet beschikbaar</span>
-                                </div>
-                                <hr class="border-[#215558]/10">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
-                                            <div class="hidden w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-red-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-                                            </div>
-                                            <div class="flex w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-green-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
-                                            </div>
-                                            <img src="/assets/eazyonline/memojis/boyd.webp" alt="">
-                                        </div>
-                                        <div>
-                                            <p class="text-[#215558] font-bold text-sm shrink-0">Boyd Halfman</p>
-                                            <p class="text-[#215558] font-semibold text-xs shrink-0">Online sinds 09:12</p>
-                                        </div>
-                                    </div>
-                                    <span class="text-[11px] font-semibold text-green-700 bg-green-200 px-2.5 py-0.5 rounded-full">Beschikbaar</span>
-                                </div>
-                                <hr class="border-[#215558]/10">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
-                                            <div class="flex w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-red-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-                                            </div>
-                                            <div class="hidden w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-green-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
-                                            </div>
-                                            <img src="/assets/eazyonline/memojis/yael.webp" alt="">
-                                        </div>
-                                        <div>
-                                            <p class="text-[#215558] font-bold text-sm shrink-0">Yael Scholten</p>
-                                            <p class="text-[#215558] font-semibold text-xs shrink-0">Offline sinds gisteren 16:34</p>
-                                        </div>
-                                    </div>
-                                    <span class="text-[11px] font-semibold text-red-700 bg-red-200 px-2.5 py-0.5 rounded-full">Niet beschikbaar</span>
-                                </div>
-                                <hr class="border-[#215558]/10">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
-                                            <div class="flex w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-red-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-                                            </div>
-                                            <div class="hidden w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-green-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
-                                            </div>
-                                            <img src="/assets/eazyonline/memojis/laurina.webp" alt="">
-                                        </div>
-                                        <div>
-                                            <p class="text-[#215558] font-bold text-sm shrink-0">Laurien Pesulima</p>
-                                            <p class="text-[#215558] font-semibold text-xs shrink-0">Offline sinds gisteren 17:56</p>
-                                        </div>
-                                    </div>
-                                    <span class="text-[11px] font-semibold text-red-700 bg-red-200 px-2.5 py-0.5 rounded-full">Niet beschikbaar</span>
-                                </div>
-                                <hr class="border-[#215558]/10">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
-                                            <div class="flex w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-red-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-                                            </div>
-                                            <div class="hidden w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-green-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
-                                            </div>
-                                            <img src="/assets/eazyonline/memojis/johnny.webp" alt="">
-                                        </div>
-                                        <div>
-                                            <p class="text-[#215558] font-bold text-sm shrink-0">Johnny Muskitta</p>
-                                            <p class="text-[#215558] font-semibold text-xs shrink-0">Offline sinds gisteren 14:39</p>
-                                        </div>
-                                    </div>
-                                    <span class="text-[11px] font-semibold text-red-700 bg-red-200 px-2.5 py-0.5 rounded-full">Niet beschikbaar</span>
-                                </div>
-                                <hr class="border-[#215558]/10">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
-                                            <div class="flex w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-red-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-                                            </div>
-                                            <div class="hidden w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-green-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
-                                            </div>
-                                            <img src="/assets/eazyonline/memojis/joris.webp" alt="">
-                                        </div>
-                                        <div>
-                                            <p class="text-[#215558] font-bold text-sm shrink-0">Joris Lindner</p>
-                                            <p class="text-[#215558] font-semibold text-xs shrink-0">Offline sinds gisteren 16:51</p>
-                                        </div>
-                                    </div>
-                                    <span class="text-[11px] font-semibold text-red-700 bg-red-200 px-2.5 py-0.5 rounded-full">Niet beschikbaar</span>
-                                </div>
-                                <hr class="border-[#215558]/10">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
-                                            <div class="flex w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-red-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-                                            </div>
-                                            <div class="hidden w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
-                                                <div class="w-3 h-3 rounded-full bg-green-500 absolute z-2"></div>
-                                                <div class="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
-                                            </div>
-                                            <img src="/assets/eazyonline/memojis/laurenzo.webp" alt="">
-                                        </div>
-                                        <div>
-                                            <p class="text-[#215558] font-bold text-sm shrink-0">Laurenzo Soemopawiro</p>
-                                            <p class="text-[#215558] font-semibold text-xs shrink-0">Offline sinds eergisteren 17:02</p>
-                                        </div>
-                                    </div>
-                                    <span class="text-[11px] font-semibold text-red-700 bg-red-200 px-2.5 py-0.5 rounded-full">Niet beschikbaar</span>
-                                </div>
+                                    @if (! $loop->last)
+                                        <hr class="border-[#215558]/10">
+                                    @endif
+                                @empty
+                                    <p class="text-xs text-[#215558] font-semibold">
+                                        Nog geen teamleden gevonden.
+                                    </p>
+                                @endforelse
                             </div>
                         </div>
                         <div class="bg-[#f3f8f8] rounded-4xl p-8">
@@ -308,6 +183,10 @@
                     </div>
                 </div>
                 <div class="bg-[#f3f8f8] w-[350px] rounded-4xl p-8">
+                    @php
+                        $firstName  = strtolower(explode(' ', trim($user->name))[0] ?? '');
+                        $userAvatar = "/assets/eazyonline/memojis/{$firstName}.webp";
+                    @endphp
                     <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center p-2 mx-auto border-2 border-[#0F9B9F50] relative">
                         <div class="{{ isset($activeSession) && $activeSession ? 'hidden' : 'flex' }} w-4 h-4 absolute z-1 right-1 top-1 items-center justify-center">
                             <div class="w-4 h-4 rounded-full bg-red-500 absolute z-2"></div>
@@ -317,7 +196,7 @@
                             <div class="w-4 h-4 rounded-full bg-green-500 absolute z-2"></div>
                             <div class="w-3 h-3 rounded-full bg-green-500 animate-ping"></div>
                         </div>
-                        <img src="/assets/eazyonline/memojis/boyd.webp">
+                        <img src="{{ $userAvatar }}" alt="{{ $user->name }}">
                     </div>
                     <h2 class="text-[#215558] font-bold text-base shrink-0 text-center mt-4 mb-2">Goeiedag {{ $user->name }} 👋</h2>
                     <p class="text-xs text-[#215558] font-semibold text-center mb-6">Laten we gaan knallen vandaag!</p>
@@ -360,34 +239,50 @@
                         @endif
                     </div>
                     <div class="w-full rounded-4xl p-4 bg-white flex flex-col mb-2">
+                        @php
+                            $reminderCount = ($intakesToday ?? collect())->count();
+                        @endphp
                         <div class="flex items-center justify-between mb-2">
                             <h2 class="text-[#215558] font-semibold text-sm shrink-0">Reminders</h2>
-                            <div class="w-4 h-4 bg-[#0F9B9F] font-semibold text-[11px] rounded-full text-white flex items-center justify-center">
-                                2
-                            </div>
+
+                            @if($reminderCount > 0)
+                                <div class="w-4 h-4 bg-[#0F9B9F] font-semibold text-[11px] rounded-full text-white flex items-center justify-center">
+                                    {{ $reminderCount }}
+                                </div>
+                            @endif
                         </div>
                         <div class="grid gap-2 mb-4">
-                            <div class="flex items-center gap-2">
-                                <div class="min-w-8 max-w-8 min-h-7 max-h-7 bg-[#215558]/20 rounded-full flex items-center justify-center">
-                                    <i class="fa-solid fa-person fa-sm text-[#215558]"></i>
+                            @forelse($intakesToday as $intake)
+                                <div class="flex items-center gap-2">
+                                    <div class="min-w-8 max-w-8 min-h-8 max-h-8 bg-[#215558]/20 rounded-full flex items-center justify-center">
+                                        <i class="fa-solid fa-phone fa-sm text-[#215558]"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-[#215558] font-bold text-sm shrink-0">
+                                            Intakegesprek
+                                            @if(!empty($intake->company))
+                                                met {{ $intake->company }}
+                                            @endif
+                                        </p>
+                                        <p class="text-[#215558] font-semibold text-xs shrink-0">
+                                            Vandaag om {{ \Carbon\Carbon::parse($intake->intake_at)->format('H:i') }}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p class="text-[#215558] font-bold text-sm shrink-0">Meeting Eazyonline</p>
-                                    <p class="text-[#215558] font-semibold text-xs shrink-0">Vandaag om 15:00</p>
-                                </div>
-                            </div>
-                            <hr class="border-[#215558]/10">
-                            <div class="flex items-center gap-2">
-                                <div class="min-w-8 max-w-8 min-h-8 max-h-8 bg-[#215558]/20 rounded-full flex items-center justify-center">
-                                    <i class="fa-solid fa-phone fa-sm text-[#215558]"></i>
-                                </div>
-                                <div>
-                                    <p class="text-[#215558] font-bold text-sm shrink-0">Intakegesprek Sore Clinic</p>
-                                    <p class="text-[#215558] font-semibold text-xs shrink-0">Vandaag om 15:00</p>
-                                </div>
-                            </div>
+
+                                @if (! $loop->last)
+                                    <hr class="border-[#215558]/10">
+                                @endif
+                            @empty
+                                <p class="text-xs text-[#215558] font-semibold">
+                                    Geen reminders voor vandaag.
+                                </p>
+                            @endforelse
                         </div>
-                        <a href="#" class="px-3 py-2 text-white font-semibold text-sm bg-[#0F9B9F] hover:bg-[#215558] transition duration-300 w-full rounded-full text-center">Mijn planning</a>
+                        <a href="{{ route('support.intake.availability') }}"
+                        class="px-3 py-2 text-white font-semibold text-sm bg-[#0F9B9F] hover:bg-[#215558] transition duration-300 w-full rounded-full text-center">
+                            Mijn planning
+                        </a>
                     </div>
                 </div>
             </div>
