@@ -87,10 +87,17 @@
       : null;
 
   $hasPreviewLink = !empty($project->preview_url) && !empty($project->preview_token);
+
+  $choiceMap = [
+    'new'   => __('potentiele_klanten.choices.new'),
+    'renew' => __('potentiele_klanten.choices.renew'),
+  ];
+
+  $choiceTitle = $choiceMap[$aanvraag->choice]
+    ?? __('potentiele_klanten.choices.default');
 @endphp
 
 <div
-  class="bg-white rounded-4xl p-8 transition"
   data-card-id="{{ $project->id }}"
   data-status="{{ $statusValue }}"
   x-on:dragover.prevent="onCardDragOver($event)"
@@ -363,16 +370,16 @@
       <div>
         <div class="flex items-center justify-between mb-1">
           <h2 class="font-black text-[#215558] text-xl">
-            {{ $project->company ?: __('projecten.unknown_company') }}
+            {{ $choiceTitle }}
           </h2>
 
           <div class="flex items-center gap-2">
-            @if($project->contact_email)
-              <a href="mailto:{{ $project->contact_email }}" class="w-7 h-7 rounded-full bg-[#215558]/20 flex items-center justify-center">
-                <i class="fa-solid fa-envelope text-[#215558] text-xs"></i>
-              </a>
-            @endif
-
+            <a href="tel:{{ $aanvraag->contactPhone }}" class="w-7 h-7 rounded-full bg-[#215558]/20 flex items-center justify-center">
+              <i class="fa-solid fa-phone text-[#215558] text-xs"></i>
+            </a>
+            <a href="mailto:{{ $aanvraag->contactEmail }}" class="w-7 h-7 rounded-full bg-[#215558]/20 flex items-center justify-center">
+              <i class="fa-solid fa-envelope text-[#215558] text-xs"></i>
+            </a>
             @if($aanvraag)
               @include('hub.potentiele-klanten.partials.owner-badge', ['aanvraag' => $aanvraag])
             @endif
@@ -417,14 +424,169 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {{-- LINKS (2/3) --}}
           <div class="lg:col-span-2 flex flex-col gap-6">
+ 
+{{-- ✅ PROJECT DETAILS (split) --}}
+
+@php
+  use Illuminate\Support\Str;
+
+  $summaryRaw = (string) ($project?->intake_ai_summary ?? '');
+  $summary    = trim($summaryRaw);
+
+  // ✅ Normalize: maak van "Kopje:" óók "**Kopje**:" zodat je regex altijd matcht
+  $knownHeadings = [
+    'Korte intro',
+    'Doel',
+    'Must-haves',
+    'Nice-to-haves',
+    'Aandachtspunten',
+    'Moet in de preview',
+    'Moet in de preview (homepage)',
+    'Huisstijl',
+    'Home preview opbouw (voorstel)',
+    'Home preview opbouw',
+    'Preview opbouw',
+    'Volgende stap',
+    'Actiepunten',
+    'Belangrijkste wensen',
+  ];
+
+  foreach ($knownHeadings as $h) {
+      $summary = preg_replace(
+          '/^(?:\*\*)?' . preg_quote($h, '/') . '(?:\*\*)?\s*:\s*/m',
+          '**' . $h . '**: ',
+          $summary
+      );
+  }
+
+  $getSection = function (string $text, array $names): ?string {
+      foreach ($names as $name) {
+          $pattern = '/\*\*' . preg_quote($name, '/') . '\*\*\s*:?\s*(.*?)(?=\n\s*\n\*\*[^*]+\*\*|\z)/s';
+          if (preg_match($pattern, $text, $m)) {
+              $val = trim($m[1] ?? '');
+              if ($val !== '') return $val;
+          }
+      }
+      return null;
+  };
+
+  // ✅ Project stuk
+  $intro = $getSection($summary, ['Korte intro']);
+  $doel  = $getSection($summary, ['Doel']);
+  $must  = $getSection($summary, ['Must-haves']);
+  $nice  = $getSection($summary, ['Nice-to-haves']);
+  $focus = $getSection($summary, ['Aandachtspunten', "Risico’s / aandachtspunten", "Risico's / aandachtspunten"]);
+  $next  = $getSection($summary, ['Volgende stap', 'Actiepunten']);
+
+  // ✅ Preview stuk
+  $previewMust = $getSection($summary, ['Moet in de preview (homepage)', 'Moet in de preview', 'Belangrijkste wensen']);
+  $huisstijl   = $getSection($summary, ['Huisstijl']);
+  $home        = $getSection($summary, ['Home preview opbouw (voorstel)', 'Home preview opbouw', 'Preview opbouw']);
+
+  $projectMdParts = [];
+  if ($intro) $projectMdParts[] = "**Korte intro**:\n" . trim($intro);
+  if ($doel)  $projectMdParts[] = "**Doel**:\n" . trim($doel);
+  if ($must)  $projectMdParts[] = "**Must-haves**:\n" . trim($must);
+  if ($nice)  $projectMdParts[] = "**Nice-to-haves**:\n" . trim($nice);
+  if ($focus) $projectMdParts[] = "**Aandachtspunten**:\n" . trim($focus);
+  if ($next)  $projectMdParts[] = "**Volgende stap**:\n" . trim($next);
+
+  $projectMd = trim(implode("\n\n", $projectMdParts));
+
+  $previewMdParts = [];
+  if ($previewMust) $previewMdParts[] = "**Wat moet erin**:\n" . trim($previewMust);
+  if ($huisstijl)   $previewMdParts[] = "**Huisstijl**:\n" . trim($huisstijl);
+  if ($home)        $previewMdParts[] = "**Home opbouw**:\n" . trim($home);
+
+  $previewMd = trim(implode("\n\n", $previewMdParts));
+@endphp
+
+{{-- ✅ PROJECT DETAILS --}}
+<div class="bg-[#fff] rounded-4xl p-8">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
+      <i class="fa-solid fa-file-pen fa-sm"></i>
+      Project details
+    </h3>
+
+    <span class="px-2.5 py-0.5 font-semibold text-purple-700 bg-purple-200 text-[11px] flex items-center gap-2 rounded-full">
+      <i class="fa-solid fa-sparkle fa-xs"></i>
+      Samenvatting door AI
+    </span>
+  </div>
+
+  @if($project && filled($summary) && filled($projectMd))
+    <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
+                max-h-[220px] overflow-y-auto pr-2 break-words whitespace-normal
+                [&_p]:mb-2 [&_p:last-child]:mb-0
+                [&_p+_ul]:mt-2 [&_ul]:mb-3 [&_ul+_p]:mt-3
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
+                [&_li_strong]:text-[#215558]">
+      {!! Str::markdown($projectMd, [
+            'html_input' => 'strip',
+            'allow_unsafe_links' => false,
+      ]) !!}
+    </div>
+  @elseif($project && filled($summary))
+    {{-- fallback: toon volledige samenvatting als parsing faalt --}}
+    <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
+                max-h-[220px] overflow-y-auto pr-2 break-words whitespace-normal
+                [&_p]:mb-2 [&_p:last-child]:mb-0
+                [&_p+_ul]:mt-2 [&_ul]:mb-3 [&_ul+_p]:mt-3
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
+                [&_li_strong]:text-[#215558]">
+      {!! Str::markdown($summary, [
+            'html_input' => 'strip',
+            'allow_unsafe_links' => false,
+      ]) !!}
+    </div>
+  @else
+    <p class="text-[#215558] text-xs font-semibold opacity-75">
+      Nog geen intake-samenvatting beschikbaar.
+    </p>
+  @endif
+</div>
+
+{{-- ✅ PREVIEW DETAILS --}}
+<div class="bg-[#fff] rounded-4xl p-8">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
+      <i class="fa-solid fa-wand-magic-sparkles fa-sm"></i>
+      Preview details
+    </h3>
+
+    <span class="px-2.5 py-0.5 font-semibold text-purple-700 bg-purple-200 text-[11px] flex items-center gap-2 rounded-full">
+      <i class="fa-solid fa-sparkle fa-xs"></i>
+      Voorgesteld door AI
+    </span>
+  </div>
+
+  @if($project && filled($summary) && filled($previewMd))
+    <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
+                max-h-[220px] overflow-y-auto pr-2 break-words whitespace-normal
+                [&_p]:mb-2 [&_p:last-child]:mb-0
+                [&_p+_ul]:mt-2 [&_ul]:mb-3 [&_ul+_p]:mt-3
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
+                [&_li_strong]:text-[#215558]">
+      {!! Str::markdown($previewMd, [
+            'html_input' => 'strip',
+            'allow_unsafe_links' => false,
+      ]) !!}
+    </div>
+  @else
+    <p class="text-[#215558] text-xs font-semibold opacity-75">
+      Nog geen preview-instructies gevonden in de samenvatting.
+    </p>
+  @endif
+</div>
 
             {{-- ✅ PREVIEW --}}
             <div class="bg-[#fff] rounded-4xl p-8 overflow-visible">
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2 min-w-0">
                   <h3 class="text-base text-[#215558] font-black leading-tight truncate flex items-center gap-2">
-                    <i class="fa-solid fa-up-right-from-square fa-sm opacity-70"></i>
-                    {{ __('projecten.preview.section_title') }}
+                    <i class="fa-solid fa-wand-magic-sparkles fa-sm"></i>
+                    Preview & kijk-momenten
                   </h3>
                 </div>
 
@@ -441,7 +603,7 @@
                                   group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
                                   transition-all duration-200 ease-out z-10">
                         <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
-                          {{ __('projecten.preview.add_button_tooltip') }}
+                          Preview-URL instellen
                         </p>
                       </div>
                     </button>
@@ -526,6 +688,8 @@
                   </a>
                 </div>
               </div>
+
+              <div class="w-full bg-red-500 p-4"></div>
 
               <div class="mt-2">
                 @if($hasPreviewLink)
@@ -617,9 +781,7 @@
             @endif
 
             {{-- ✅ OFFERTE --}}
-            <div class="bg-[#fff] rounded-4xl p-8 overflow-visible"
-                 x-show="statusValue === 'offerte'"
-                 x-cloak>
+            <div class="bg-[#fff] rounded-4xl p-8 overflow-visible" x-cloak>
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2 min-w-0">
                   <p class="text-base text-[#215558] font-black leading-tight truncate flex items-center gap-2">
@@ -898,45 +1060,11 @@
 
           {{-- RECHTS (1/3) - ✅ altijd aanvraag details + data --}}
           <div class="flex flex-col gap-6">
-            {{-- ✅ AANVRAAG DETAILS --}}
-            <div class="bg-[#fff] rounded-4xl p-8">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
-                  <i class="fa-solid fa-file-pen fa-sm"></i>
-                  Aanvraag details
-                </h3>
-
-                <span class="px-2.5 py-0.5 font-semibold text-purple-700 bg-purple-200 text-[11px] flex items-center gap-2 rounded-full">
-                  <i class="fa-solid fa-sparkle fa-xs"></i>
-                  Samenvatting door AI
-                </span>
-              </div>
-
-              @php use Illuminate\Support\Str; @endphp
-
-              @if($aanvraag && $aanvraag->ai_summary)
-                <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
-                            [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
-                            [&_p+ul]:mt-3
-                            [&_p]:mb-0
-                            [&_li_strong]:text-[#215558]">
-                  {!! Str::markdown($aanvraag->ai_summary, [
-                        'html_input' => 'strip',
-                        'allow_unsafe_links' => false,
-                  ]) !!}
-                </div>
-              @else
-                <p class="text-[#215558] text-xs font-semibold opacity-75">
-                  Geen aanvraag gekoppeld (of nog geen AI-samenvatting).
-                </p>
-              @endif
-            </div>
-
             {{-- ✅ AANVRAAG DATA --}}
             <div class="bg-[#fff] rounded-4xl p-8">
               <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
                 <i class="fa-solid fa-database fa-sm"></i>
-                Aanvraag data
+                Project data
               </h3>
 
               <div class="flex flex-col gap-2 mt-3">
@@ -951,8 +1079,8 @@
                 </div>
 
                 <div class="flex flex-col">
-                  <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Aanvraag status</p>
-                  <p class="text-sm font-semibold text-[#215558]">{{ $aanvraag ? $aanvraagStatusLabel : '—' }}</p>
+                  <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Lead doorgevoerd door</p>
+                  <p class="text-sm font-semibold text-[#215558]">{{ $aanvraag->owner->name }}</p>
                 </div>
               </div>
 

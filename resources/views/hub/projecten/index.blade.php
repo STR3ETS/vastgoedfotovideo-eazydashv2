@@ -82,6 +82,7 @@
         'singular' => __('projecten.status_counts.singular'),
         'plural'   => __('projecten.status_counts.plural'),
       ]),
+      initialActiveId: @js($selectedProjectId ?? $firstProjectId), {{-- ✅ toevoegen --}}
     })"
     x-init="init()"
   >
@@ -152,10 +153,7 @@
         </div>
 
         {{-- MASTER / DETAIL --}}
-        <div
-          class="mt-6 grid grid-cols-4 gap-6 flex-1 min-h-0"
-          x-data="{ activeId: @js($firstProjectId) }"
-        >
+        <div class="mt-6 grid grid-cols-4 gap-6 flex-1 min-h-0">
           {{-- LEFT LIST --}}
           <div class="space-y-2 bg-[#f3f8f8] rounded-4xl p-8 h-full min-h-0 overflow-y-auto">
             @forelse($projectsCollection as $project)
@@ -183,7 +181,7 @@
                 :class="activeId === {{ $project->id }}
                   ? 'bg-white border-l-[#0F9B9F]'
                   : 'bg-white border-l-[#215558]/20 hover:bg-gray-50'"
-                @click="activeId = {{ $project->id }}"
+                @click="activeId = Number({{ (int) $project->id }})"
               >
                 <div class="flex items-start justify-between gap-4">
                   <div class="w-full flex items-center justify-between">
@@ -336,9 +334,14 @@
       projectAssignees,
       labelsByValue,
       statusCounts,
-      statusCountTexts
+      statusCountTexts,
+      initialActiveId
     }) {
       return {
+        activeId: (initialActiveId !== null && initialActiveId !== undefined && initialActiveId !== '')
+          ? Number(initialActiveId)
+          : null,
+
         draggingValue: null,
         draggingLabel: null,
 
@@ -402,15 +405,27 @@
         },
 
         filterCards() {
-          const cards = document.querySelectorAll('[data-card-id]');
+          const cards = this.$el.querySelectorAll('[data-card-id]');
+
+          // show/hide
           if (!this.activeFilters.length) {
             cards.forEach(c => c.classList.remove('hidden'));
-            return;
+          } else {
+            cards.forEach(card => {
+              const s = card.dataset.status;
+              card.classList.toggle('hidden', !this.activeFilters.includes(s));
+            });
           }
-          cards.forEach(card => {
-            const s = card.dataset.status;
-            card.classList.toggle('hidden', !this.activeFilters.includes(s));
-          });
+
+          // ✅ als huidige selectie niet (meer) zichtbaar is: pak eerste zichtbare
+          const activeEl = this.activeId
+            ? this.$el.querySelector(`[data-card-id="${this.activeId}"]:not(.hidden)`)
+            : null;
+
+          if (!activeEl) {
+            const firstVisible = Array.from(cards).find(c => !c.classList.contains('hidden'));
+            this.activeId = firstVisible ? Number(firstVisible.dataset.cardId) : null;
+          }
         },
 
         humanize(value) {

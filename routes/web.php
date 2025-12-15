@@ -370,6 +370,7 @@ Route::prefix('app')->group(function () {
             ->controller(PotentieleKlantenController::class)
             ->group(function () {
                 Route::get('/', 'index')->name('index');
+                Route::get('/{aanvraag}', 'show')->name('show');
                 Route::patch('/{aanvraag}/status', 'updateStatus')->name('status.update');
                 Route::patch('/{aanvraag}/owner', [AanvraagWebsiteOwnerController::class, 'update'])->name('owner.update');
                 Route::post('/{aanvraag}/calls', 'storeCall')->name('calls.store');

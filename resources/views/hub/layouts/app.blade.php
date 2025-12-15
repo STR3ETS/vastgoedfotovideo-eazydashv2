@@ -261,6 +261,109 @@
                   </li>
               </ul>
             @endif
+
+@php
+  /** @var array $statusMap label => value */
+  $statusMap = $statusMap ?? [
+    'Prospect' => 'prospect',
+    'Contact'  => 'contact',
+    'Intake'   => 'intake',
+    'Dead'     => 'dead',
+    'Lead'     => 'lead',
+  ];
+
+  $colors = $colors ?? [
+    'prospect' => [
+      'bg'    => 'bg-[#b3e6ff]',
+      'border'=> 'border-[#92cbe8]',
+      'text'  => 'text-[#0f6199]',
+      'dot'   => 'bg-[#0f6199]',
+    ],
+    'contact' => [
+      'bg'    => 'bg-[#C2F0D5]',
+      'border'=> 'border-[#a1d3b6]',
+      'text'  => 'text-[#20603a]',
+      'dot'   => 'bg-[#20603a]',
+    ],
+    'intake' => [
+      'bg'    => 'bg-[#ffdfb3]',
+      'border'=> 'border-[#e8c392]',
+      'text'  => 'text-[#a0570f]',
+      'dot'   => 'bg-[#a0570f]',
+    ],
+    'dead' => [
+      'bg'    => 'bg-[#ffb3b3]',
+      'border'=> 'border-[#e09494]',
+      'text'  => 'text-[#8a2a2d]',
+      'dot'   => 'bg-[#8a2a2d]',
+    ],
+    'lead' => [
+      'bg'    => 'bg-[#e0d4ff]',
+      'border'=> 'border-[#c3b4f0]',
+      'text'  => 'text-[#4c2a9b]',
+      'dot'   => 'bg-[#4c2a9b]',
+    ],
+  ];
+
+  $sidebarAanvragen = \App\Models\AanvraagWebsite::query()
+    ->select('id', 'company', 'status')
+    ->orderByDesc('created_at')
+    ->limit(10)
+    ->get();
+@endphp
+@if (request()->is('app/potentiele-klanten*'))
+  <ul>
+    <li class="grid gap-1" x-data="{ openPotentieleKlanten: true }">
+      <!-- Rij: Potentiele Klanten + plusje -->
+      <div class="flex items-center justify-between gap-2">
+        <a href="{{ url('/app/potentiele-klanten') }}"
+          class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+          Website Aanvragen
+        </a>
+        <button
+          type="button"
+          class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+          @click="openPotentieleKlanten = !openPotentieleKlanten"
+          :aria-expanded="openPotentieleKlanten.toString()"
+        >
+          <i
+            class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+            :class="openPotentieleKlanten ? 'rotate-45 text-[#0F9B9F]' : ''"
+          ></i>
+        </button>
+      </div>
+      <!-- Uitklap: Aanvragen -->
+      <div x-show="openPotentieleKlanten" x-transition>
+        <div class="border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+          @forelse($sidebarAanvragen as $aanvraag)
+            @php
+              $status = strtolower(trim($aanvraag->status ?? 'prospect'));
+              $c = $colors[$status] ?? $colors['prospect'];
+            @endphp
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2 min-w-0">
+                <hr class="w-[10px] border-1 border-[#215558]/25 shrink-0">
+                <a href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
+                  class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300 truncate">
+                  {{ $aanvraag->company }}
+                </a>
+              </div>
+              <span class="shrink-0 inline-flex items-center gap-1.5 px-2 py-[2px] rounded-full text-[10px] font-semibold {{ $c['bg'] }} {{ $c['text'] }}">
+                {{ __('potentiele_klanten.statuses.' . $status) }}
+              </span>
+            </div>
+          @empty
+            <div class="flex items-center gap-2">
+              <hr class="w-[10px] border-1 border-[#215558]/25">
+              <span class="text-[#215558]/60 text-sm">Geen aanvragen</span>
+            </div>
+          @endforelse
+        </div>
+      </div>
+    </li>
+  </ul>
+@endif
+
             @if (request()->is('app/marketing*'))
               <ul class="grid gap-2" x-data="{ openMailing: true }">
                   <li class="flex items-center justify-between gap-2">
