@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PreviewViewed;
 use App\Models\ProjectPreviewFeedback;
+use App\Mail\PreviewApprovedCustomerMail;
+use App\Mail\PreviewApprovedOwnerMail;
+use App\Mail\PreviewViewedMultipleTimesCustomerMail;
 use Carbon\Carbon;
 
 class ProjectPreviewController extends Controller
@@ -21,19 +24,27 @@ class ProjectPreviewController extends Controller
         }
 
         $now = Carbon::now();
+        $isApproved = !is_null($project->preview_approved_at);
 
-        if (is_null($project->preview_first_viewed_at)) {
+        // ✅ Alleen timer starten op eerste view ALS niet approved
+        if (!$isApproved && is_null($project->preview_first_viewed_at)) {
             $project->preview_first_viewed_at = $now;
             $project->preview_expires_at      = (clone $now)->addDays(3);
             $project->save();
         }
 
-        $expiresAt = $project->preview_expires_at ?? (clone $now)->addDays(3);
-        $remainingSeconds = max(0, $now->lte($expiresAt) ? $now->diffInSeconds($expiresAt) : 0);
+        // ✅ Als approved: timer stopt direct
+        if ($isApproved) {
+            $expiresAt = null;
+            $remainingSeconds = 0;
+        } else {
+            $expiresAt = $project->preview_expires_at ?? (clone $now)->addDays(3);
+            $remainingSeconds = max(0, $now->lte($expiresAt) ? $now->diffInSeconds($expiresAt) : 0);
+        }
 
+        // ✅ Log view (mag je laten zoals je wilt)
         $ip = $request->ip();
         $ua = (string) $request->userAgent();
-
         $geo = $this->lookupIp($ip);
 
         $viewLog = $project->previewViews()->create([
@@ -45,10 +56,26 @@ class ProjectPreviewController extends Controller
             'user_agent'   => mb_strimwidth($ua, 0, 512, ''),
         ]);
 
-        try {
-            Mail::to('boyd@eazyonline.nl')->send(new PreviewViewed($project, $viewLog));
-        } catch (\Throwable $e) {
-            report($e);
+        // ✅ Na 5 views: stuur 1x reminder naar klant (alleen als niet approved)
+        if (!$isApproved && !empty($project->contact_email)) {
+            $viewsCount = $project->previewViews()->count(); // inclusief deze nieuwe view
+
+            if ($viewsCount === 5) {
+                try {
+                    Mail::to($project->contact_email)
+                        ->send(new PreviewViewedMultipleTimesCustomerMail($project));
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        }
+
+        if (!$isApproved) {
+            try {
+                Mail::to('boyd@eazyonline.nl')->send(new PreviewViewed($project, $viewLog));
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return view('other.preview-showcase', [
@@ -56,6 +83,7 @@ class ProjectPreviewController extends Controller
             'previewUrl'       => $project->preview_url,
             'expiresAt'        => $expiresAt,
             'remainingSeconds' => $remainingSeconds,
+            'isApproved'       => $isApproved, // ✅ belangrijk voor view (lock/timer stop)
         ]);
     }
 
@@ -108,5 +136,53 @@ class ProjectPreviewController extends Controller
         }
 
         return [];
+    }
+
+    public function approve(string $token, Request $request)
+    {
+        $project = Project::where('preview_token', $token)->firstOrFail();
+
+        if (!$project->preview_url) {
+            abort(404);
+        }
+
+        // al goedgekeurd = idempotent
+        if ($project->preview_approved_at) {
+            return response()->json([
+                'status' => 'ok',
+                'alreadyApproved' => true,
+            ]);
+        }
+
+        $project->preview_approved_at = Carbon::now();
+        $project->preview_approved_ip = $request->ip();
+
+        // ✅ (aanrader) ga door naar offerte fase
+        // Als jij een andere status wil, verander dit:
+        $project->status = 'preview_approved';
+
+        $project->save();
+
+        // ✅ mail naar klant
+        try {
+            // klant mail
+            if (!empty($project->contact_email)) {
+                Mail::to($project->contact_email)->send(new PreviewApprovedCustomerMail($project));
+            }
+
+            // owner mails (hardcoded)
+            // Mail::to(['boyd@eazyonline.nl', 'raphael@eazyonline.nl'])
+            Mail::to(['boyd@eazyonline.nl'])
+                ->send(new PreviewApprovedOwnerMail($project));
+
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'approvedAt' => optional($project->preview_approved_at)->timezone('Europe/Amsterdam')->format('d-m-Y H:i'),
+            'project_status' => $project->status,
+        ]);
     }
 }

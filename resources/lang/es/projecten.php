@@ -9,6 +9,7 @@ return [
     'statuses' => [
         'preview'          => 'Vista previa',
         'waiting_customer' => 'En espera del cliente',
+        'preview_approved' => 'Vista previa aprobada',
         'offerte'          => 'Cotización',
     ],
 

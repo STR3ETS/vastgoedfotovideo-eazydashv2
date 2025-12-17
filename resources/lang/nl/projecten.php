@@ -9,6 +9,7 @@ return [
     'statuses' => [
         'preview'          => 'Preview',
         'waiting_customer' => 'Wachten op klant',
+        'preview_approved' => 'Preview goedgekeurd',
         'offerte'          => 'Offerte',
     ],
 

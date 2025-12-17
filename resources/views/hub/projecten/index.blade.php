@@ -42,6 +42,7 @@
     $labelsByValue = $statusByValue ?? [
       'preview'          => 'Preview',
       'waiting_customer' => 'Wachten op klant',
+      'preview_approved' => 'goedgekeurd',
       'offerte'          => 'Offerte',
     ];
 
@@ -58,6 +59,12 @@
         'border' => 'border-[#0f6199]',
         'text' => 'text-[#0f6199]',
         'dot' => 'bg-[#0f6199]',
+      ],
+      'preview_approved' => [
+        'bg' => 'bg-[#d1fae5]',
+        'border' => 'border-[#10b981]',
+        'text' => 'text-[#065f46]',
+        'dot' => 'bg-[#10b981]',
       ],
       'offerte' => [
         'bg' => 'bg-[#ffdfb3]',
@@ -132,7 +139,7 @@
 
         {{-- Filters (zelfde styling als PotK) --}}
         <div class="flex flex-wrap items-center gap-2 mt-6">
-          @foreach(['preview','waiting_customer','offerte'] as $s)
+          @foreach(['preview','waiting_customer','preview_approved','offerte'] as $s)
             @php
               $m = $filterMeta[$s] ?? null;
               $label = $labelsByValue[$s] ?? ucfirst(str_replace('_',' ', $s));
@@ -164,6 +171,7 @@
                 $badgeMap = [
                   'preview'          => 'bg-[#e0d4ff] text-[#4c2a9b]',
                   'waiting_customer' => 'bg-[#b3e6ff] text-[#0f6199]',
+                  'preview_approved' => 'bg-[#d1fae5] text-[#065f46]',
                   'offerte'          => 'bg-[#ffdfb3] text-[#a0570f]',
                 ];
                 $badgeClass = $badgeMap[$status] ?? 'bg-gray-100 text-gray-600';
@@ -189,15 +197,8 @@
                       <p class="text-base font-bold text-[#215558] truncate">
                         {{ $project->company ?: __('projecten.unknown_company') }}
                       </p>
-
-                      <p class="text-sm font-medium text-[#215558] leading-[20px] opacity-75 truncate">
-                        {{ $project->contact_name ?: '—' }}
-                      </p>
-                    </div>
-
-                    <div class="flex items-center gap-2 mr-4">
                       <span
-                        class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold {{ $badgeClass }}"
+                        class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap {{ $badgeClass }}"
                         data-status-badge
                         data-status-value="{{ $status }}"
                       >
@@ -302,6 +303,160 @@
       }, 3000);
     }
 
+    function projectTasks({ projectId, csrf, updateUrl, statusUpdateUrl, initial, initialStatus }) {
+      return {
+        projectId: String(projectId || ''),
+        csrf,
+        updateUrl,
+        statusUpdateUrl,
+
+        tasks: initial || {},
+        currentStatus: String(initialStatus || 'preview').toLowerCase(),
+        loadingTypes: {},
+
+        init() {
+          window.addEventListener('project-card-status-changed', (e) => {
+            const d = e.detail || {};
+            if (!d.id || String(d.id) !== this.projectId) return;
+            if (d.newValue) this.currentStatus = String(d.newValue).toLowerCase();
+          });
+        },
+
+        // ✅ Welke taken toon je in welke status
+        isVisible(type) {
+          // ✅ UI-only status actie: pas tonen als preview-taak klaar is
+          if (type === 'status_to_waiting_customer') {
+            return this.currentStatus === 'preview' && !!this.tasks.create_preview; // ✅ was send_preview
+          }
+
+          // ✅ Echte taken
+          if (type === 'create_preview') {
+            return this.currentStatus === 'preview';
+          }
+
+          // (optioneel) als je send_preview helemaal niet meer gebruikt:
+          if (type === 'send_preview') return false;
+
+          if (type === 'process_feedback') return this.currentStatus === 'waiting_customer';
+          if (type === 'call_customer' || type === 'send_offerte') {
+            return ['preview_approved','offerte'].includes(this.currentStatus);
+          }
+
+          // custom DB taken
+          return true;
+        },
+
+        canCheck(type) {
+          // UI-only types hebben geen checkbox logica
+          if (type === 'status_to_waiting_customer' || type === 'status_to_offerte') return false;
+
+          // afvinken alleen in juiste fase (custom taken: true)
+          if (type === 'create_preview' || type === 'send_preview') return this.currentStatus === 'preview';
+          if (type === 'process_feedback') return this.currentStatus === 'waiting_customer';
+          if (type === 'call_customer' || type === 'send_offerte') {
+            return ['preview_approved','offerte'].includes(this.currentStatus);
+          }
+
+          return true;
+        },
+
+        async toggle(type, checked, evt) {
+          if (this.loadingTypes[type]) return;
+
+          if (!this.canCheck(type)) {
+            if (evt?.target) evt.target.checked = !!this.tasks[type];
+            return;
+          }
+
+          const prev = !!this.tasks[type];
+          this.tasks[type] = checked;
+          this.loadingTypes[type] = true;
+
+          const newStatus = checked ? 'done' : 'open';
+
+          try {
+            const res = await fetch(this.updateUrl, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': this.csrf,
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              credentials: 'same-origin',
+              body: JSON.stringify({ type, status: newStatus }),
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.message || 'Taak update mislukt');
+
+            const serverStatus = String(data?.status || newStatus).toLowerCase();
+            this.tasks[type] = serverStatus === 'done';
+
+            showToast(
+              this.tasks[type]
+                ? 'Gelukt! De taak is gemarkeerd als voltooid'
+                : 'Gelukt! De taak is opnieuw geopend',
+              'success'
+            );
+          } catch (e) {
+            this.tasks[type] = prev;
+            if (evt?.target) evt.target.checked = prev;
+            showToast('Oeps! De taak kon niet worden bijgewerkt.', 'error');
+          } finally {
+            this.loadingTypes[type] = false;
+          }
+        },
+
+        async setStatus(newStatus) {
+          if (!this.statusUpdateUrl) {
+            showToast('Status URL ontbreekt in tasksPayload.', 'error');
+            return;
+          }
+
+          try {
+            const res = await fetch(this.statusUpdateUrl, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': this.csrf,
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              credentials: 'same-origin',
+              body: JSON.stringify({ status: newStatus }),
+            });
+
+            const data = await res.json().catch(() => null);
+            if (!res.ok) {
+              showToast(data?.message || 'Status kon niet worden bijgewerkt.', 'error');
+              return;
+            }
+
+            const oldValue = this.currentStatus;
+            const finalValue = String((data && data.status) || newStatus).toLowerCase();
+            this.currentStatus = finalValue;
+
+            // 1) update alles (counts + badges + filters) via projectsDnD listener
+            window.dispatchEvent(new CustomEvent('project-card-status-changed', {
+              detail: { id: this.projectId, oldValue, newValue: finalValue, data: data || {} }
+            }));
+
+            // 2) update de detail-card Alpine state (statusValue etc.) zonder reload
+            this.$root.dispatchEvent(new CustomEvent('project-status-updated', {
+              detail: { status: finalValue, label: data?.label || finalValue },
+              bubbles: true
+            }));
+
+            showToast(`Gelukt! Status aangepast naar ${data?.label || finalValue}.`, 'success');
+          } catch (e) {
+            console.error(e);
+            showToast('Status kon niet worden bijgewerkt.', 'error');
+          }
+        },
+      };
+    }
+
     function projTrans(path, replacements) {
       const parts = path.split('.');
       let value = window.PROJECT_STRINGS || {};
@@ -393,6 +548,27 @@
 
           // default: alles zichtbaar
           this.filterCards();
+
+          window.addEventListener('project-card-status-changed', (e) => {
+            const d = e.detail || {};
+            if (!d.id || !d.newValue) return;
+
+            const id = String(d.id);
+            const newValue = String(d.newValue).toLowerCase();
+
+            // oldValue meegekregen? top. Anders fallback: lees uit DOM.
+            let oldValue = d.oldValue ? String(d.oldValue).toLowerCase() : null;
+            if (!oldValue) {
+              const el = document.querySelector(`[data-card-id="${id}"]`);
+              oldValue = el?.dataset?.status ? String(el.dataset.status).toLowerCase() : null;
+            }
+
+            if (oldValue && oldValue !== newValue) {
+              this._updateCounts(oldValue, newValue);
+            }
+
+            this._updateAllInstances(id, newValue);
+          });
         },
 
         toggleFilter(status) {
@@ -534,17 +710,18 @@
           badge.textContent = label;
 
           const colorMap = {
-            preview:          ['bg-[#e0d4ff]', 'text-[#4c2a9b]'],
+            preview: ['bg-[#e0d4ff]', 'text-[#4c2a9b]'],
             waiting_customer: ['bg-[#b3e6ff]', 'text-[#0f6199]'],
-            offerte:          ['bg-[#ffdfb3]', 'text-[#a0570f]'],
+            preview_approved: ['bg-[#d1fae5]', 'text-[#065f46]'],
+            offerte: ['bg-[#ffdfb3]', 'text-[#a0570f]'],
           };
 
           const allColorClasses = [
             'bg-[#e0d4ff]','text-[#4c2a9b]',
             'bg-[#b3e6ff]','text-[#0f6199]',
+            'bg-[#d1fae5]','text-[#065f46]',
             'bg-[#ffdfb3]','text-[#a0570f]',
-            'bg-gray-100','text-gray-600',
-            'bg-slate-100','text-slate-700',
+            'bg-slate-100','text-slate-700'
           ];
 
           badge.classList.remove(...allColorClasses);

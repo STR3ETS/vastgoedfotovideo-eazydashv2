@@ -31,6 +31,7 @@ class Project extends Model
     protected $casts = [
         'preview_first_viewed_at' => 'datetime',
         'preview_expires_at'      => 'datetime',
+        'preview_approved_at' => 'datetime',
     ];
 
     protected static function booted(): void

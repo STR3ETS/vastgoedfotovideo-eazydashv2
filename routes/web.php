@@ -62,6 +62,7 @@ Route::prefix('preview')
     ->group(function () {
         Route::get('/{token}', 'show')->name('show');
         Route::post('/{token}/feedback', 'storeFeedback')->name('feedback.store');
+        Route::post('/{token}/approve', 'approve')->name('approve');
     });
 
 Route::prefix('offerte')
@@ -387,6 +388,7 @@ Route::prefix('app')->group(function () {
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::patch('/{project}/status', 'updateStatus')->name('status.update');
+                Route::patch('/{project}/tasks/status', 'updateTaskStatus')->name('tasks.status.update');
                 Route::patch('/{project}/assignee', 'updateAssignee')->name('assignee.update');
                 Route::patch('/{project}/preview', 'updatePreview')->name('preview.update');
                 Route::patch('/{project}/offerte-notes', 'updateOfferteNotes')->name('offerte_notes.update');

@@ -14,6 +14,12 @@
           'text'  => 'text-[#0f6199]',
           'dot'   => 'bg-[#0f6199]',
       ],
+      'preview_approved' => [
+        'bg'    => 'bg-[#C2F0D5]',
+        'border'=> 'border-[#a1d3b6]',
+        'text'  => 'text-[#20603a]',
+        'dot'   => 'bg-[#20603a]',
+      ],
       'offerte' => [
           'bg'    => 'bg-[#ffdfb3]',
           'border'=> 'border-[#e8c392]',
@@ -40,7 +46,7 @@
         $count = $statusCounts[$value] ?? 0;
       @endphp
 
-      <li class="w-1/3">
+      <li class="w-1/4">
         <div class="w-full flex items-center justify-between py-2 px-3 rounded-full text-xs font-semibold border
                     cursor-grab active:cursor-grabbing select-none
                     {{ $c['bg'] }} {{ $c['border'] }} {{ $c['text'] }}"

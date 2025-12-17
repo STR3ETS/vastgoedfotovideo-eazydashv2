@@ -275,7 +275,7 @@
                       {{ __('potentiele_klanten.calls.none') }}
                     </p>
                   </template>
-                  <ul class="flex flex-col gap-2 divide-[#215558]/20 max-h-50 overflow-y-auto pr-1 mt-2" x-show="calls.length">
+                  <ul class="flex flex-col gap-2 divide-[#215558]/20 overflow-y-auto pr-1 mt-2" x-show="calls.length">
                     <template x-for="call in calls" :key="call.id">
                       <li class="text-xs pl-8 py-2 relative">
                         {{-- verticale lijn --}}
@@ -287,23 +287,25 @@
                         </div>
 
                         <div class="flex items-center justify-between gap-2">
-                          <div class="flex items-center gap-4">
-                            <div class="flex flex-col">
-                              <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld door</p>
-                              <p class="text-sm font-semibold text-[#215558]" x-text="(call.user_name || 'Onbekend')"></p>
+                          <div class="w-full flex flex-col gap-2">
+                            <div class="flex items-center gap-4">
+                              <div class="flex flex-col">
+                                <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld door</p>
+                                <p class="text-sm font-semibold text-[#215558]" x-text="(call.user_name || 'Onbekend')"></p>
+                              </div>
+                              <div class="flex flex-col">
+                                <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld op</p>
+                                <p class="text-sm font-semibold text-[#215558]" x-text="call.called_at"></p>
+                              </div>
                             </div>
-                            <div class="flex flex-col">
-                              <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld op</p>
-                              <p class="text-sm font-semibold text-[#215558]" x-text="call.called_at"></p>
-                            </div>
-                            <div class="flex flex-col">
+                            <div class="flex flex-col w-[80%]">
                               <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Opmerking</p>
                               <p class="text-sm font-semibold text-[#215558]" x-show="call.note" x-text="call.note"></p>
                             </div>
                           </div>
 
                           <span
-                            class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                            class="inline-flex whitespace-nowrap items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
                             :class="{
                               'bg-red-200 text-red-700': call.outcome === 'geen_antwoord',
                               'bg-green-200 text-green-700': call.outcome === 'gesproken',

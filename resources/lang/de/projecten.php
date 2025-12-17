@@ -9,6 +9,7 @@ return [
     'statuses' => [
         'preview'          => 'Vorschau',
         'waiting_customer' => 'Warten auf den Kunden',
+        'preview_approved' => 'Vorschau genehmigt',
         'offerte'          => 'Zitat',
     ],
 

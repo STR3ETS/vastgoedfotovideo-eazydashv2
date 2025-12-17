@@ -310,6 +310,11 @@
     ->orderByDesc('created_at')
     ->limit(10)
     ->get();
+
+  $routeAanvraag = request()->route('aanvraag');
+  $activeAanvraagId = is_object($routeAanvraag)
+    ? (int) $routeAanvraag->id
+    : (is_numeric($routeAanvraag) ? (int) $routeAanvraag : null);
 @endphp
 @if (request()->is('app/potentiele-klanten*'))
   <ul>
@@ -343,9 +348,14 @@
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2 min-w-0">
                 <hr class="w-[10px] border-1 border-[#215558]/25 shrink-0">
-                <a href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
-                  class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300 truncate">
-                  {{ $aanvraag->company }}
+                  @php $isActive = ($activeAanvraagId && (int)$aanvraag->id === (int)$activeAanvraagId); @endphp
+                  <a
+                    href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
+                    data-potkl-open="{{ $aanvraag->id }}"
+                    class="{{ $isActive ? 'text-[#0F9B9F]' : 'text-[#215558]' }} font-semibold text-sm hover:text-[#0F9B9F] transition duration-300 truncate"
+                  >
+                    {{ $aanvraag->company }}
+                  </a>
                 </a>
               </div>
               <span class="shrink-0 inline-flex items-center gap-1.5 px-2 py-[2px] rounded-full text-[10px] font-semibold {{ $c['bg'] }} {{ $c['text'] }}">
@@ -654,7 +664,6 @@
       </script>
     @endif
 
-
     {{-- Globale i18n helper: werkt alle [data-i18n] bij, en ook attributes via data-i18n-attr --}}
     <script>
       window.applyI18n = function(dict) {
@@ -679,6 +688,63 @@
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         if (token) e.detail.headers['X-CSRF-TOKEN'] = token;
       });
+    </script>
+
+    <script>
+      document.addEventListener('click', function (e) {
+        const a = e.target.closest('a[data-potkl-open]');
+        if (!a) return;
+
+        // Alleen soft navigeren als we echt op de potentiële klanten pagina zijn
+        if (!document.querySelector('[data-potkl-page]')) return;
+
+        // normale browser acties blijven werken
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+
+        e.preventDefault();
+
+        window.dispatchEvent(new CustomEvent('potkl-open-aanvraag', {
+          detail: {
+            id: a.getAttribute('data-potkl-open'),
+            href: a.href
+          }
+        }));
+      });
+    </script>
+
+    <script>
+      (function () {
+        function currentIdFromUrl() {
+          const m = window.location.pathname.match(/potentiele-klanten\/(\d+)/);
+          return m && m[1] ? m[1] : null;
+        }
+
+        function setActiveInSidebar(id) {
+          document.querySelectorAll('a[data-potkl-open]').forEach((a) => {
+            const isActive = String(a.getAttribute('data-potkl-open')) === String(id);
+            a.classList.toggle('text-[#0F9B9F]', isActive);
+            a.classList.toggle('text-[#215558]', !isActive);
+          });
+        }
+
+        function sync() {
+          const id = currentIdFromUrl();
+          if (id) setActiveInSidebar(id);
+        }
+
+        const _pushState = history.pushState;
+        history.pushState = function () {
+          _pushState.apply(history, arguments);
+          sync();
+        };
+
+        window.addEventListener('popstate', sync);
+        window.addEventListener('DOMContentLoaded', sync);
+
+        window.addEventListener('potkl-open-aanvraag', (e) => {
+          if (e.detail && e.detail.id) setActiveInSidebar(e.detail.id);
+        });
+      })();
     </script>
   </body>
 </html>

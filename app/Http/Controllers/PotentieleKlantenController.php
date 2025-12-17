@@ -211,6 +211,17 @@ class PotentieleKlantenController extends Controller
                     'contact_phone' => $aanvraag->contactPhone,
                 ]
             );
+
+            // ✅ Project taken aanmaken (project_tasks)
+            $project->tasks()->firstOrCreate(
+                ['type' => 'create_preview'],
+                [
+                    'title'  => 'Preview maken & preview-url opgeven',
+                    'status' => 'open',
+                    'order'  => 10,
+                ]
+            );
+
             // ✅ intake summary opslaan (alleen als nog leeg)
             if (blank($project->intake_ai_summary)) {
                 $summary = app(\App\Services\IntakeSummaryGenerator::class)->generate($aanvraag);

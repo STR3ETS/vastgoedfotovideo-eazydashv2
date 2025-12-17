@@ -25,7 +25,9 @@
           ];
       })->all();
   @endphp
-  <div class="col-span-5 grid grid-cols-4 w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0 overflow-hidden"
+  <div
+      data-potkl-page
+      class="col-span-5 grid grid-cols-4 w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0 overflow-hidden"
       x-data="statusDnD({
           csrf: '{{ csrf_token() }}',
           updateUrlTemplate: '{{ route('support.potentiele-klanten.status.update', ['aanvraag' => '__ID__']) }}',
@@ -130,7 +132,24 @@
           @php
               $aanvragenCollection = $aanvragen ?? collect();
 
-              $firstAanvraagId = $aanvragenCollection->first()->id ?? null;
+              // ✅ ID uit de route: /potentiele-klanten/{aanvraag}
+              $routeAanvraagId = null;
+
+              // Meestal heb je $aanvraag vanuit de controller (Route Model Binding)
+              if (isset($aanvraag) && is_object($aanvraag) && isset($aanvraag->id)) {
+                  $routeAanvraagId = (int) $aanvraag->id;
+              } else {
+                  // Fallback (voor de zekerheid)
+                  $routeParam = request()->route('aanvraag');
+                  $routeAanvraagId = is_object($routeParam)
+                      ? (int) $routeParam->id
+                      : (is_numeric($routeParam) ? (int) $routeParam : null);
+              }
+
+              // ✅ Alleen actief als je echt op /{aanvraag} zit
+              $initialActiveId = ($routeAanvraagId && $aanvragenCollection->contains('id', $routeAanvraagId))
+                  ? $routeAanvraagId
+                  : null;
 
               $choiceMap = [
                   'new'   => __('potentiele_klanten.choices.new'),
@@ -139,8 +158,27 @@
           @endphp
 
           <div
-              class="mt-6 grid grid-cols-4 gap-6 flex-1 min-h-0"
-              x-data="{ activeId: @js($firstAanvraagId) }"
+            class="mt-6 grid grid-cols-4 gap-6 flex-1 min-h-0"
+            x-data='{
+              activeId: @js($initialActiveId),
+              selectAanvraag(id, href) {
+                this.activeId = Number(id);
+
+                if (href) {
+                  history.pushState({ aanvraagId: this.activeId }, "", href);
+                }
+
+                const row = this.$el.querySelector(`[data-card-row-id="${this.activeId}"]`);
+                if (row) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              }
+            }'
+            x-on:potkl-open-aanvraag.window='selectAanvraag($event.detail.id, $event.detail.href)'
+            x-init='
+              window.addEventListener("popstate", () => {
+                const m = window.location.pathname.match(/potentiele-klanten\/(\d+)/);
+                activeId = (m && m[1]) ? Number(m[1]) : null;
+              });
+            '
           >
               {{-- ===================== LEFT LIST ===================== --}}
               <div class="space-y-2 bg-[#f3f8f8] rounded-4xl p-8 h-full min-h-0 overflow-y-auto">
@@ -152,6 +190,8 @@
                       <button
                           type="button"
                           data-card-id="{{ $aanvraag->id }}"
+                          data-card-row-id="{{ $aanvraag->id }}"
+                          data-href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
                           data-status="{{ $rowStatus }}"
                           @dragover.prevent="onCardDragOver($event)"
                           @dragleave="onCardDragLeave($event)"
@@ -161,7 +201,7 @@
                           :class="activeId === {{ $aanvraag->id }}
                               ? 'bg-white border-l-[#0F9B9F]'
                               : 'bg-white border-l-[#215558]/20 hover:bg-gray-50'"
-                          @click="activeId = {{ $aanvraag->id }}"
+                          @click='selectAanvraag({{ $aanvraag->id }}, $el.dataset.href)'
                       >
                           <div class="flex items-start justify-between gap-4">
                               <div class="w-full flex items-center justify-between">
@@ -237,6 +277,12 @@
               {{-- ===================== RIGHT DETAIL ===================== --}}
               <div class="col-span-3 min-h-0 bg-[#f3f8f8] rounded-4xl overflow-hidden flex flex-col">
                   <div class="p-8 flex-1 min-h-0 overflow-y-auto">
+                      <div x-show="!activeId" x-cloak class="flex items-center gap-4">
+                        <span class="text-4xl">👈</span>
+                        <p class="text-base font-bold text-[#215558]/80 mt-1">
+                          Selecteer een potentiële klant om te beginnen.
+                        </p>
+                      </div>
                       @forelse($aanvragenCollection as $aanvraag)
                           <div
                               x-show="activeId === {{ $aanvraag->id }}"

@@ -16,6 +16,10 @@
         'bg'   => 'bg-[#b3e6ff]',
         'text' => 'text-[#0f6199]',
     ],
+    'preview_approved' => [
+      'bg'   => 'bg-[#C2F0D5]',
+      'text' => 'text-[#20603a]',
+    ],
     'offerte' => [
         'bg'   => 'bg-[#ffdfb3]',
         'text' => 'text-[#a0570f]',
@@ -88,13 +92,21 @@
 
   $hasPreviewLink = !empty($project->preview_url) && !empty($project->preview_token);
 
+  // ✅ kijk-momenten (views) altijd klaarzetten
+  $previewLogs = $hasPreviewLink
+      ? $project->previewViews()->latest()->limit(10)->get()
+      : collect();
+
+  $hasViewMoments = $previewLogs->isNotEmpty();
+
   $choiceMap = [
     'new'   => __('potentiele_klanten.choices.new'),
     'renew' => __('potentiele_klanten.choices.renew'),
   ];
 
-  $choiceTitle = $choiceMap[$aanvraag->choice]
-    ?? __('potentiele_klanten.choices.default');
+  $choiceTitle = $aanvraag
+    ? ($choiceMap[$aanvraag->choice] ?? __('potentiele_klanten.choices.default'))
+    : __('potentiele_klanten.choices.default');
 @endphp
 
 <div
@@ -144,6 +156,8 @@
       offerteGenerated: {{ $existingOfferte ? 'true' : 'false' }},
       offerteBeheerderUrl: @js($offerteBeheerderUrl),
 
+      hasViewMoments: {{ $hasViewMoments ? 'true' : 'false' }},
+
       previewUrl: @js($project->preview_url ?? null),
       previewUrlInput: @js($project->preview_url ?? ''),
       previewLink: @js(
@@ -154,6 +168,7 @@
 
       savePreview() {
           const self = this;
+          const hadPreviewBefore = !!self.previewUrl;
           self.savingPreview = true;
           fetch('{{ route('support.projecten.preview.update', $project) }}', {
               method: 'PATCH',
@@ -180,6 +195,20 @@
                   self.previewUrl = self.previewUrlInput || null;
               }
 
+              // ✅ kijk-momenten state bijwerken (zonder extra fetch)
+              if (!self.previewUrl) {
+                  // preview_url weg -> ook geen kijk-momenten tonen
+                  self.hasViewMoments = false;
+              } else if (!hadPreviewBefore && self.previewUrl) {
+                  // preview_url net toegevoegd -> default: nog geen kijk-momenten
+                  self.hasViewMoments = false;
+              }
+
+              // (optioneel beter) als je backend dit meegeeft:
+              if (data && typeof data.has_view_moments !== 'undefined') {
+                  self.hasViewMoments = !!data.has_view_moments;
+              }
+
               if (typeof data.preview_link !== 'undefined') {
                   self.previewLink = data.preview_link || null;
               }
@@ -193,22 +222,36 @@
                       badge.textContent = data.label || data.status;
 
                       const allColorClasses = [
-                          'bg-[#e0d4ff]','text-[#4c2a9b]',
-                          'bg-[#b3e6ff]','text-[#0f6199]',
-                          'bg-[#ffdfb3]','text-[#a0570f]',
-                          'bg-slate-100','text-slate-700'
+                        'bg-[#e0d4ff]','text-[#4c2a9b]',
+                        'bg-[#b3e6ff]','text-[#0f6199]',
+                        'bg-[#d1fae5]','text-[#065f46]',
+                        'bg-[#ffdfb3]','text-[#a0570f]',
+                        'bg-gray-100','text-gray-600',
+                        'bg-slate-100','text-slate-700',
                       ];
 
                       badge.classList.remove.apply(badge.classList, allColorClasses);
 
                       const colorMap = {
-                          preview: ['bg-[#e0d4ff]', 'text-[#4c2a9b]'],
-                          waiting_customer: ['bg-[#b3e6ff]', 'text-[#0f6199]'],
-                          offerte: ['bg-[#ffdfb3]', 'text-[#a0570f]'],
+                        preview:          ['bg-[#e0d4ff]', 'text-[#4c2a9b]'],
+                        waiting_customer: ['bg-[#b3e6ff]', 'text-[#0f6199]'],
+                        preview_approved: ['bg-[#d1fae5]', 'text-[#065f46]'],
+                        offerte:          ['bg-[#ffdfb3]', 'text-[#a0570f]'],
                       };
 
                       const classes = colorMap[data.status] || ['bg-slate-100','text-slate-700'];
                       badge.classList.add.apply(badge.classList, classes);
+                  }
+
+                  const cardEl = self.$root.closest('[data-card-id]');
+                  if (cardEl) {
+                    window.dispatchEvent(new CustomEvent('project-card-status-changed', {
+                      detail: {
+                        id: cardEl.dataset.cardId,
+                        newValue: data.status,
+                        data
+                      }
+                    }));
                   }
               }
 
@@ -374,12 +417,21 @@
           </h2>
 
           <div class="flex items-center gap-2">
-            <a href="tel:{{ $aanvraag->contactPhone }}" class="w-7 h-7 rounded-full bg-[#215558]/20 flex items-center justify-center">
-              <i class="fa-solid fa-phone text-[#215558] text-xs"></i>
-            </a>
-            <a href="mailto:{{ $aanvraag->contactEmail }}" class="w-7 h-7 rounded-full bg-[#215558]/20 flex items-center justify-center">
-              <i class="fa-solid fa-envelope text-[#215558] text-xs"></i>
-            </a>
+            @if($aanvraag)
+              <a href="tel:{{ $aanvraag->contactPhone }}" class="w-7 h-7 rounded-full bg-[#215558]/20 flex items-center justify-center">
+                <i class="fa-solid fa-phone text-[#215558] text-xs"></i>
+              </a>
+              <a href="mailto:{{ $aanvraag->contactEmail }}" class="w-7 h-7 rounded-full bg-[#215558]/20 flex items-center justify-center">
+                <i class="fa-solid fa-envelope text-[#215558] text-xs"></i>
+              </a>
+            @else
+              <span class="w-7 h-7 rounded-full bg-[#215558]/10 flex items-center justify-center opacity-50 cursor-not-allowed">
+                <i class="fa-solid fa-phone text-[#215558] text-xs"></i>
+              </span>
+              <span class="w-7 h-7 rounded-full bg-[#215558]/10 flex items-center justify-center opacity-50 cursor-not-allowed">
+                <i class="fa-solid fa-envelope text-[#215558] text-xs"></i>
+              </span>
+            @endif
             @if($aanvraag)
               @include('hub.potentiele-klanten.partials.owner-badge', ['aanvraag' => $aanvraag])
             @endif
@@ -399,7 +451,7 @@
         </div>
 
         @php
-          $projectStepOrder = ['preview', 'waiting_customer', 'offerte'];
+          $projectStepOrder = ['preview', 'waiting_customer', 'preview_approved', 'offerte'];
           $projectStepIndex = array_search($statusValue, $projectStepOrder, true);
 
           $projectProgressPercent = $projectStepIndex === false
@@ -408,14 +460,15 @@
         @endphp
 
         <div class="mt-4 mb-6">
-          <div class="grid grid-cols-3 text-xs font-semibold text-[#215558] mb-2">
+          <div class="grid grid-cols-4 text-xs font-semibold text-[#215558] mb-2">
             <p class="opacity-50">Preview</p>
             <p class="opacity-50">Wachten klant</p>
+            <p class="opacity-50">Goedgekeurd</p>
             <p class="opacity-50">Offerte</p>
           </div>
           <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
             <div class="h-full bg-[#0F9B9F] rounded-full transition-all duration-300"
-                 style="width: {{ $projectProgressPercent }}%;"></div>
+                style="width: {{ $projectProgressPercent }}%;"></div>
           </div>
         </div>
 
@@ -425,165 +478,164 @@
           {{-- LINKS (2/3) --}}
           <div class="lg:col-span-2 flex flex-col gap-6">
  
-{{-- ✅ PROJECT DETAILS (split) --}}
+          {{-- ✅ PROJECT DETAILS (split) --}}
+          @php
+            use Illuminate\Support\Str;
 
-@php
-  use Illuminate\Support\Str;
+            $summaryRaw = (string) ($project?->intake_ai_summary ?? '');
+            $summary    = trim($summaryRaw);
 
-  $summaryRaw = (string) ($project?->intake_ai_summary ?? '');
-  $summary    = trim($summaryRaw);
+            // ✅ Normalize: maak van "Kopje:" óók "**Kopje**:" zodat je regex altijd matcht
+            $knownHeadings = [
+              'Korte intro',
+              'Doel',
+              'Must-haves',
+              'Nice-to-haves',
+              'Aandachtspunten',
+              'Moet in de preview',
+              'Moet in de preview (homepage)',
+              'Huisstijl',
+              'Home preview opbouw (voorstel)',
+              'Home preview opbouw',
+              'Preview opbouw',
+              'Volgende stap',
+              'Actiepunten',
+              'Belangrijkste wensen',
+            ];
 
-  // ✅ Normalize: maak van "Kopje:" óók "**Kopje**:" zodat je regex altijd matcht
-  $knownHeadings = [
-    'Korte intro',
-    'Doel',
-    'Must-haves',
-    'Nice-to-haves',
-    'Aandachtspunten',
-    'Moet in de preview',
-    'Moet in de preview (homepage)',
-    'Huisstijl',
-    'Home preview opbouw (voorstel)',
-    'Home preview opbouw',
-    'Preview opbouw',
-    'Volgende stap',
-    'Actiepunten',
-    'Belangrijkste wensen',
-  ];
+            foreach ($knownHeadings as $h) {
+                $summary = preg_replace(
+                    '/^(?:\*\*)?' . preg_quote($h, '/') . '(?:\*\*)?\s*:\s*/m',
+                    '**' . $h . '**: ',
+                    $summary
+                );
+            }
 
-  foreach ($knownHeadings as $h) {
-      $summary = preg_replace(
-          '/^(?:\*\*)?' . preg_quote($h, '/') . '(?:\*\*)?\s*:\s*/m',
-          '**' . $h . '**: ',
-          $summary
-      );
-  }
+            $getSection = function (string $text, array $names): ?string {
+                foreach ($names as $name) {
+                    $pattern = '/\*\*' . preg_quote($name, '/') . '\*\*\s*:?\s*(.*?)(?=\n\s*\n\*\*[^*]+\*\*|\z)/s';
+                    if (preg_match($pattern, $text, $m)) {
+                        $val = trim($m[1] ?? '');
+                        if ($val !== '') return $val;
+                    }
+                }
+                return null;
+            };
 
-  $getSection = function (string $text, array $names): ?string {
-      foreach ($names as $name) {
-          $pattern = '/\*\*' . preg_quote($name, '/') . '\*\*\s*:?\s*(.*?)(?=\n\s*\n\*\*[^*]+\*\*|\z)/s';
-          if (preg_match($pattern, $text, $m)) {
-              $val = trim($m[1] ?? '');
-              if ($val !== '') return $val;
-          }
-      }
-      return null;
-  };
+            // ✅ Project stuk
+            $intro = $getSection($summary, ['Korte intro']);
+            $doel  = $getSection($summary, ['Doel']);
+            $must  = $getSection($summary, ['Must-haves']);
+            $nice  = $getSection($summary, ['Nice-to-haves']);
+            $focus = $getSection($summary, ['Aandachtspunten', "Risico’s / aandachtspunten", "Risico's / aandachtspunten"]);
+            $next  = $getSection($summary, ['Volgende stap', 'Actiepunten']);
 
-  // ✅ Project stuk
-  $intro = $getSection($summary, ['Korte intro']);
-  $doel  = $getSection($summary, ['Doel']);
-  $must  = $getSection($summary, ['Must-haves']);
-  $nice  = $getSection($summary, ['Nice-to-haves']);
-  $focus = $getSection($summary, ['Aandachtspunten', "Risico’s / aandachtspunten", "Risico's / aandachtspunten"]);
-  $next  = $getSection($summary, ['Volgende stap', 'Actiepunten']);
+            // ✅ Preview stuk
+            $previewMust = $getSection($summary, ['Moet in de preview (homepage)', 'Moet in de preview', 'Belangrijkste wensen']);
+            $huisstijl   = $getSection($summary, ['Huisstijl']);
+            $home        = $getSection($summary, ['Home preview opbouw (voorstel)', 'Home preview opbouw', 'Preview opbouw']);
 
-  // ✅ Preview stuk
-  $previewMust = $getSection($summary, ['Moet in de preview (homepage)', 'Moet in de preview', 'Belangrijkste wensen']);
-  $huisstijl   = $getSection($summary, ['Huisstijl']);
-  $home        = $getSection($summary, ['Home preview opbouw (voorstel)', 'Home preview opbouw', 'Preview opbouw']);
+            $projectMdParts = [];
+            if ($intro) $projectMdParts[] = "**Korte intro**:\n" . trim($intro);
+            if ($doel)  $projectMdParts[] = "**Doel**:\n" . trim($doel);
+            if ($must)  $projectMdParts[] = "**Must-haves**:\n" . trim($must);
+            if ($nice)  $projectMdParts[] = "**Nice-to-haves**:\n" . trim($nice);
+            if ($focus) $projectMdParts[] = "**Aandachtspunten**:\n" . trim($focus);
+            if ($next)  $projectMdParts[] = "**Volgende stap**:\n" . trim($next);
 
-  $projectMdParts = [];
-  if ($intro) $projectMdParts[] = "**Korte intro**:\n" . trim($intro);
-  if ($doel)  $projectMdParts[] = "**Doel**:\n" . trim($doel);
-  if ($must)  $projectMdParts[] = "**Must-haves**:\n" . trim($must);
-  if ($nice)  $projectMdParts[] = "**Nice-to-haves**:\n" . trim($nice);
-  if ($focus) $projectMdParts[] = "**Aandachtspunten**:\n" . trim($focus);
-  if ($next)  $projectMdParts[] = "**Volgende stap**:\n" . trim($next);
+            $projectMd = trim(implode("\n\n", $projectMdParts));
 
-  $projectMd = trim(implode("\n\n", $projectMdParts));
+            $previewMdParts = [];
+            if ($previewMust) $previewMdParts[] = "**Wat moet erin**:\n" . trim($previewMust);
+            if ($huisstijl)   $previewMdParts[] = "**Huisstijl**:\n" . trim($huisstijl);
+            if ($home)        $previewMdParts[] = "**Home opbouw**:\n" . trim($home);
 
-  $previewMdParts = [];
-  if ($previewMust) $previewMdParts[] = "**Wat moet erin**:\n" . trim($previewMust);
-  if ($huisstijl)   $previewMdParts[] = "**Huisstijl**:\n" . trim($huisstijl);
-  if ($home)        $previewMdParts[] = "**Home opbouw**:\n" . trim($home);
+            $previewMd = trim(implode("\n\n", $previewMdParts));
+          @endphp
 
-  $previewMd = trim(implode("\n\n", $previewMdParts));
-@endphp
+          {{-- ✅ PROJECT DETAILS --}}
+          <div class="bg-[#fff] rounded-4xl p-8">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
+                <i class="fa-solid fa-file-pen fa-sm"></i>
+                Project details
+              </h3>
 
-{{-- ✅ PROJECT DETAILS --}}
-<div class="bg-[#fff] rounded-4xl p-8">
-  <div class="flex items-center justify-between mb-3">
-    <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
-      <i class="fa-solid fa-file-pen fa-sm"></i>
-      Project details
-    </h3>
+              <span class="px-2.5 py-0.5 font-semibold text-purple-700 bg-purple-200 text-[11px] flex items-center gap-2 rounded-full">
+                <i class="fa-solid fa-sparkle fa-xs"></i>
+                Samenvatting door AI
+              </span>
+            </div>
 
-    <span class="px-2.5 py-0.5 font-semibold text-purple-700 bg-purple-200 text-[11px] flex items-center gap-2 rounded-full">
-      <i class="fa-solid fa-sparkle fa-xs"></i>
-      Samenvatting door AI
-    </span>
-  </div>
+            @if($project && filled($summary) && filled($projectMd))
+              <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
+                          max-h-[220px] overflow-y-auto pr-2 break-words whitespace-normal
+                          [&_p]:mb-2 [&_p:last-child]:mb-0
+                          [&_p+_ul]:mt-2 [&_ul]:mb-3 [&_ul+_p]:mt-3
+                          [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
+                          [&_li_strong]:text-[#215558]">
+                {!! Str::markdown($projectMd, [
+                      'html_input' => 'strip',
+                      'allow_unsafe_links' => false,
+                ]) !!}
+              </div>
+            @elseif($project && filled($summary))
+              {{-- fallback: toon volledige samenvatting als parsing faalt --}}
+              <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
+                          max-h-[220px] overflow-y-auto pr-2 break-words whitespace-normal
+                          [&_p]:mb-2 [&_p:last-child]:mb-0
+                          [&_p+_ul]:mt-2 [&_ul]:mb-3 [&_ul+_p]:mt-3
+                          [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
+                          [&_li_strong]:text-[#215558]">
+                {!! Str::markdown($summary, [
+                      'html_input' => 'strip',
+                      'allow_unsafe_links' => false,
+                ]) !!}
+              </div>
+            @else
+              <p class="text-[#215558] text-xs font-semibold opacity-75">
+                Nog geen intake-samenvatting beschikbaar.
+              </p>
+            @endif
+          </div>
 
-  @if($project && filled($summary) && filled($projectMd))
-    <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
-                max-h-[220px] overflow-y-auto pr-2 break-words whitespace-normal
-                [&_p]:mb-2 [&_p:last-child]:mb-0
-                [&_p+_ul]:mt-2 [&_ul]:mb-3 [&_ul+_p]:mt-3
-                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
-                [&_li_strong]:text-[#215558]">
-      {!! Str::markdown($projectMd, [
-            'html_input' => 'strip',
-            'allow_unsafe_links' => false,
-      ]) !!}
-    </div>
-  @elseif($project && filled($summary))
-    {{-- fallback: toon volledige samenvatting als parsing faalt --}}
-    <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
-                max-h-[220px] overflow-y-auto pr-2 break-words whitespace-normal
-                [&_p]:mb-2 [&_p:last-child]:mb-0
-                [&_p+_ul]:mt-2 [&_ul]:mb-3 [&_ul+_p]:mt-3
-                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
-                [&_li_strong]:text-[#215558]">
-      {!! Str::markdown($summary, [
-            'html_input' => 'strip',
-            'allow_unsafe_links' => false,
-      ]) !!}
-    </div>
-  @else
-    <p class="text-[#215558] text-xs font-semibold opacity-75">
-      Nog geen intake-samenvatting beschikbaar.
-    </p>
-  @endif
-</div>
+          {{-- ✅ PREVIEW DETAILS --}}
+          <div class="bg-[#fff] rounded-4xl p-8">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles fa-sm"></i>
+                Preview details
+              </h3>
 
-{{-- ✅ PREVIEW DETAILS --}}
-<div class="bg-[#fff] rounded-4xl p-8">
-  <div class="flex items-center justify-between mb-3">
-    <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
-      <i class="fa-solid fa-wand-magic-sparkles fa-sm"></i>
-      Preview details
-    </h3>
+              <span class="px-2.5 py-0.5 font-semibold text-purple-700 bg-purple-200 text-[11px] flex items-center gap-2 rounded-full">
+                <i class="fa-solid fa-sparkle fa-xs"></i>
+                Voorgesteld door AI
+              </span>
+            </div>
 
-    <span class="px-2.5 py-0.5 font-semibold text-purple-700 bg-purple-200 text-[11px] flex items-center gap-2 rounded-full">
-      <i class="fa-solid fa-sparkle fa-xs"></i>
-      Voorgesteld door AI
-    </span>
-  </div>
-
-  @if($project && filled($summary) && filled($previewMd))
-    <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
-                max-h-[220px] overflow-y-auto pr-2 break-words whitespace-normal
-                [&_p]:mb-2 [&_p:last-child]:mb-0
-                [&_p+_ul]:mt-2 [&_ul]:mb-3 [&_ul+_p]:mt-3
-                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
-                [&_li_strong]:text-[#215558]">
-      {!! Str::markdown($previewMd, [
-            'html_input' => 'strip',
-            'allow_unsafe_links' => false,
-      ]) !!}
-    </div>
-  @else
-    <p class="text-[#215558] text-xs font-semibold opacity-75">
-      Nog geen preview-instructies gevonden in de samenvatting.
-    </p>
-  @endif
-</div>
+            @if($project && filled($summary) && filled($previewMd))
+              <div class="text-sm font-medium text-[#215558] leading-[20px] opacity-75
+                          max-h-[220px] overflow-y-auto pr-2 break-words whitespace-normal
+                          [&_p]:mb-2 [&_p:last-child]:mb-0
+                          [&_p+_ul]:mt-2 [&_ul]:mb-3 [&_ul+_p]:mt-3
+                          [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
+                          [&_li_strong]:text-[#215558]">
+                {!! Str::markdown($previewMd, [
+                      'html_input' => 'strip',
+                      'allow_unsafe_links' => false,
+                ]) !!}
+              </div>
+            @else
+              <p class="text-[#215558] text-xs font-semibold opacity-75">
+                Nog geen preview-instructies gevonden in de samenvatting.
+              </p>
+            @endif
+          </div>
 
             {{-- ✅ PREVIEW --}}
             <div class="bg-[#fff] rounded-4xl p-8 overflow-visible">
               <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-2 min-w-0">
+                <div class="flex items-center gap-4 min-w-0">
                   <h3 class="text-base text-[#215558] font-black leading-tight truncate flex items-center gap-2">
                     <i class="fa-solid fa-wand-magic-sparkles fa-sm"></i>
                     Preview & kijk-momenten
@@ -591,6 +643,13 @@
                 </div>
 
                 <div class="flex items-center gap-2">
+                  <span
+                    x-show="!!previewUrl"
+                    x-cloak
+                    class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#b3e6ff] text-[#0f6199]"
+                  >
+                    Wachten op goedkeuring klant
+                  </span>
                   {{-- + preview toevoegen --}}
                   <div class="relative">
                     <button type="button"
@@ -689,14 +748,8 @@
                 </div>
               </div>
 
-              <div class="w-full bg-red-500 p-4"></div>
-
               <div class="mt-2">
                 @if($hasPreviewLink)
-                  @php
-                    $previewLogs = $project->previewViews()->latest()->limit(10)->get();
-                  @endphp
-
                   @if($previewLogs->isNotEmpty())
                     <div class="space-y-1 max-h-40 overflow-y-auto pr-1 pb-1">
                       @foreach($previewLogs as $view)
@@ -718,6 +771,12 @@
                     </div>
                   @endif
                 @endif
+
+                <template x-if="previewUrl && !hasViewMoments">
+                  <p class="text-[#215558] text-xs font-semibold opacity-75">
+                    Nog geen kijk-momenten.
+                  </p>
+                </template>
 
                 <template x-if="!previewUrl">
                   <p class="text-[#215558] text-xs font-semibold opacity-75">
@@ -1080,7 +1139,7 @@
 
                 <div class="flex flex-col">
                   <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Lead doorgevoerd door</p>
-                  <p class="text-sm font-semibold text-[#215558]">{{ $aanvraag->owner->name }}</p>
+                  <p class="text-sm font-semibold text-[#215558]">{{ $aanvraag?->owner?->name ?: '—' }}</p>
                 </div>
               </div>
 
@@ -1103,6 +1162,154 @@
                   <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Telefoonnummer</p>
                   <p class="text-sm font-semibold text-[#215558]">{{ $aanvraag?->contactPhone ?: ($project->contact_phone ?: '—') }}</p>
                 </div>
+              </div>
+            </div>
+            @php
+              // ✅ Project taken (project_tasks)
+              $projectCurrentStatus = strtolower((string) ($statusValue ?? ($project->status ?? 'preview')));
+
+              $projectTasks = $project->tasks ?? collect();
+              $projectTasks = $projectTasks->sortBy(fn($t) => $t->order ?? 999)->values();
+              $projectTasksByType = $projectTasks->keyBy('type');
+
+              /**
+              * ✅ Funnel UX net als aanvragen:
+              * - UI-only status acties (niet in DB)
+              * - echte taken komen uit project_tasks (en kunnen ook aangemaakt worden via checkbox)
+              */
+              $taskMeta = [
+                  // UI-only status acties
+                  'status_to_waiting_customer' => [
+                      'category'      => 'Status',
+                      'title'         => "Preview-URL is opgegeven en is automatisch verstuurd naar de klant",
+                      'ui_only'       => true,
+                      'target_status' => 'waiting_customer',
+                      'order'         => 1,
+                  ],
+
+                  // Echte taken (DB)
+                  'create_preview' => [
+                      'category'  => 'Preview',
+                      'title'     => 'Preview klaarzetten',
+                      'order'     => 10,
+                  ],
+                  'process_feedback' => [
+                      'category'  => 'Wachten klant',
+                      'title'     => 'Feedback verwerken',
+                      'order'     => 40,
+                  ],
+              ];
+
+              $uiOnlyTypes = collect($taskMeta)
+                  ->filter(fn ($m) => !empty($m['ui_only']))
+                  ->keys()
+                  ->all();
+
+              $allTypes = array_values(array_unique(array_merge(
+                  $uiOnlyTypes,
+                  $projectTasks->pluck('type')->filter()->all()
+              )));
+
+              $tasksToShow = collect($allTypes)->map(function ($type) use ($projectTasksByType, $taskMeta) {
+                  $meta = $taskMeta[$type] ?? [];
+
+                  return $projectTasksByType->get($type) ?? (object) [
+                      'id'          => null,
+                      'type'        => $type,
+                      'title'       => $meta['title'] ?? ucfirst(str_replace('_', ' ', $type)),
+                      'status'      => 'open',
+                      'category'    => $meta['category'] ?? 'Taak',
+                      'order'       => $meta['order'] ?? 999,
+                      'completed_at'=> null,
+                  ];
+              })->sortBy(fn($t) => $t->order ?? 999)->values();
+
+              $initialTaskStates = $tasksToShow->mapWithKeys(function ($task) use ($taskMeta) {
+                  $type = (string) $task->type;
+                  $meta = $taskMeta[$type] ?? [];
+
+                  if (!empty($meta['ui_only'])) {
+                      return [$type => false];
+                  }
+
+                  $statusStr = strtolower((string) ($task->status ?? 'open'));
+                  $isDone = !empty($task->completed_at) || in_array($statusStr, ['done', 'completed', 'closed'], true);
+
+                  return [$type => $isDone];
+              })->all();
+
+              $projectTasksPayload = [
+                  'projectId'        => (string) $project->id, // ✅ toevoegen
+                  'csrf'             => csrf_token(),
+                  'updateUrl'        => route('support.projecten.tasks.status.update', ['project' => $project->id]),
+                  'statusUpdateUrl'  => route('support.projecten.status.update', ['project' => $project->id]),
+                  'initial'          => $initialTaskStates,
+                  'initialStatus' => $projectCurrentStatus,
+              ];
+            @endphp
+            <div
+              class="bg-[#fff] rounded-4xl p-8 h-fit"
+              x-data='projectTasks(@json($projectTasksPayload))'
+              x-init="init()"
+            >
+              <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-list fa-sm"></i>
+                Taken
+              </h3>
+              <p
+                x-show="currentStatus === 'waiting_customer'"
+                x-cloak
+                class="text-[#215558] text-xs font-semibold opacity-75"
+              >
+                Wachten op feedback op de preview...
+              </p>
+              <div class="flex flex-col gap-2 divide-[#215558]/20">
+                @foreach($tasksToShow as $task)
+                  @php
+                    $meta = $taskMeta[$task->type] ?? [];
+
+                    $category = $task->category ?? ($meta['category'] ?? 'Taak');
+                    $title    = $task->title ?? ($meta['title'] ?? ucfirst(str_replace('_', ' ', $task->type)));
+
+                    $isUiOnly     = (bool) ($meta['ui_only'] ?? false);
+                    $targetStatus = $meta['target_status'] ?? null;
+                  @endphp
+                  <div x-show="isVisible('{{ $task->type }}')" x-cloak>
+                    <p class="text-[11px] font-semibold opacity-50 text-[#215558]">
+                      {{ $category }}
+                    </p>
+                    @if($isUiOnly)
+                      <p class="text-sm font-semibold text-[#215558]">
+                        {{ $title }}
+                      </p>
+                      <button
+                        type="button"
+                        class="bg-gray-200 hover:bg-gray-300 whitespace-nowrap text-[#215558] text-xs font-semibold px-3 py-1.5 rounded-full transition cursor-pointer mt-1.5"
+                        @click="setStatus('{{ $targetStatus }}')"
+                      >
+                        Status aanpassen
+                      </button>
+                    @else
+                      <div class="flex items-center justify-between">
+                        <p
+                          class="text-sm font-semibold text-[#215558] transition max-w-[80%]"
+                          :class="tasks['{{ $task->type }}'] ? 'line-through opacity-60' : ''"
+                        >
+                          {{ $title }}
+                        </p>
+                        <input
+                          type="checkbox"
+                          :checked="tasks['{{ $task->type }}']"
+                          :disabled="!canCheck('{{ $task->type }}')"
+                          :class="!canCheck('{{ $task->type }}')
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'cursor-pointer'"
+                          @change="toggle('{{ $task->type }}', $event.target.checked)"
+                        >
+                      </div>
+                    @endif
+                  </div>
+                @endforeach
               </div>
             </div>
           </div>
