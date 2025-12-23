@@ -73,7 +73,7 @@
   /** @var \App\Models\ProjectTask|null $offerteTask */
   $offerteTask = $project->tasks->firstWhere('type', 'call_customer');
   $offerteNoteQuestion    = $offerteTask?->questions->first();
-  $offerteTaskTitle       = $offerteTask->title ?? 'Bellen met de klant';
+  $offerteTaskTitle       = $offerteTask->title ?? 'Preview doornemen met de klant';
   $offerteTaskDescription = $offerteTask->description ?? 'Bel de klant t.a.v. feedback/goedkeuring preview';
   $offerteNotes           = $offerteNoteQuestion->answer ?? '';
   $offerteTaskCompleted   = (bool) ($offerteTask?->completed_at);
@@ -644,11 +644,18 @@
 
                 <div class="flex items-center gap-2">
                   <span
-                    x-show="!!previewUrl"
+                    x-show="!!previewUrl && statusValue !== 'preview_approved'"
                     x-cloak
                     class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#b3e6ff] text-[#0f6199]"
                   >
                     Wachten op goedkeuring klant
+                  </span>
+                  <span
+                    x-show="statusValue === 'preview_approved'"
+                    x-cloak
+                    class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700"
+                  >
+                    Preview goedgekeurd door de klant
                   </span>
                   {{-- + preview toevoegen --}}
                   <div class="relative">
@@ -748,22 +755,31 @@
                 </div>
               </div>
 
-              <div class="mt-2">
+              <div>
                 @if($hasPreviewLink)
                   @if($previewLogs->isNotEmpty())
-                    <div class="space-y-1 max-h-40 overflow-y-auto pr-1 pb-1">
+                    <div class="flex flex-col gap-2 pr-1">
                       @foreach($previewLogs as $view)
                         @php
                           $dt   = optional($view->created_at)->timezone('Europe/Amsterdam');
                           $when = $dt ? $dt->format('d-m-Y H:i') : '—';
                         @endphp
-                        <div class="p-3 rounded-xl border border-gray-200 bg-white">
-                          <div class="flex items-center justify-between">
-                            <p class="text-xs font-semibold text-[#215558] truncate">
-                              {{ $when }} · IP: {{ $view->ip ?: '—' }}
-                            </p>
-                            <span class="inline-block px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-[#b3e6ff] text-[#0f6199]">
-                              Preview bekeken
+                        <div class="pl-8 py-2 relative">
+                          <div class="absolute left-2.25 top-0 bottom-0 w-px bg-[#215558]/20"></div>
+                          <div class="absolute left-1 top-2 w-3 h-3 rounded-full bg-[#f3f8f8] border-[2px] border-[#215558]/20 z-[1]"></div>
+                          <div class="flex flex-col gap-2 relative justify-center">
+                            <div class="flex items-center gap-4">
+                              <div class="flex flex-col">
+                                <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Wanneer</p>
+                                <p class="text-sm font-semibold text-[#215558]">{{ $when }}</p>
+                              </div>
+                              <div class="flex flex-col">
+                                <p class="text-[11px] font-semibold opacity-50 text-[#215558]">IP-adres</p>
+                                <p class="text-sm font-semibold text-[#215558]"> {{ $view->ip ?: '—' }}</p>
+                              </div>
+                            </div>
+                            <span class="absolute z-1 right-0 inline-block px-2.5 py-0.5 text-[11px] font-semibold rounded-full bg-[#b3e6ff] text-[#0f6199]">
+                              De preview is bekeken
                             </span>
                           </div>
                         </div>
@@ -983,138 +999,139 @@
             </div>
 
             {{-- ✅ BELMOMENTEN (timeline style zoals aanvragen) --}}
-            <div class="bg-[#fff] rounded-4xl p-8 overflow-visible"
-                 x-data="(() => {
-                    const base = callLog({
-                      csrf: '{{ csrf_token() }}',
-                      storeUrl: '{{ route('support.projecten.calls.store', $project) }}',
-                      initialCalls: @js(
-                        ($project->callLogs ?? collect())->map(fn($log) => [
-                            'id'        => $log->id,
-                            'called_at' => optional($log->called_at)->format('d-m-Y H:i'),
-                            'outcome'   => $log->outcome,
-                            'note'      => $log->note,
-                            'user_name' => optional($log->user)->name,
-                        ])
-                      ),
-                    });
+<div class="bg-[#fff] rounded-4xl p-8 overflow-visible"
+     x-data="callLog({
+        csrf: '{{ csrf_token() }}',
+        storeUrl: '{{ route('support.projecten.calls.store', $project) }}', {{-- ✅ oude route behouden --}}
+        initialCalls: @js(
+          ($project->callLogs ?? collect())->map(fn($log) => [
+              'id'        => $log->id,
+              'called_at' => optional($log->called_at)->format('d-m-Y H:i'),
+              'outcome'   => $log->outcome,
+              'note'      => $log->note,
+              'user_name' => optional($log->user)->name,
+          ])
+        ),
+     })">
 
-                    return {
-                      openCallSection: true,
-                      ...base,
-                    };
-                 })()">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
+      <i class="fa-solid fa-phone fa-sm"></i>
+      Belmomenten
+    </h3>
 
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2">
-                  <i class="fa-solid fa-phone fa-sm"></i>
-                  Belmomenten
-                </h3>
+    <div class="relative">
+      <button type="button"
+              class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition duration-200 relative group cursor-pointer"
+              @click.stop="openCallPanel = !openCallPanel">
+        <i class="fa-solid fa-plus text-[#215558] text-xs"></i>
 
-                <div class="relative">
-                  <button type="button"
-                          class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition duration-200 relative group cursor-pointer"
-                          x-on:click.stop="openCallPanel = !openCallPanel">
-                    <i class="fa-solid fa-plus text-[#215558] text-xs"></i>
+        <div
+          class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute bottom-[135%] right-0
+                 opacity-0 invisible translate-y-1 pointer-events-none
+                 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
+                 transition-all duration-200 ease-out z-10">
+          <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
+            Nieuw belmoment toevoegen
+          </p>
+        </div>
+      </button>
 
-                    <div class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute bottom-[135%] right-0
-                                opacity-0 invisible translate-y-1 pointer-events-none
-                                group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
-                                transition-all duration-200 ease-out z-10">
-                      <p class="text-[#215558] text-[11px] font-semibold whitespace-nowrap">
-                        Nieuw belmoment
-                      </p>
-                    </div>
-                  </button>
+      <div x-show="openCallPanel"
+           x-transition
+           @click.outside="openCallPanel = false"
+           class="absolute right-full mr-3 top-0 w-[380px] p-3 rounded-xl bg-white border border-gray-200 shadow-lg z-30"
+           style="display:none;">
+        <div>
+          <p class="text-base text-[#215558] font-black mb-3">
+            Nieuw belmoment
+          </p>
 
-                  <div x-show="openCallPanel"
-                       x-transition
-                       x-on:click.outside="openCallPanel = false"
-                       class="absolute right-full mr-3 top-0 w-[380px] p-3 rounded-xl bg-white border border-gray-200 shadow-lg z-30"
-                       style="display:none;">
-                    <div>
-                      <p class="text-base text-[#215558] font-black mb-3">
-                        Nieuw belmoment
-                      </p>
+          <form class="grid gap-3 mt-2" x-on:submit.prevent="submit">
+            <div>
+              <label class="block text-xs text-[#215558] opacity-70 mb-1">
+                Resultaat
+              </label>
+              <select x-model="outcome"
+                      class="w-full py-3 px-4 text-sm text-[#215558] font-semibold rounded-xl border border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300">
+                <option value="">Kies resultaat</option>
+                <option value="geen_antwoord">Geen antwoord</option>
+                <option value="gesproken">Gesproken</option>
+              </select>
+            </div>
 
-                      <form class="grid gap-3 mt-2" x-on:submit.prevent="submit">
-                        <div>
-                          <label class="block text-xs text-[#215558] opacity-70 mb-1">
-                            Resultaat
-                          </label>
-                          <select x-model="outcome"
-                                  class="w-full py-3 px-4 text-sm text-[#215558] font-semibold rounded-xl border border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300">
-                            <option value="">Kies resultaat</option>
-                            <option value="geen_antwoord">Geen antwoord</option>
-                            <option value="gesproken">Gesproken</option>
-                          </select>
-                        </div>
+            <div>
+              <label class="block text-xs text-[#215558] opacity-70 mb-1">
+                Opmerking
+              </label>
+              <textarea
+                x-model="note"
+                class="w-full py-3 px-4 text-sm text-[#215558] font-semibold rounded-xl border border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300"
+                rows="2"
+                placeholder="Korte notitie..."></textarea>
+            </div>
 
-                        <div>
-                          <label class="block text-xs text-[#215558] opacity-70 mb-1">
-                            Notitie
-                          </label>
-                          <textarea x-model="note"
-                                    class="w-full py-3 px-4 text-sm text-[#215558] font-semibold rounded-xl border border-gray-200 outline-none focus:border-[#3b8b8f] transition duration-300"
-                                    rows="2"
-                                    placeholder="Schrijf een notitie..."></textarea>
-                        </div>
+            <div class="flex items-center justify-end mt-1">
+              <button type="submit"
+                      class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center w-full text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300"
+                      x-bind:disabled="loading">
+                <span x-show="!loading">Opslaan</span>
+                <span x-show="loading">Opslaan...</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 
-                        <div class="flex items-center justify-end mt-1">
-                          <button type="submit"
-                                  class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center w-full text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300"
-                                  x-bind:disabled="loading">
-                            <span x-show="!loading">Opslaan</span>
-                            <span x-show="loading">Opslaan...</span>
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
+  <div class="overflow-x-visible">
+    <template x-if="!calls.length">
+      <p class="text-[#215558] text-xs font-semibold opacity-75">
+        Nog geen belmomenten toegevoegd.
+      </p>
+    </template>
+
+    <ul class="flex flex-col gap-2 divide-[#215558]/20 overflow-y-auto pr-1 mt-2" x-show="calls.length">
+      <template x-for="call in calls" :key="call.id">
+        <li class="text-xs pl-8 py-2 relative">
+          {{-- verticale lijn --}}
+          <div class="absolute left-2.25 top-0 bottom-0 w-px bg-[#215558]/20"></div>
+
+          {{-- bolletje --}}
+          <div class="absolute left-1 top-2 w-3 h-3 rounded-full bg-[#f3f8f8] border-[2px] border-[#215558]/20 z-[1]"></div>
+
+          <div class="flex items-center justify-between gap-2">
+            <div class="w-full flex flex-col gap-2">
+              <div class="flex items-center gap-4">
+                <div class="flex flex-col">
+                  <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld door</p>
+                  <p class="text-sm font-semibold text-[#215558]" x-text="(call.user_name || 'Onbekend')"></p>
+                </div>
+                <div class="flex flex-col">
+                  <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld op</p>
+                  <p class="text-sm font-semibold text-[#215558]" x-text="call.called_at"></p>
                 </div>
               </div>
 
-              <template x-if="!calls.length">
-                <p class="text-[#215558] text-xs font-semibold opacity-75">
-                  {{ __('projecten.calls.none') }}
-                </p>
-              </template>
-
-              <div class="overflow-x-visible" x-show="calls.length">
-                <ul class="flex flex-col gap-2 divide-[#215558]/20 max-h-50 overflow-y-auto pr-1 mt-2">
-                  <template x-for="call in calls" :key="call.id">
-                    <li class="text-xs pl-8 py-2 relative">
-                      <div class="absolute left-2.25 top-0 bottom-0 w-px bg-[#215558]/20"></div>
-                      <div class="absolute left-1 top-2 w-3 h-3 rounded-full bg-[#f3f8f8] border-[2px] border-[#215558]/20 z-[1]"></div>
-
-                      <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-4">
-                          <div class="flex flex-col">
-                            <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld door</p>
-                            <p class="text-sm font-semibold text-[#215558]" x-text="(call.user_name || 'Onbekend')"></p>
-                          </div>
-                          <div class="flex flex-col">
-                            <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld op</p>
-                            <p class="text-sm font-semibold text-[#215558]" x-text="call.called_at"></p>
-                          </div>
-                          <div class="flex flex-col">
-                            <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Opmerking</p>
-                            <p class="text-sm font-semibold text-[#215558]" x-show="call.note" x-text="call.note"></p>
-                          </div>
-                        </div>
-
-                        <span class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                              :class="{
-                                'bg-red-200 text-red-700': call.outcome === 'geen_antwoord',
-                                'bg-green-200 text-green-700': call.outcome === 'gesproken',
-                              }"
-                              x-text="labels[call.outcome] || call.outcome"></span>
-                      </div>
-                    </li>
-                  </template>
-                </ul>
+              <div class="flex flex-col w-[80%]">
+                <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Opmerking</p>
+                <p class="text-sm font-semibold text-[#215558]" x-show="call.note" x-text="call.note"></p>
               </div>
             </div>
+
+            <span class="inline-flex whitespace-nowrap items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                  :class="{
+                    'bg-red-200 text-red-700': call.outcome === 'geen_antwoord',
+                    'bg-green-200 text-green-700': call.outcome === 'gesproken',
+                  }"
+                  x-text="labels?.[call.outcome] || call.outcome"></span>
+          </div>
+        </li>
+      </template>
+    </ul>
+  </div>
+</div>
           </div>
 
           {{-- RECHTS (1/3) - ✅ altijd aanvraag details + data --}}

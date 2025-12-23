@@ -31,6 +31,7 @@ class PotentieleKlantenController extends Controller
                 'callLogs' => fn ($q) => $q->latest()->with('user'),
                 'statusLogs' => fn ($q) => $q->latest()->with('user'),
                 'files',
+                'comments' => fn ($q) => $q->latest()->with('user')->take(25),
             ])
             ->select(
                 'id',
@@ -94,6 +95,7 @@ class PotentieleKlantenController extends Controller
                 'callLogs' => fn ($q) => $q->latest()->with('user'),
                 'statusLogs' => fn ($q) => $q->latest()->with('user'),
                 'files',
+                'comments' => fn ($q) => $q->latest()->with('user')->take(25),
             ])
             ->select(
                 'id',
@@ -158,6 +160,13 @@ class PotentieleKlantenController extends Controller
 
         $oldStatus = $aanvraag->status;
         $newStatus = $data['status'];
+
+        if ($newStatus === 'contact' && $oldStatus === 'prospect' && empty($aanvraag->owner_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mislukt! Koppel eerst een medewerker aan de aanvraag om te starten.',
+            ], 422);
+        }
 
         // 🚫 Intake alleen toegestaan vanaf 'contact'
         if ($newStatus === 'intake' && $oldStatus !== 'contact') {

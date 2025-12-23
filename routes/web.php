@@ -29,6 +29,8 @@ use App\Http\Controllers\SeoProjectController;
 use App\Http\Controllers\SocialsController;
 use App\Http\Controllers\AanvraagTaskController;
 use App\Http\Controllers\AanvraagWebsiteOwnerController;
+use App\Http\Controllers\AanvraagCommentController;
+use App\Http\Controllers\NotificationController;
 
 // eazyonline.nl website
 Route::view('/', 'website.home')->name('pages.home');
@@ -36,6 +38,12 @@ Route::post('/aanvraag/website', [AanvraagController::class, 'storeWebsiteAanvra
 
 // Login
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('support.login');
+
+Route::middleware(['auth'])->prefix('app')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('app.notifications.index');
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'read'])->name('app.notifications.read');
+    Route::patch('/notifications/read-all', [NotificationController::class, 'readAll'])->name('app.notifications.readAll');
+});
 
 Route::middleware('guest')
     ->prefix('register')
@@ -379,6 +387,8 @@ Route::prefix('app')->group(function () {
                 Route::post('/{aanvraag}/files', [AanvraagFileController::class, 'store'])->name('files.store');
                 Route::delete('/files/{file}', [AanvraagFileController::class, 'destroy'])->name('files.destroy');
                 Route::get('/files/{file}/download', [AanvraagFileController::class, 'download'])->name('files.download');
+                Route::get('/{aanvraag}/comments', [AanvraagCommentController::class, 'index'])->name('comments.index');
+                Route::post('/{aanvraag}/comments', [AanvraagCommentController::class, 'store'])->name('comments.store');
         });
 
         // Projecten

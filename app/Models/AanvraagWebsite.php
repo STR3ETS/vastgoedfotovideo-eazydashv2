@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AanvraagWebsite extends Model
 {
@@ -80,5 +81,10 @@ class AanvraagWebsite extends Model
         return $this->hasMany(\App\Models\AanvraagEmail::class, 'aanvraag_id')
             ->latest('received_at')
             ->latest();
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(\App\Models\AanvraagComment::class, 'aanvraag_website_id');
     }
 }

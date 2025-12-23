@@ -68,8 +68,8 @@
 
     <div style="margin:2rem 0;">
       <a href="{{ $klantUrl }}"
-         style="display:inline-block; padding:0.75rem 1.5rem; background-color:#0F9B9F; text-decoration:none; color:#ffffff; font-size:1rem; font-weight:700; border-radius:999px;">
-         Bekijk jouw persoonlijke preview hier
+        style="display:inline-block; padding:0.75rem 1.5rem; background-color:#0F9B9F; text-decoration:none; color:#ffffff; font-size:1rem; font-weight:700; border-radius:999px;">
+        Bekijk jouw persoonlijke preview hier
       </a>
     </div>
 

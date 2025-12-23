@@ -730,9 +730,10 @@ TXT;
         return $project->tasks()->firstOrCreate(
             ['type' => 'call_customer'],
             [
-                'title'       => 'Bellen met de klant',
-                'description' => 'Bel de klant t.a.v. feedback/goedkeuring preview',
-                'due_at'      => null,
+                'title'       => 'Preview doornemen met de klant',
+                'description' => 'Bel de klant om de preview samen door te nemen en de volgende stappen af te stemmen.',
+                'order'       => 50,
+                'status'      => 'open',
             ]
         );
     }
