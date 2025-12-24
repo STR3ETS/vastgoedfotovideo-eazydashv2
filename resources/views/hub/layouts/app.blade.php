@@ -367,7 +367,7 @@
           @empty
             <div class="flex items-center gap-2">
               <hr class="w-[10px] border-1 border-[#215558]/25">
-              <span class="text-[#215558]/60 text-sm">Geen aanvragen</span>
+              <span class="text-[#215558]/60 text-sm font-semibold">Nog geen aanvragen</span>
             </div>
           @endforelse
         </div>
