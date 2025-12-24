@@ -2,33 +2,83 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 class SeRankingClient
 {
-    protected string $baseUrl;
-    protected string $apiKey;
+    protected string $projectBaseUrl;
+    protected string $projectApiKey;
+
+    protected string $siteAuditBaseUrl;
+    protected string $siteAuditApiKey;
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('seranking.base_url'), '/');
-        $this->apiKey  = (string) config('seranking.api_key', '');
+        $this->projectBaseUrl = rtrim((string) config('seranking.project_base_url', 'https://api4.seranking.com'), '/');
+        $this->projectApiKey  = (string) config('seranking.project_api_key', '');
+
+        $this->siteAuditBaseUrl = rtrim((string) config('seranking.site_audit_base_url', 'https://api.seranking.com'), '/');
+
+        $this->siteAuditApiKey  = (string) (
+            config('seranking.data_api_key')
+            ?: config('seranking.project_api_key')
+            ?: env('SERANKING_API_KEY')
+            ?: ''
+        );
     }
 
-    protected function http()
+    protected function projectHttp(): PendingRequest
     {
         return Http::withHeaders([
-            // Belangrijk: SE Ranking gebruikt "Token", niet "Bearer"
-            'Authorization' => 'Token ' . $this->apiKey,
+            'Authorization' => 'Token ' . $this->projectApiKey,
             'Accept'        => 'application/json',
-            'Content-Type'  => 'application/json',
-        ])->baseUrl($this->baseUrl);
+        ])->baseUrl($this->projectBaseUrl);
     }
 
-    protected function request(string $method, string $path, array $params = []): array
+    protected function siteAuditHttp(): PendingRequest
+    {
+        return Http::withHeaders([
+            'Authorization' => 'Token ' . $this->siteAuditApiKey,
+            'Accept'        => 'application/json',
+        ])->baseUrl($this->siteAuditBaseUrl);
+    }
+
+    /**
+     * RAW JSON body (handig voor endpoints die top-level arrays verwachten).
+     */
+    protected function requestProjectRawJson(string $method, string $path, $payload): array
+    {
+        $method = strtoupper($method);
+
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        $res = $this->projectHttp()
+            ->withHeaders(['Content-Type' => 'application/json; charset=utf-8'])
+            ->withBody($json ?: '[]', 'application/json')
+            ->send($method, $path);
+
+        if ($res->failed()) {
+            logger()->warning('SERanking Project API error', [
+                'method' => $method,
+                'url'    => $this->projectBaseUrl . $path,
+                'status' => $res->status(),
+                'body'   => $res->body(),
+                'json'   => $res->json(),
+                'params' => $payload,
+            ]);
+        }
+
+        $res->throw();
+
+        return (array) $res->json();
+    }
+
+    protected function requestProject(string $method, string $path, array $params = []): array
     {
         $method = strtolower($method);
-        $client = $this->http();
+        $client = $this->projectHttp()->asJson();
 
         if ($method === 'get') {
             $res = $client->get($path, $params);
@@ -37,104 +87,226 @@ class SeRankingClient
         }
 
         if ($res->failed()) {
-            logger()->warning('SERanking API error', [
+            logger()->warning('SERanking Project API error', [
                 'method' => strtoupper($method),
-                'url'    => $this->baseUrl . $path,
+                'url'    => $this->projectBaseUrl . $path,
                 'status' => $res->status(),
                 'body'   => $res->body(),
                 'json'   => $res->json(),
                 'params' => $params,
-                'headers'=> $res->headers(),
             ]);
         }
 
         $res->throw();
 
-        return $res->json();
+        return (array) $res->json();
+    }
+
+    protected function requestSiteAudit(string $method, string $path, array $params = []): array
+    {
+        $method = strtolower($method);
+        $client = $this->siteAuditHttp()->asJson();
+
+        if ($method === 'get') {
+            $res = $client->get($path, $params);
+        } else {
+            $res = $client->{$method}($path, $params);
+        }
+
+        if ($res->failed()) {
+            logger()->warning('SERanking SiteAudit API error', [
+                'method' => strtoupper($method),
+                'url'    => $this->siteAuditBaseUrl . $path,
+                'status' => $res->status(),
+                'body'   => $res->body(),
+                'json'   => $res->json(),
+                'params' => $params,
+            ]);
+        }
+
+        $res->throw();
+
+        return (array) $res->json();
+    }
+
+    // -----------------------------
+    // Project API (api4)
+    // -----------------------------
+
+    public function getProjects(): array
+    {
+        return $this->requestProject('get', '/sites');
+    }
+
+    public function getProjectSearchEngines(int $siteId): array
+    {
+        return $this->requestProject('get', "/sites/{$siteId}/search-engines");
+    }
+
+    public function getProjectKeywords(int $siteId, int $siteEngineId): array
+    {
+        return $this->requestProject('get', "/sites/{$siteId}/keywords", [
+            'site_engine_id' => $siteEngineId,
+        ]);
+    }
+
+    public function getProjectStat(int $siteId): array
+    {
+        return $this->requestProject('get', "/sites/{$siteId}/stat");
     }
 
     /**
-     * Start een standaard Website Audit.
-     * POST /v1/site-audit/audits/standard
+     * Compatibel met jouw controller:
+     * - getPositions($siteId, $dateFrom, $dateTo, $siteEngineId, $withVolume, $withSerp)
+     * - OF getPositions($siteId, ['date_from'=>..., ...])
      */
+    public function getPositions(
+        int $siteId,
+        $dateFromOrParams,
+        ?string $dateTo = null,
+        ?int $siteEngineId = null,
+        bool $withVolume = true,
+        bool $withSerpFeatures = false
+    ): array {
+        // Variant A: array params
+        if (is_array($dateFromOrParams)) {
+            return $this->requestProject('get', "/sites/{$siteId}/positions", $dateFromOrParams);
+        }
+
+        // Variant B: losse args
+        $dateFrom = (string) $dateFromOrParams;
+
+        $params = [
+            'date_from' => $dateFrom,
+            'date_to'   => (string) $dateTo,
+        ];
+
+        if ($siteEngineId) {
+            $params['site_engine_id'] = (int) $siteEngineId;
+        }
+
+        // SE Ranking gebruikt verschillende flags per endpoint; deze 2 zijn safe om mee te geven
+        $params['with_search_volume'] = $withVolume ? 1 : 0;
+        $params['with_serp_features'] = $withSerpFeatures ? 1 : 0;
+
+        return $this->requestProject('get', "/sites/{$siteId}/positions", $params);
+    }
+
+    /**
+     * Recheck:
+     * Docs format: { "keywords":[{"site_engine_id":1,"keyword_id":2}] } :contentReference[oaicite:2]{index=2}
+     * Bij 400 "Bad Request" proberen we een fallback formaat.
+     */
+    public function recheck(int $siteId, array $payloadOrKeywords): array
+    {
+        $payload = isset($payloadOrKeywords['keywords'])
+            ? $payloadOrKeywords
+            : ['keywords' => $payloadOrKeywords];
+
+        try {
+            return $this->requestProject('post', "/api/sites/{$siteId}/recheck/", $payload);
+        } catch (RequestException $e) {
+            $status = $e->response?->status();
+            $body   = (string) ($e->response?->body() ?? '');
+
+            // Als SE Ranking alleen "Bad Request" zegt, is vaak het request-format net anders dan docs.
+            if ($status === 400 && str_contains($body, 'Bad Request')) {
+                // Fallback: {"site_engine_id": X, "keywords": [id,id,id]}
+                $keywords = $payload['keywords'] ?? [];
+                $firstEngineId = (int) (($keywords[0]['site_engine_id'] ?? 0));
+
+                $keywordIds = [];
+                foreach ($keywords as $k) {
+                    $kid = (int) ($k['keyword_id'] ?? 0);
+                    if ($kid > 0) $keywordIds[] = $kid;
+                }
+
+                $fallbackPayload = [
+                    'site_engine_id' => $firstEngineId,
+                    'keywords' => $keywordIds,
+                ];
+
+                logger()->warning('SERanking recheck: retrying fallback payload', [
+                    'site_id' => $siteId,
+                    'site_engine_id' => $firstEngineId,
+                    'keywords_count' => count($keywordIds),
+                ]);
+
+                // Stuur fallback als RAW JSON om zeker te zijn van format
+                return $this->requestProjectRawJson('POST', "/api/sites/{$siteId}/recheck/", $fallbackPayload);
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Adding queries to projects (keywords toevoegen)
+     * POST https://api4.seranking.com/sites/{site_id}/keywords (top-level array)
+     */
+    public function addProjectKeywords(int $siteId, array $items): array
+    {
+        $payload = array_is_list($items) ? $items : [$items];
+        return $this->requestProjectRawJson('POST', "/sites/{$siteId}/keywords", $payload);
+    }
+
+    // -----------------------------
+    // Site Audit API (jouw bestaande)
+    // -----------------------------
+
     public function createStandardAudit(string $domain, array $settings = [], ?string $title = null): array
     {
-        $payload = [
-            'domain' => $domain,
-        ];
+        $payload = ['domain' => $domain];
 
         if ($title !== null) {
             $payload['title'] = $title;
         }
 
-        if (! empty($settings)) {
+        if (!empty($settings)) {
             $payload['settings'] = $settings;
         }
 
-        return $this->request('post', '/v1/site-audit/audits/standard', $payload);
+        return $this->requestSiteAudit('post', '/v1/site-audit/audits/standard', $payload);
     }
 
-    /**
-     * Compat wrapper, zodat bestaande code kan blijven werken.
-     */
     public function startWebsiteAudit(string $domain, array $options = []): array
     {
-        $title    = $options['title']    ?? $domain;
+        $title    = $options['title'] ?? $domain;
         $settings = $options['settings'] ?? [];
-
         return $this->createStandardAudit($domain, $settings, $title);
     }
 
-    /**
-     * Check status van een audit.
-     * GET /v1/site-audit/audits/status
-     */
     public function getAuditStatus(int $auditId): array
     {
-        return $this->request('get', '/v1/site-audit/audits/status', [
+        return $this->requestSiteAudit('get', '/v1/site-audit/audits/status', [
             'audit_id' => $auditId,
         ]);
     }
 
-    /**
-     * Haal het volledige rapport op.
-     * GET /v1/site-audit/audits/report
-     */
     public function getAuditReport(int $auditId): array
     {
-        return $this->request('get', '/v1/site-audit/audits/report', [
+        return $this->requestSiteAudit('get', '/v1/site-audit/audits/report', [
             'audit_id' => $auditId,
         ]);
     }
 
-    /**
-     * Compat wrapper met je oude naam.
-     */
     public function getWebsiteAudit(string $remoteAuditId): array
     {
         return $this->getAuditReport((int) $remoteAuditId);
     }
 
-    /**
-     * Alle gecrawlede pagina’s van een audit.
-     * GET /v1/site-audit/audits/pages
-     */
     public function getAuditPages(int $auditId, int $limit = 100, int $offset = 0): array
     {
-        return $this->request('get', '/v1/site-audit/audits/pages', [
+        return $this->requestSiteAudit('get', '/v1/site-audit/audits/pages', [
             'audit_id' => $auditId,
             'limit'    => $limit,
             'offset'   => $offset,
         ]);
     }
 
-    /**
-     * Alle URLs die geraakt worden door een specifieke issue-code.
-     * GET /v1/site-audit/audits/issue-pages
-     */
     public function getIssuePages(int $auditId, string $code, int $limit = 50, int $offset = 0): array
     {
-        return $this->request('get', '/v1/site-audit/audits/issue-pages', [
+        return $this->requestSiteAudit('get', '/v1/site-audit/audits/issue-pages', [
             'audit_id' => $auditId,
             'code'     => $code,
             'limit'    => $limit,

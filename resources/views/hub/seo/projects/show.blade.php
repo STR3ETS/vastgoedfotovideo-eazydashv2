@@ -1,781 +1,415 @@
 @extends('hub.layouts.app')
 
 @section('content')
-    {{-- Rechter kolom – SEO project dashboard --}}
     <div class="col-span-5 flex-1 min-h-0">
-        <div class="w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0"
-             x-data="{
-                openAudits: true,
-                openOverview: true,
-                openFocus: true,
-                openDetails: true,
-             }">
+        <div class="w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0">
             <div class="h-full min-h-0 overflow-y-auto pr-3">
                 @php
                     /** @var \App\Models\SeoProject $project */
 
-                    $domain        = $project->domain ?? 'Onbekende site';
-                    $url           = $project->url ?? ( $project->domain ? 'https://' . $project->domain : null );
-                    $companyName   = optional($project->company)->name ?? 'Onbekend bedrijf';
-                    $companyCity   = optional($project->company)->city ?? null;
+                    $domain = $project->domain ?? 'Onbekend domein';
+                    $companyName = optional($project->company)->name ?? 'Onbekend bedrijf';
 
-                    $statusRaw     = $project->status ?? 'active';
-                    $priority      = $project->priority ?? null;
+                    $siteId = $serankingSiteId ?? null;
+                    $stat = $serankingStat ?? null;
+                    $rows = $serankingKeywordRows ?? [];
+                    $sites = $serankingSites ?? []; // verwacht: array van GET /sites
 
-                    $health        = (int)($project->health_overall ?? 0);
+                    $todayAvg = data_get($stat, 'today_avg');
+                    $top10 = data_get($stat, 'top10');
+                    $top30 = data_get($stat, 'top30');
+                    $visibilityPercent = data_get($stat, 'visibility_percent');
+                    $up = data_get($stat, 'total_up');
+                    $down = data_get($stat, 'total_down');
 
-                    // Laatste audit object
-                    $lastAudit     = $project->lastAudit;
+                    $isConnected = !empty($siteId);
 
-                    // Scores uit laatste audit (vallen terug op 0 als er nog geen audit is)
-                    $techScore     = (int) data_get($lastAudit, 'score_technical', 0);
-                    $contentScore  = (int) data_get($lastAudit, 'score_content', 0);
-                    $linksScore    = (int) data_get($lastAudit, 'score_authority', 0);
+                    $inputClass = 'w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-[#215558] placeholder-gray-400 outline-none focus:border-[#0F9B9F] focus:ring-2 focus:ring-[#0F9B9F]/20 transition';
+                    $selectClass = 'w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-[#215558] outline-none focus:border-[#0F9B9F] focus:ring-2 focus:ring-[#0F9B9F]/20 transition';
 
-                    $visibility    = data_get($project, 'visibility_index');
-                    $traffic       = data_get($project, 'organic_traffic');
+                    $btnPrimary = 'px-5 py-3 rounded-full text-xs font-semibold text-white bg-[#0F9B9F] hover:bg-[#215558] transition';
+                    $btnGhost = 'px-5 py-3 rounded-full text-xs font-semibold border border-gray-200 text-[#215558] bg-white hover:bg-gray-100 transition';
+                    $pill = 'inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] border';
 
-                    $lastAuditAt   = $lastAudit->created_at ?? $project->last_synced_at ?? $project->created_at;
-                    $lastSyncedAt  = $project->last_synced_at ?? null;
+                    // Helpers voor auto-select in dropdown
+                    $needle = strtolower(trim(preg_replace('#^https?://#i', '', $domain)));
+                    $bestSiteId = null;
 
-                    $goalPrimary   = $project->primary_goal ?? null;
-                    $goalNotes     = $project->goal_notes ?? null;
-
-                    $notes         = $project->notes ?? null;
-
-                    $staleDays     = 30;
-                    $isStale       = false;
-                    if ($lastAuditAt) {
-                        try {
-                            $isStale = $lastAuditAt->lt(now()->subDays($staleDays));
-                        } catch (\Throwable $e) {
-                            $isStale = false;
-                        }
-                    } else {
-                        $isStale = true;
-                    }
-
-                    // Status label
-                    if ($statusRaw === 'paused') {
-                        $statusLabel   = 'Gepauzeerd';
-                        $statusClasses = 'bg-gray-100 text-gray-700';
-                    } elseif ($statusRaw === 'onboarding') {
-                        $statusLabel   = 'Onboarding';
-                        $statusClasses = 'bg-cyan-100 text-cyan-700';
-                    } else {
-                        $statusLabel   = 'Lopend';
-                        $statusClasses = 'bg-emerald-100 text-emerald-700';
-                    }
-
-                    // Gezondheidskleur
-                    if ($health >= 80) {
-                        $healthColor = 'text-emerald-600';
-                        $healthLabel = 'Sterke basis';
-                    } elseif ($health >= 60) {
-                        $healthColor = 'text-amber-600';
-                        $healthLabel = 'Oke, maar ruimte voor verbetering';
-                    } elseif ($health > 0) {
-                        $healthColor = 'text-red-600';
-                        $healthLabel = 'Hoog risico';
-                    } else {
-                        $healthColor = 'text-gray-400';
-                        $healthLabel = 'Nog geen score';
-                    }
-
-                    // Fase bepalen
-                    if ($health === 0) {
-                        $faseLabel = 'Startfase';
-                        $faseText  = 'We staan aan het begin: eerst de basis goed zetten (techniek, indexatie, zoekwoorden).';
-                    } elseif ($health < 60) {
-                        $faseLabel = 'Herstel & basis';
-                        $faseText  = 'Er zijn duidelijke problemen. Focus op technische fouten en contentbasis.';
-                    } elseif ($health < 80) {
-                        $faseLabel = 'Groei & optimalisatie';
-                        $faseText  = 'De basis staat, nu gericht content uitbreiden en autoriteit verhogen.';
-                    } else {
-                        $faseLabel = 'Opschalen';
-                        $faseText  = 'Sterke basis. Focus op verdiepende content, converterende paginas en autoriteit.';
-                    }
-
-                    // Risico-indicatie
-                    $riskLevel = 'Laag';
-                    $riskColor = 'text-emerald-600';
-                    $riskText  = 'Geen grote acute SEO-risicos zichtbaar op basis van de huidige score.';
-
-                    if ($health < 60 && $health > 0) {
-                        $riskLevel = 'Hoog';
-                        $riskColor = 'text-red-600';
-                        $riskText  = 'Er zijn belangrijke SEO issues. Dit project moet prioriteit krijgen.';
-                    } elseif ($health >= 60 && $health < 80) {
-                        $riskLevel = 'Gemiddeld';
-                        $riskColor = 'text-amber-600';
-                        $riskText  = 'De basis is oke, maar er zijn duidelijke verbeterkansen en risicos op langere termijn.';
-                    } elseif ($health === 0) {
-                        $riskLevel = 'Onbekend';
-                        $riskColor = 'text-gray-500';
-                        $riskText  = 'Nog geen score. Eerst een audit of crawl draaien.';
-                    }
-
-                    if ($isStale) {
-                        $riskText .= ' Daarnaast is de laatste audit of sync verouderd. Eerst opnieuw meten.';
-                        if ($riskLevel === 'Laag') {
-                            $riskLevel = 'Gemiddeld';
-                            $riskColor = 'text-amber-600';
+                    if (is_array($sites) && count($sites) > 0) {
+                        foreach ($sites as $s) {
+                            $candidate = strtolower((string) ($s['name'] ?? ''));
+                            $candidate2 = strtolower((string) ($s['title'] ?? ''));
+                            if ($needle && (str_contains($candidate, $needle) || str_contains($candidate2, $needle))) {
+                                $bestSiteId = (int) ($s['id'] ?? 0);
+                                break;
+                            }
                         }
                     }
 
-                    // Focusgebieden bepalen simpel op basis van deel scores
-                    $focusTech    = $techScore > 0 && $techScore < 70;
-                    $focusContent = $contentScore > 0 && $contentScore < 70;
-                    $focusLinks   = $linksScore > 0 && $linksScore < 70;
-
-                    // Audit status en labels (voor het audit blok)
-                    $auditStatus       = $lastAudit->status ?? null;
-                    $auditSource       = $lastAudit->source ?? null;
-                    $auditOverallScore = $lastAudit->score_overall ?? null;
-                    $auditDate         = $lastAudit->finished_at ?? $lastAudit->created_at ?? null;
-
-                    if ($auditStatus === 'running') {
-                        $auditStatusLabel   = 'Bezig met audit';
-                        $auditStatusClasses = 'bg-sky-100 text-sky-700';
-                    } elseif ($auditStatus === 'failed') {
-                        $auditStatusLabel   = 'Mislukt';
-                        $auditStatusClasses = 'bg-red-100 text-red-700';
-                    } elseif ($auditStatus === 'completed') {
-                        $auditStatusLabel   = 'Afgerond';
-                        $auditStatusClasses = 'bg-emerald-100 text-emerald-700';
-                    } elseif ($auditStatus === 'pending') {
-                        $auditStatusLabel   = 'In wachtrij';
-                        $auditStatusClasses = 'bg-amber-100 text-amber-700';
-                    } elseif ($auditStatus) {
-                        $auditStatusLabel   = ucfirst($auditStatus);
-                        $auditStatusClasses = 'bg-gray-100 text-gray-700';
-                    } else {
-                        $auditStatusLabel   = null;
-                        $auditStatusClasses = '';
-                    }
-
-                    if ($auditSource === 'seranking') {
-                        $auditSourceLabel = 'SERanking audit';
-                    } elseif ($auditSource === 'mcp') {
-                        $auditSourceLabel = 'OpenAI MCP audit';
-                    } elseif ($auditSource === 'manual') {
-                        $auditSourceLabel = 'Handmatig ingevoerd';
-                    } elseif ($auditSource) {
-                        $auditSourceLabel = ucfirst($auditSource);
-                    } else {
-                        $auditSourceLabel = null;
-                    }
-
-                    $rawSummary = $lastAudit->raw_summary ?? null;
-                    $summaryText = null;
-                    if (is_array($rawSummary)) {
-                        // Probeer een paar veel voorkomende keys
-                        $summaryText = $rawSummary['headline'] ??
-                                       $rawSummary['summary'] ??
-                                       implode("\n", array_filter($rawSummary, 'is_string'));
-                    } elseif (is_string($rawSummary)) {
-                        $summaryText = $rawSummary;
-                    }
-
-                    $formatDate = function ($date) {
-                        if (! $date) return 'Geen data';
-                        try {
-                            return $date->format('d-m-Y');
-                        } catch (\Throwable $e) {
-                            return (string) $date;
-                        }
-                    };
-
-                    $formatDateTime = function ($date) {
-                        if (! $date) return 'Geen data';
-                        try {
-                            return $date->format('d-m-Y H:i');
-                        } catch (\Throwable $e) {
-                            return (string) $date;
-                        }
-                    };
-
-                    $formatNumber = function ($value, $decimals = 0) {
-                        if ($value === null || $value === '') return 'Geen data';
-                        return number_format((float)$value, $decimals, ',', '.');
-                    };
+                    $selectedSiteId = old('site_id') ?: ($siteId ?: ($bestSiteId ?: null));
                 @endphp
 
-                {{-- Header: domein + klant + gezondheid --}}
-                <div class="w-full flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                {{-- Header --}}
+                <div class="flex items-start justify-between gap-4 mb-6">
                     <div class="min-w-0">
-                        <div class="flex items-center gap-2 mb-1">
-                            <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
-                                {{ $domain }}
-                            </h3>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold {{ $statusClasses }}">
-                                {{ $statusLabel }}
-                            </span>
-                            @if($priority)
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#f97316]/10 text-[#9a3412] border border-[#f97316]/30">
-                                    Prioriteit: {{ ucfirst($priority) }}
+                        <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">SEO traject</p>
+                        <h1 class="text-2xl font-bold text-[#215558] truncate">
+                            {{ $domain }}
+                        </h1>
+                        <p class="text-xs text-gray-500 mt-1">
+                            {{ $companyName }}
+                            @if(optional($project->company)->city)
+                                • {{ optional($project->company)->city }}
+                            @endif
+                        </p>
+
+                        <div class="mt-3 flex flex-wrap items-center gap-2">
+                            @if($isConnected)
+                                <span class="{{ $pill }} bg-emerald-50 border-emerald-200 text-emerald-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    SE Ranking gekoppeld (ID: {{ $siteId }})
+                                </span>
+                            @else
+                                <span class="{{ $pill }} bg-amber-50 border-amber-200 text-amber-800">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    Nog niet gekoppeld
+                                </span>
+                            @endif
+
+                            @if($project->last_synced_at)
+                                <span class="{{ $pill }} bg-gray-50 border-gray-200 text-gray-700">
+                                    Laatst bijgewerkt: {{ $project->last_synced_at->format('d-m-Y H:i') }}
                                 </span>
                             @endif
                         </div>
-                        <p class="text-xs text-[#21555880] font-semibold truncate mb-1">
-                            {{ $companyName }}@if($companyCity) &nbsp;&middot;&nbsp;{{ $companyCity }}@endif
-                        </p>
-                        @if($url)
-                            <a href="{{ $url }}" target="_blank" rel="noopener"
-                               class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0F9B9F] hover:text-[#215558] transition">
-                                <i class="fa-solid fa-up-right-from-square text-[10px]"></i>
-                                <span>{{ $url }}</span>
-                            </a>
-                        @endif
                     </div>
-                    <div class="flex items-center gap-6">
-                        <div class="flex items-center gap-3">
-                            <div class="relative flex items-center justify-center w-20 h-20 rounded-full bg-[#f3f8f8]">
-                                <div class="absolute inset-1 rounded-full bg-white flex items-center justify-center">
-                                    <p class="text-xl font-extrabold {{ $healthColor }}">
-                                        @if($health > 0)
-                                            {{ $health }}
-                                        @else
-                                            –
-                                        @endif
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="min-w-0">
-                                <p class="text-[11px] font-semibold text-[#21555880] mb-0.5">
-                                    Gezondheidsscore
-                                </p>
-                                <p class="text-sm font-bold text-[#215558] mb-0.5">
-                                    @if($health > 0)
-                                        {{ $health }} / 100
-                                    @else
-                                        Nog geen score
-                                    @endif
-                                </p>
-                                <p class="text-[11px] font-semibold text-[#21555880]">
-                                    {{ $healthLabel }}
-                                </p>
-                            </div>
+
+                    <div class="flex items-center gap-2">
+                        <a href="{{ route('support.seo.projects.index') }}"
+                           class="px-4 py-2 text-xs font-semibold rounded-full border border-gray-200 text-[#215558] bg-white hover:bg-gray-100 transition">
+                            Terug
+                        </a>
+
+                        <a href="{{ route('support.seo.projects.edit', $project) }}"
+                           class="px-4 py-2 text-xs font-semibold rounded-full bg-[#f3f8f8] text-[#215558] hover:bg-[#e5f1f1] transition">
+                            Bewerken
+                        </a>
+                    </div>
+                </div>
+
+                {{-- Status melding --}}
+                @if (session('status'))
+                    <div class="mb-4 px-4 py-2 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-700">
+                        {{ session('status') }}
+                    </div>
+                @endif
+
+                {{-- Traject stappen --}}
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white border border-gray-200 rounded-4xl p-5">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Stap 1</p>
+                        <p class="text-sm font-bold text-[#215558] mt-1">SE Ranking koppelen</p>
+                        <p class="text-[12px] text-gray-600 mt-2">
+                            Koppel dit traject aan het juiste SE Ranking project, zodat we rankings en visibility kunnen ophalen.
+                        </p>
+                        <div class="mt-3">
+                            @if($isConnected)
+                                <span class="text-[12px] text-emerald-700 font-semibold">Gekoppeld</span>
+                            @else
+                                <span class="text-[12px] text-amber-800 font-semibold">Actie nodig</span>
+                            @endif
                         </div>
-                        <div class="hidden md:flex flex-col items-end">
-                            <p class="text-[11px] font-semibold text-[#21555880] mb-0.5">
-                                Laatste audit of sync
-                            </p>
-                            <p class="text-sm font-bold text-[#215558]">
-                                {{ $formatDate($lastAuditAt) }}
-                                @if($isStale)
-                                    <span class="inline-flex items-center ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700">
-                                        Verouderd
-                                    </span>
-                                @endif
-                            </p>
-                            @if($lastSyncedAt)
-                                <p class="text-[11px] font-semibold text-[#21555880]">
-                                    Laatste sync: {{ $formatDate($lastSyncedAt) }}
-                                </p>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-4xl p-5">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Stap 2</p>
+                        <p class="text-sm font-bold text-[#215558] mt-1">Keywords</p>
+                        <p class="text-[12px] text-gray-600 mt-2">
+                            Voeg de belangrijkste keywords toe. Later komt hier jouw MCP suggestie-knop.
+                        </p>
+                        <div class="mt-3">
+                            <span class="text-[12px] text-gray-700 font-semibold">
+                                {{ is_array($project->primary_keywords) ? count($project->primary_keywords) : 0 }} opgeslagen
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-4xl p-5">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Stap 3</p>
+                        <p class="text-sm font-bold text-[#215558] mt-1">Nulmeting</p>
+                        <p class="text-[12px] text-gray-600 mt-2">
+                            Bekijk de huidige posities en beweging. Je ververst dit wanneer je updates wilt zien.
+                        </p>
+                        <div class="mt-3">
+                            @if($isConnected && count($rows) > 0)
+                                <span class="text-[12px] text-emerald-700 font-semibold">Beschikbaar</span>
+                            @else
+                                <span class="text-[12px] text-gray-600 font-semibold">Nog geen data</span>
                             @endif
                         </div>
                     </div>
                 </div>
 
-                {{-- Sectie: Audits & metingen --}}
-                <div class="w-full flex items-center gap-2 min-w-0 mb-4">
-                    <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
-                        Audits & metingen
-                    </h3>
-                    <button type="button"
-                            class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-200 transition cursor-pointer mr-1"
-                            @click="openAudits = !openAudits">
-                        <i class="fa-solid fa-chevron-down text-[#215558] fa-xs transform transition-transform duration-200"
-                           :class="openAudits ? 'rotate-180' : 'rotate-0'"></i>
-                    </button>
-                </div>
+                {{-- Stap 1: koppelen --}}
+                <div class="bg-[#f3f8f8] rounded-4xl p-6 mb-6">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-bold text-[#215558]">Stap 1: SE Ranking koppelen</h3>
+                            <p class="text-[12px] text-gray-600 mt-1">
+                                Selecteer het juiste project en klik op koppelen. Daarna kun je data verversen.
+                            </p>
+                        </div>
 
-                <div x-show="openAudits" x-transition class="mb-6">
-                    @if($lastAudit)
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {{-- Laatste audit samenvatting --}}
-                            <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                                <div class="flex items-center justify-between mb-2">
-                                    <p class="text-xs font-bold text-[#215558]">
-                                        Laatste audit
-                                    </p>
-                                    @if($auditStatusLabel)
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold {{ $auditStatusClasses }}">
-                                            {{ $auditStatusLabel }}
-                                        </span>
-                                    @endif
-                                </div>
-                                <p class="text-[11px] font-semibold text-[#21555880] mb-1">
-                                    Datum: {{ $formatDateTime($auditDate) }}
+                        @if($isConnected)
+                            <form method="POST" action="{{ route('support.seo.projects.seranking.sync', $project) }}">
+                                @csrf
+                                <button type="submit" class="{{ $btnGhost }}">
+                                    Ververs data
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+
+                    @if(!$isConnected)
+                        <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div class="bg-white border border-gray-200 rounded-3xl p-5">
+                                <p class="text-[11px] font-semibold text-[#215558]">Kies project</p>
+                                <p class="text-[11px] text-gray-500 mt-1">
+                                    We proberen automatisch te matchen op domein. Controleer altijd of je de juiste kiest.
                                 </p>
-                                @if($auditSourceLabel)
-                                    <p class="text-[11px] font-semibold text-[#21555880] mb-1">
-                                        Bron: {{ $auditSourceLabel }}
+
+                                @if(is_array($sites) && count($sites) > 0)
+                                    <form method="POST" action="{{ route('support.seo.projects.seranking.connect', $project) }}" class="mt-3 space-y-3">
+                                        @csrf
+
+                                        <select name="site_id" class="{{ $selectClass }}">
+                                            <option value="">Kies een project</option>
+                                            @foreach($sites as $s)
+                                                @php
+                                                    $sid = (int) ($s['id'] ?? 0);
+                                                    $label = trim((string) ($s['title'] ?? $s['name'] ?? 'Project'));
+                                                @endphp
+                                                <option value="{{ $sid }}" @if((string)$selectedSiteId === (string)$sid) selected @endif>
+                                                    {{ $label }} (ID: {{ $sid }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+
+                                        <button type="submit" class="{{ $btnPrimary }}">
+                                            Koppelen
+                                        </button>
+                                    </form>
+                                @else
+                                    <p class="mt-3 text-[12px] text-gray-600">
+                                        Geen projecten gevonden in de lijst.
                                     </p>
                                 @endif
-                                <p class="text-[11px] font-semibold text-[#21555880]">
-                                    @if($summaryText)
-                                        {{ $summaryText }}
-                                    @else
-                                        Deze audit heeft nog geen beknopte samenvatting. Dit kunnen we later automatisch laten genereren via SERanking of MCP.
-                                    @endif
-                                </p>
                             </div>
 
-                            {{-- Scores uit audit --}}
-                            <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                                <p class="text-xs font-bold text-[#215558] mb-2">
-                                    Scores uit audit
+                            <div class="bg-white border border-gray-200 rounded-3xl p-5">
+                                <p class="text-[11px] font-semibold text-[#215558]">Site ID invullen</p>
+                                <p class="text-[11px] text-gray-500 mt-1">
+                                    Als je het site ID al weet, kun je het hier invullen.
                                 </p>
-                                <dl class="text-[11px] font-semibold text-[#21555880] space-y-1">
-                                    <div class="flex items-center justify-between gap-4">
-                                        <dt class="w-1/2">Totaalscore</dt>
-                                        <dd class="w-1/2 text-right text-[#215558]">
-                                            @if($auditOverallScore !== null)
-                                                {{ (int) $auditOverallScore }} / 100
-                                            @else
-                                                <span class="text-gray-400 italic">Niet beschikbaar</span>
-                                            @endif
-                                        </dd>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-4">
-                                        <dt class="w-1/2">Techniek</dt>
-                                        <dd class="w-1/2 text-right text-[#215558]">
-                                            @if($techScore > 0)
-                                                {{ $techScore }} / 100
-                                            @else
-                                                <span class="text-gray-400 italic">Nog geen score</span>
-                                            @endif
-                                        </dd>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-4">
-                                        <dt class="w-1/2">Content</dt>
-                                        <dd class="w-1/2 text-right text-[#215558]">
-                                            @if($contentScore > 0)
-                                                {{ $contentScore }} / 100
-                                            @else
-                                                <span class="text-gray-400 italic">Nog geen score</span>
-                                            @endif
-                                        </dd>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-4">
-                                        <dt class="w-1/2">Autoriteit</dt>
-                                        <dd class="w-1/2 text-right text-[#215558]">
-                                            @if($linksScore > 0)
-                                                {{ $linksScore }} / 100
-                                            @else
-                                                <span class="text-gray-400 italic">Nog geen score</span>
-                                            @endif
-                                        </dd>
-                                    </div>
-                                </dl>
-                            </div>
 
-                            {{-- Workflow voor je team --}}
-                            <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                                <p class="text-xs font-bold text-[#215558] mb-2">
-                                    Hoe nu verder met deze audit
-                                </p>
-                                <p class="text-[11px] font-semibold text-[#21555880] mb-3">
-                                    Gebruik deze audit als startpunt voor de concrete takenlijst in de SEO module.
-                                    Straks koppelen we hier automatisch issues en taken aan.
-                                </p>
-                                <ul class="text-[11px] font-semibold text-[#215558] space-y-1">
-                                    <li>• Check eerst de kritieke technische issues (4xx, indexatie, performance).</li>
-                                    <li>• Bepaal welke paginas direct aangepakt moeten worden op basis van de audit.</li>
-                                    <li>• Vertaal de belangrijkste bevindingen naar 3 tot 5 concrete SEO taken.</li>
-                                </ul>
+                                <form method="POST" action="{{ route('support.seo.projects.seranking.connect', $project) }}" class="mt-3 space-y-3">
+                                    @csrf
+
+                                    <input type="text" name="site_id" class="{{ $inputClass }}" placeholder="Bijv. 11063750">
+
+                                    <button type="submit" class="{{ $btnPrimary }}">
+                                        Koppelen
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     @else
-                        <div class="bg-[#f3f8f8] rounded-4xl p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <div class="max-w-xl">
-                                <p class="text-xs font-bold text-[#215558] mb-1">
-                                    Nog geen audit voor dit project
-                                </p>
-                                <p class="text-[11px] font-semibold text-[#21555880] mb-2">
-                                    Start altijd met minimaal een technische site audit en een basis check van content en autoriteit.
-                                    Dit blok zal straks automatisch gevuld worden vanuit SERanking of de OpenAI MCP.
-                                </p>
-                                <p class="text-[11px] font-semibold text-[#21555880]">
-                                    Voor nu kun je handmatig de eerste audit draaien in je tools en de resultaten in de database opslaan,
-                                    of we bouwen in de volgende stap direct de koppeling met SERanking.
-                                </p>
-                            </div>
-                            <div class="flex flex-col items-start md:items-end gap-2">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700">
-                                    Aanbevolen: audit draaien
-                                </span>
-                                {{-- In de volgende stap koppelen we hier een echte "Nieuwe audit starten" actie aan --}}
-                                <button type="button"
-                                        class="px-4 py-2 rounded-full text-xs font-semibold bg-[#0F9B9F] text-white hover:bg-[#215558] transition cursor-default">
-                                    Nieuwe audit starten
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            <form method="POST" action="{{ route('support.seo.projects.seranking.recheck', $project) }}">
+                                @csrf
+                                <button type="submit" class="{{ $btnPrimary }}">
+                                    Start recheck
                                 </button>
-                            </div>
+                            </form>
+
+                            <form method="POST" action="{{ route('support.seo.projects.audits.start', $project) }}">
+                                @csrf
+                                <button type="submit" class="{{ $btnGhost }}">
+                                    Start website audit
+                                </button>
+                            </form>
+
+                            <p class="text-[11px] text-gray-500">
+                                Recheck start een nieuwe meting in SE Ranking. Gebruik daarna “Ververs data” om updates te zien.
+                            </p>
                         </div>
                     @endif
                 </div>
 
-                {{-- Sectie: Overzicht & metrics --}}
-                <div class="w-full flex items-center gap-2 min-w-0 mb-4">
-                    <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
-                        Overzicht & status
-                    </h3>
-                    <button type="button"
-                            class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-200 transition cursor-pointer mr-1"
-                            @click="openOverview = !openOverview">
-                        <i class="fa-solid fa-chevron-down text-[#215558] fa-xs transform transition-transform duration-200"
-                           :class="openOverview ? 'rotate-180' : 'rotate-0'"></i>
-                    </button>
-                </div>
-
-                <div x-show="openOverview" x-transition>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        {{-- Fase --}}
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                            <p class="text-xs font-bold text-[#215558] mb-1">
-                                Huidige fase
-                            </p>
-                            <p class="text-sm font-extrabold text-[#215558] mb-1">
-                                {{ $faseLabel }}
-                            </p>
-                            <p class="text-[11px] font-semibold text-[#21555880]">
-                                {{ $faseText }}
-                            </p>
-                        </div>
-
-                        {{-- Risico --}}
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                            <p class="text-xs font-bold text-[#215558] mb-1">
-                                Risico op terugval of verlies
-                            </p>
-                            <p class="text-sm font-extrabold {{ $riskColor }} mb-1">
-                                {{ $riskLevel }}
-                            </p>
-                            <p class="text-[11px] font-semibold text-[#21555880]">
-                                {{ $riskText }}
-                            </p>
-                        </div>
-
-                        {{-- Zichtbaarheid --}}
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                            <p class="text-xs font-bold text-[#215558] mb-1">
-                                Zichtbaarheidsscore
-                            </p>
-                            <p class="text-sm font-extrabold text-[#215558] mb-1">
-                                @if($visibility !== null && $visibility !== '')
-                                    {{ $formatNumber($visibility, 2) }}
-                                @else
-                                    <span class="text-xs text-gray-400 italic">Nog geen data</span>
-                                @endif
-                            </p>
-                            <p class="text-[11px] font-semibold text-[#21555880]">
-                                Indicatie hoe zichtbaar het domein is in zoekresultaten.
-                            </p>
-                        </div>
-
-                        {{-- Organisch verkeer --}}
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                            <p class="text-xs font-bold text-[#215558] mb-1">
-                                Organisch verkeer (maand)
-                            </p>
-                            <p class="text-sm font-extrabold text-[#215558] mb-1">
-                                @if($traffic !== null && $traffic !== '')
-                                    {{ $formatNumber($traffic, 0) }}
-                                @else
-                                    <span class="text-xs text-gray-400 italic">Nog geen data</span>
-                                @endif
-                            </p>
-                            <p class="text-[11px] font-semibold text-[#21555880]">
-                                Ruwe schatting van aantal bezoekers via Google.
-                            </p>
-                        </div>
+                {{-- KPI cards --}}
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white border border-gray-200 rounded-4xl p-5">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Visibility</p>
+                        <p class="text-xl font-bold text-[#215558] mt-1">
+                            {{ $visibilityPercent !== null ? number_format((float)$visibilityPercent, 1, ',', '.') . '%' : 'Geen data' }}
+                        </p>
+                        <p class="text-[11px] text-gray-500 mt-1">SE Ranking</p>
                     </div>
 
-                    {{-- Deel-scores (als beschikbaar) --}}
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                            <p class="text-xs font-bold text-[#215558] mb-1">
-                                Technische gezondheid
-                            </p>
-                            <p class="text-lg font-extrabold text-[#215558] mb-1">
-                                @if($techScore > 0)
-                                    {{ $techScore }} / 100
-                                @else
-                                    <span class="text-xs text-gray-400 italic">Nog geen score</span>
-                                @endif
-                            </p>
-                            <p class="text-[11px] font-semibold text-[#21555880]">
-                                Basis: crawlbaarheid, snelheid, indexatie, structured data, mobile.
-                            </p>
-                        </div>
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                            <p class="text-xs font-bold text-[#215558] mb-1">
-                                Content & on page
-                            </p>
-                            <p class="text-lg font-extrabold text-[#215558] mb-1">
-                                @if($contentScore > 0)
-                                    {{ $contentScore }} / 100
-                                @else
-                                    <span class="text-xs text-gray-400 italic">Nog geen score</span>
-                                @endif
-                            </p>
-                            <p class="text-[11px] font-semibold text-[#21555880]">
-                                Relevantie, keyworddekking, metas, headings, interne links.
-                            </p>
-                        </div>
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between">
-                            <p class="text-xs font-bold text-[#215558] mb-1">
-                                Autoriteit & links
-                            </p>
-                            <p class="text-lg font-extrabold text-[#215558] mb-1">
-                                @if($linksScore > 0)
-                                    {{ $linksScore }} / 100
-                                @else
-                                    <span class="text-xs text-gray-400 italic">Nog geen score</span>
-                                @endif
-                            </p>
-                            <p class="text-[11px] font-semibold text-[#21555880]">
-                                Linkprofiel, domeinautoriteit en reputatie ten opzichte van concurrenten.
-                            </p>
-                        </div>
+                    <div class="bg-white border border-gray-200 rounded-4xl p-5">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Gem. positie</p>
+                        <p class="text-xl font-bold text-[#215558] mt-1">
+                            {{ $todayAvg !== null ? (int)$todayAvg : 'Geen data' }}
+                        </p>
+                        <p class="text-[11px] text-gray-500 mt-1">Laatste check</p>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-4xl p-5">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Top 10</p>
+                        <p class="text-xl font-bold text-[#215558] mt-1">
+                            {{ $top10 !== null ? (int)$top10 : 'Geen data' }}
+                        </p>
+                        <p class="text-[11px] text-gray-500 mt-1">Keywords</p>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-4xl p-5">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Stijgers / dalers</p>
+                        <p class="text-xl font-bold text-[#215558] mt-1">
+                            {{ $up !== null ? (int)$up : 0 }} / {{ $down !== null ? (int)$down : 0 }}
+                        </p>
+                        <p class="text-[11px] text-gray-500 mt-1">Sinds vorige check</p>
                     </div>
                 </div>
 
-                {{-- Sectie: Focus & volgende acties (handig voor je team) --}}
-                <div class="w-full flex items-center gap-2 min-w-0 mb-4">
-                    <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
-                        Focus & volgende stappen
-                    </h3>
-                    <button type="button"
-                            class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-200 transition cursor-pointer mr-1"
-                            @click="openFocus = !openFocus">
-                        <i class="fa-solid fa-chevron-down text-[#215558] fa-xs transform transition-transform duration-200"
-                           :class="openFocus ? 'rotate-180' : 'rotate-0'"></i>
-                    </button>
-                </div>
+                {{-- Stap 2: Keywords --}}
+                <div class="bg-white border border-gray-200 rounded-4xl p-6 mb-6">
+                    <div class="flex items-start justify-between gap-4 mb-4">
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-bold text-[#215558]">Stap 2: keywords toevoegen</h3>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Voeg 10 tot 20 keywords toe. Daarna kun je verversen om posities te zien.
+                            </p>
+                        </div>
 
-                <div x-show="openFocus" x-transition>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        {{-- Techniek --}}
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between border
-                            @if($focusTech) border-red-300 @else border-transparent @endif">
-                            <div class="flex items-center justify-between mb-2">
-                                <p class="text-xs font-bold text-[#215558]">
-                                    Techniek
+                        <div class="flex items-center gap-2">
+                            <button type="button" disabled
+                                    class="px-4 py-2 text-xs font-semibold rounded-full border border-gray-200 text-gray-400 bg-white cursor-not-allowed">
+                                MCP suggesties
+                            </button>
+                        </div>
+                    </div>
+
+                    @if(!$isConnected)
+                        <p class="text-xs text-gray-500">
+                            Koppel eerst SE Ranking (stap 1). Daarna kun je keywords toevoegen.
+                        </p>
+                    @else
+                        {{-- Geen geneste forms. We gebruiken formaction op de 2e button. --}}
+                        <form method="POST" action="{{ route('support.seo.projects.seranking.keywords.add', $project) }}" class="space-y-3">
+                            @csrf
+
+                            <textarea name="keywords_text" rows="4" class="{{ $inputClass }}"
+                                      placeholder="1 keyword per regel, bijv:
+woningontruiming arnhem
+woningontruiming nijmegen
+spoed ontruiming"></textarea>
+
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="submit" class="{{ $btnPrimary }}">
+                                    Keywords toevoegen
+                                </button>
+
+                                <button type="submit"
+                                        formaction="{{ route('support.seo.projects.seranking.recheck', $project) }}"
+                                        formmethod="POST"
+                                        class="{{ $btnGhost }}">
+                                    Direct recheck starten
+                                </button>
+
+                                <p class="text-[11px] text-gray-500">
+                                    Tip: na een recheck zie je de updates terug via “Ververs data”.
                                 </p>
-                                @if($focusTech)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">
-                                        Focuspunt
-                                    </span>
-                                @endif
                             </div>
-                            <p class="text-[11px] font-semibold text-[#21555880] mb-3">
-                                Zorg dat de technische basis perfect is: geen 4xx fouten, goede laadsnelheid,
-                                logische URL structuur en een schone crawl.
-                            </p>
-                            <ul class="text-[11px] font-semibold text-[#215558] space-y-1">
-                                <li>• Controleer 4xx en 5xx en omleidingen.</li>
-                                <li>• Check pagespeed voor de belangrijkste landingspaginas.</li>
-                                <li>• Controleer sitemap en robots op afwijkingen.</li>
-                            </ul>
-                        </div>
-
-                        {{-- Content --}}
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between border
-                            @if($focusContent) border-red-300 @else border-transparent @endif">
-                            <div class="flex items-center justify-between mb-2">
-                                <p class="text-xs font-bold text-[#215558]">
-                                    Content & zoekwoorden
-                                </p>
-                                @if($focusContent)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">
-                                        Focuspunt
-                                    </span>
-                                @endif
-                            </div>
-                            <p class="text-[11px] font-semibold text-[#21555880] mb-3">
-                                Bepaal welke paginas belangrijk zijn voor omzet, en zorg dat die inhoudelijk
-                                volledig, uniek en goed geoptimaliseerd zijn.
-                            </p>
-                            <ul class="text-[11px] font-semibold text-[#215558] space-y-1">
-                                <li>• Maak een lijst met top vijf belangrijke diensten of paginas.</li>
-                                <li>• Check of elke pagina een hoofdzoekwoord en variaties dekt.</li>
-                                <li>• Optimaliseer titels, meta descriptions en koppen.</li>
-                            </ul>
-                        </div>
-
-                        {{-- Autoriteit --}}
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col justify-between border
-                            @if($focusLinks) border-red-300 @else border-transparent @endif">
-                            <div class="flex items-center justify-between mb-2">
-                                <p class="text-xs font-bold text-[#215558]">
-                                    Autoriteit & linkprofiel
-                                </p>
-                                @if($focusLinks)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">
-                                        Focuspunt
-                                    </span>
-                                @endif
-                            </div>
-                            <p class="text-[11px] font-semibold text-[#21555880] mb-3">
-                                Kijk of dit domein genoeg autoriteit heeft in vergelijking met concurrenten
-                                op de belangrijkste zoekwoorden.
-                            </p>
-                            <ul class="text-[11px] font-semibold text-[#215558] space-y-1">
-                                <li>• Maak een lijst van drie tot vijf belangrijkste concurrenten.</li>
-                                <li>• Vergelijk domein en paginawaarden (DR of DA, backlinks).</li>
-                                <li>• Bedenk twee of drie concrete acties om relevante links te krijgen.</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    {{-- Doelen & klantnotities --}}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col">
-                            <p class="text-xs font-bold text-[#215558] mb-2">
-                                Hoofddoel van SEO voor deze klant
-                            </p>
-                            @if($goalPrimary)
-                                <p class="text-sm font-semibold text-[#215558] mb-2">
-                                    {{ $goalPrimary }}
-                                </p>
-                            @else
-                                <p class="text-xs text-gray-400 italic mb-2">
-                                    Nog geen primair doel ingevuld. Zet hier bijvoorbeeld:
-                                    meer aanvragen voor een bepaalde dienst, of
-                                    meer relevante bezoekers in een bepaalde regio.
-                                </p>
-                            @endif
-
-                            @if($goalNotes)
-                                <p class="text-[11px] font-semibold text-[#21555880] whitespace-pre-line">
-                                    {{ $goalNotes }}
-                                </p>
-                            @endif
-                        </div>
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col">
-                            <p class="text-xs font-bold text-[#215558] mb-2">
-                                Interne notities of aandachtspunten
-                            </p>
-                            @if($notes)
-                                <p class="text-[11px] font-semibold text-[#21555880] whitespace-pre-line">
-                                    {{ $notes }}
-                                </p>
-                            @else
-                                <p class="text-xs text-gray-400 italic">
-                                    Gebruik dit blok om interne notities bij te houden:
-                                    belangrijke URLs, afspraken met de klant, uitzonderingen, enzovoort.
-                                </p>
-                            @endif
-                        </div>
-                    </div>
+                        </form>
+                    @endif
                 </div>
 
-                {{-- Sectie: Details (domein + klant) --}}
-                <div class="w-full flex items-center gap-2 min-w-0 mb-4">
-                    <h3 class="text-base text-[#215558] font-bold leading-tight truncate">
-                        Domein & klantdetails
-                    </h3>
-                    <button type="button"
-                            class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-200 transition cursor-pointer mr-1"
-                            @click="openDetails = !openDetails">
-                        <i class="fa-solid fa-chevron-down text-[#215558] fa-xs transform transition-transform duration-200"
-                           :class="openDetails ? 'rotate-180' : 'rotate-0'"></i>
-                    </button>
-                </div>
-
-                <div x-show="openDetails" x-transition class="mb-2">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col gap-2">
-                            <p class="text-xs font-bold text-[#215558] mb-1">
-                                Domein & service
+                {{-- Stap 3: Nulmeting --}}
+                <div class="bg-white border border-gray-200 rounded-4xl p-6">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h3 class="text-sm font-bold text-[#215558]">Stap 3: nulmeting</h3>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Positie 0 betekent: niet gevonden in top 100.
                             </p>
-                            <dl class="text-[11px] font-semibold text-[#21555880] space-y-1">
-                                <div class="flex items-center justify-between gap-4">
-                                    <dt class="w-1/3">Domein</dt>
-                                    <dd class="w-2/3 text-right text-[#215558] truncate">
-                                        {{ $domain }}
-                                    </dd>
-                                </div>
-                                @if($url)
-                                    <div class="flex items-center justify-between gap-4">
-                                        <dt class="w-1/3">URL</dt>
-                                        <dd class="w-2/3 text-right">
-                                            <a href="{{ $url }}" target="_blank" rel="noopener"
-                                               class="inline-flex items-center gap-1 text-[#0F9B9F] hover:text-[#215558] transition truncate">
-                                                <i class="fa-solid fa-up-right-from-square text-[9px]"></i>
-                                                <span class="truncate">{{ $url }}</span>
-                                            </a>
-                                        </dd>
-                                    </div>
-                                @endif
-                                <div class="flex items-center justify-between gap-4">
-                                    <dt class="w-1/3">Status</dt>
-                                    <dd class="w-2/3 text-right">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold {{ $statusClasses }}">
-                                            {{ $statusLabel }}
-                                        </span>
-                                    </dd>
-                                </div>
-                                <div class="flex items-center justify-between gap-4">
-                                    <dt class="w-1/3">Aangemaakt</dt>
-                                    <dd class="w-2/3 text-right text-[#215558]">
-                                        {{ $formatDate($project->created_at) }}
-                                    </dd>
-                                </div>
-                            </dl>
                         </div>
 
-                        <div class="bg-[#f3f8f8] rounded-4xl p-5 flex flex-col gap-2">
-                            <p class="text-xs font-bold text-[#215558] mb-1">
-                                Klant
-                            </p>
-                            <dl class="text-[11px] font-semibold text-[#21555880] space-y-1">
-                                <div class="flex items-center justify-between gap-4">
-                                    <dt class="w-1/3">Bedrijfsnaam</dt>
-                                    <dd class="w-2/3 text-right text-[#215558] truncate">
-                                        {{ $companyName }}
-                                    </dd>
-                                </div>
+                        @if($isConnected)
+                            <form method="POST" action="{{ route('support.seo.projects.seranking.sync', $project) }}">
+                                @csrf
+                                <button type="submit" class="px-4 py-2 text-xs font-semibold rounded-full border border-gray-200 text-[#215558] bg-white hover:bg-gray-100 transition">
+                                    Ververs
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+
+                    @if(!$isConnected)
+                        <p class="text-xs text-gray-500">Koppel SE Ranking om rankings te zien.</p>
+                    @elseif(count($rows) === 0)
+                        <p class="text-xs text-gray-500">Nog geen rankings. Voeg keywords toe en klik op ververs.</p>
+                    @else
+                        <div class="grid grid-cols-12 text-[11px] text-gray-500 font-semibold pb-2 border-b border-gray-200">
+                            <div class="col-span-5">Keyword</div>
+                            <div class="col-span-2">Positie</div>
+                            <div class="col-span-2">Verschil</div>
+                            <div class="col-span-2">Volume</div>
+                            <div class="col-span-1 text-right">CPC</div>
+                        </div>
+
+                        <div class="divide-y divide-gray-200">
+                            @foreach(array_slice($rows, 0, 30) as $r)
                                 @php
-                                    $contactName  = optional($project->company)->contact_name ?? null;
-                                    $contactEmail = optional($project->company)->email ?? null;
-                                    $contactPhone = optional($project->company)->phone ?? null;
+                                    $pos = (int)($r['pos'] ?? 0);
+                                    $change = (int)($r['change'] ?? 0);
+
+                                    $changeText = $change === 0 ? '0' : ($change > 0 ? '+' . $change : (string)$change);
+                                    $changeClass = $change > 0 ? 'text-emerald-700' : ($change < 0 ? 'text-red-700' : 'text-gray-500');
+
+                                    $posClass = $pos > 0 && $pos <= 10 ? 'text-emerald-700' : ($pos > 0 && $pos <= 30 ? 'text-amber-700' : ($pos > 0 ? 'text-[#215558]' : 'text-gray-400'));
                                 @endphp
-                                @if($contactName)
-                                    <div class="flex items-center justify-between gap-4">
-                                        <dt class="w-1/3">Contactpersoon</dt>
-                                        <dd class="w-2/3 text-right text-[#215558] truncate">
-                                            {{ $contactName }}
-                                        </dd>
+
+                                <div class="grid grid-cols-12 py-3 text-[12px]">
+                                    <div class="col-span-5 text-[#215558] font-semibold truncate">
+                                        {{ $r['keyword'] ?? '-' }}
+                                        @if(!empty($r['landing_page']))
+                                            <div class="text-[10px] text-gray-500 font-normal truncate mt-0.5">
+                                                {{ $r['landing_page'] }}
+                                            </div>
+                                        @endif
                                     </div>
-                                @endif
-                                @if($contactEmail)
-                                    <div class="flex items-center justify-between gap-4">
-                                        <dt class="w-1/3">E mail</dt>
-                                        <dd class="w-2/3 text-right truncate">
-                                            <a href="mailto:{{ $contactEmail }}"
-                                               class="text-[#0F9B9F] hover:text-[#215558]">
-                                                {{ $contactEmail }}
-                                            </a>
-                                        </dd>
+
+                                    <div class="col-span-2 font-semibold {{ $posClass }}">
+                                        {{ $pos > 0 ? $pos : '0' }}
                                     </div>
-                                @endif
-                                @if($contactPhone)
-                                    <div class="flex items-center justify-between gap-4">
-                                        <dt class="w-1/3">Telefoon</dt>
-                                        <dd class="w-2/3 text-right text-[#215558] truncate">
-                                            {{ $contactPhone }}
-                                        </dd>
+
+                                    <div class="col-span-2 font-semibold {{ $changeClass }}">
+                                        {{ $changeText }}
                                     </div>
-                                @endif
-                            </dl>
+
+                                    <div class="col-span-2 text-gray-700">
+                                        {{ (int)($r['volume'] ?? 0) }}
+                                    </div>
+
+                                    <div class="col-span-1 text-right text-gray-700">
+                                        {{ number_format((float)($r['cpc'] ?? 0), 2, ',', '.') }}
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
-                    </div>
+                    @endif
                 </div>
+
             </div>
         </div>
     </div>

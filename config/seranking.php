@@ -1,36 +1,30 @@
 <?php
 
 return [
+    /**
+     * Project API (api4) - voor projecten, keywords, rankings, stat.
+     * Let op: Project API key is anders dan Data API key.
+     */
+    'project_api_key' => env('SERANKING_PROJECT_API_KEY', env('SERANKING_API_KEY')),
+    'project_base_url' => env('SERANKING_PROJECT_BASE_URL', 'https://api4.seranking.com'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | SERanking API key
-    |--------------------------------------------------------------------------
-    |
-    | Te vinden in je SERanking account. Zet deze in je .env:
-    | SERANKING_API_KEY=your_key_here
-    |
-    */
+    /**
+     * Data API (api.seranking.com) - alleen als je het later nodig hebt.
+     * (Je kunt voorlopig zonder Data API, want positions geeft al volume etc.)
+     */
+    'data_api_key' => env('SERANKING_DATA_API_KEY'),
+    'data_base_url' => env('SERANKING_DATA_BASE_URL', 'https://api.seranking.com'),
 
-    'api_key' => env('SERANKING_API_KEY'),
+    /**
+     * Site Audit API draait bij jou al via api.seranking.com/v1/site-audit/...
+     */
+    'site_audit_base_url' => env('SERANKING_SITE_AUDIT_BASE_URL', 'https://api.seranking.com'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Basis URL
-    |--------------------------------------------------------------------------
-    */
-
-    'base_url' => env('SERANKING_BASE_URL', 'https://api.seranking.com'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Default audit settings
-    |--------------------------------------------------------------------------
-    |
-    | Dit zijn veilige defaults. Later kun je dit per klant / audit tunen
-    | via $seoAudit->meta['settings'].
-    |
-    */
+    /**
+     * Default site_engine_id (in de praktijk halen we hem live op via /search-engines,
+     * maar dit is een fallback).
+     */
+    'default_site_engine_id' => (int) env('SERANKING_DEFAULT_SITE_ENGINE_ID', 1),
 
     'default_audit_settings' => [
         'source_site'      => 1,
@@ -56,5 +50,4 @@ return [
         'max_h1_len'       => 100,
         'max_h2_len'       => 100,
     ],
-
 ];

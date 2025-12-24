@@ -14,7 +14,6 @@ use App\Http\Controllers\SupportController;
 use App\Http\Controllers\InstellingenController;
 use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\OnboardingController;
-use App\Http\Controllers\SeoAuditController;
 use App\Http\Controllers\TaskQuestionController;
 use App\Http\Controllers\AanvraagFileController;
 use App\Http\Controllers\IntakeController;
@@ -348,9 +347,19 @@ Route::prefix('app')->group(function () {
                 Route::get('/projects', 'index')->name('projects.index');
                 Route::get('/projects/create', 'create')->name('projects.create');
                 Route::post('/projects', 'store')->name('projects.store');
+
                 Route::get('/projects/{seoProject}', 'show')->name('projects.show');
                 Route::get('/projects/{seoProject}/edit', 'edit')->name('projects.edit');
                 Route::patch('/projects/{seoProject}', 'update')->name('projects.update');
+
+                // Website audit (heb je al)
+                Route::post('/projects/{seoProject}/audits', 'startAudit')->name('projects.audits.start');
+
+                // SE Ranking koppeling + data
+                Route::post('/projects/{seoProject}/seranking/connect', 'connectSeranking')->name('projects.seranking.connect');
+                Route::post('/projects/{seoProject}/seranking/sync', 'syncSeranking')->name('projects.seranking.sync');
+                Route::post('/projects/{seoProject}/seranking/keywords', 'addSerankingKeywords')->name('projects.seranking.keywords.add');
+                Route::post('/projects/{seoProject}/seranking/recheck', 'recheckSeranking')->name('projects.seranking.recheck');
             });
 
         // Marketing
