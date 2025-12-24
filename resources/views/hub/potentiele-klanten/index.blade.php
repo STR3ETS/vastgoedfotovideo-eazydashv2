@@ -301,12 +301,14 @@
               {{-- ===================== RIGHT DETAIL ===================== --}}
               <div class="col-span-3 min-h-0 bg-[#f3f8f8] rounded-4xl overflow-hidden flex flex-col">
                   <div class="p-8 flex-1 min-h-0 overflow-y-auto">
-                      <div x-show="!activeId" x-cloak class="flex items-center gap-4">
-                        <span class="text-4xl">👈</span>
-                        <p class="text-base font-bold text-[#215558]/80 mt-1">
-                          Selecteer een potentiële klant om te beginnen.
-                        </p>
-                      </div>
+                      @if($aanvragenCollection->isNotEmpty())
+                        <div x-show="!activeId" x-cloak class="flex items-center gap-4">
+                          <span class="text-4xl">👈</span>
+                          <p class="text-base font-bold text-[#215558]/80 mt-1">
+                            Selecteer een potentiële klant om te beginnen.
+                          </p>
+                        </div>
+                      @endif
                       @forelse($aanvragenCollection as $aanvraag)
                           <div
                               x-show="activeId === {{ $aanvraag->id }}"
@@ -319,12 +321,12 @@
                               ])
                           </div>
                       @empty
-                      <div class="flex items-center gap-4">
-                        <span class="text-4xl">👈</span>
-                        <p class="text-base font-bold text-[#215558]/80 mt-1">
+                        <div class="flex items-center gap-4">
+                          <span class="text-4xl">👈</span>
+                          <p class="text-base font-bold text-[#215558]/80 mt-1">
                             Selecteer een potentiële klant om te beginnen.
-                        </p>
-                      </div>
+                          </p>
+                        </div>
                       @endforelse
                   </div>
               </div>
