@@ -35,7 +35,7 @@
         </p>
       </a>
 
-      @if ($user->rol === 'klant' && $user->is_company_admin)        
+      @if ($user->is_company_admin)        
         <a  role="menuitem"
             class="tab-company cursor-pointer w-full p-3 rounded-xl flex items-center gap-1 hover:bg-gray-200 transition duration-300"
             hx-get="{{ route('support.instellingen.company') }}"

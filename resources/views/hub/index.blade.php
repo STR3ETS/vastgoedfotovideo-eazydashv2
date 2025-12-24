@@ -39,8 +39,8 @@
     @endphp
     <div class="col-span-5 flex-1 min-h-0">
         <div class="w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0 flex flex-col">
-            <div class="flex-1 min-h-0 w-full flex gap-8">
-                <div class="flex-1 min-h-0 flex flex-col">
+            <div class="flex-1 min-h-0 w-full flex flex-col xl:flex-row gap-8 min-w-0">
+                <div class="flex-1 min-h-0 flex flex-col min-w-0">
                     <div class="w-full shrink-0 rounded-4xl p-8 bg-[#0F9B9F] flex items-center justify-between relative overflow-hidden">
                         <div>
                             <p class="text-sm opacity-80 text-white font-semibold uppercase tracking-[5px] mb-2">Update</p>
@@ -85,11 +85,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-6 mt-6 flex-1 min-h-0">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 flex-1 min-h-0 min-w-0">
                         <div class="bg-[#f3f8f8] rounded-4xl p-8 h-full min-h-0 flex flex-col">
                             <div class="flex-1 min-h-0 grid gap-2 overflow-y-auto pr-3 -mr-3 custom-scroll">
                                 @forelse($teamMembers ?? [] as $member)
-                                    <div class="flex items-center justify-between">
+                                    <div class="flex items-center h-fit justify-between">
                                         <div class="flex items-center gap-2">
                                             <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white border-gray-200 p-1 relative">
                                                 <div class="{{ $member->is_online ? 'hidden' : 'flex' }} w-3 h-3 absolute z-1 right-0 top-0 items-center justify-center">
@@ -132,14 +132,14 @@
                                 @endforelse
                             </div>
                         </div>
-                        <div class="bg-[#f3f8f8] rounded-4xl p-8">
+                        <div class="bg-[#f3f8f8] rounded-4xl p-8 h-full min-h-0 flex flex-col overflow-hidden">
                             @php
                                 $timeline  = $intakeTimeline ?? [];
                                 $startHour = $timeline['startHour'] ?? 9;
                                 $endHour   = $timeline['endHour'] ?? 17;
                             @endphp
 
-                            <div class="relative">
+                            <div class="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-2 -mr-2 custom-scroll">
                                 @if(($intakeCards ?? collect())->isNotEmpty())
                                     <div class="absolute inset-0">
                                         @foreach($intakeCards as $card)
@@ -182,7 +182,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-[#f3f8f8] w-[350px] rounded-4xl p-8">
+                <div class="bg-[#f3f8f8] w-full xl:w-[350px] shrink-0 rounded-4xl p-8 min-w-0">
                     @php
                         $firstName  = strtolower(explode(' ', trim($user->name))[0] ?? '');
                         $userAvatar = "/assets/eazyonline/memojis/{$firstName}.webp";

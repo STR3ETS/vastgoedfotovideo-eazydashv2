@@ -8,6 +8,13 @@ use App\Models\AanvraagWebsite;
 use App\Models\AanvraagTask;
 use Illuminate\Support\Facades\Log;
 use OpenAI\Laravel\Facades\OpenAI;
+use App\Mail\NewAanvraagMail;
+use App\Notifications\NewAanvraagNotification;
+use App\Mail\AanvraagReceivedCustomerMail;
+use Illuminate\Support\Facades\Mail;
+use App\Models\User;
+use Illuminate\Support\Facades\Route;
+
 
 class AanvraagController extends Controller
 {
@@ -150,6 +157,28 @@ class AanvraagController extends Controller
                 ];
             })->toArray()
         );
+
+        try {
+            $aanvraagLink = Route::has('support.potentiele-klanten.show')
+                ? route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id])
+                : url('/app/potentiele-klanten/' . $aanvraag->id);
+
+            $receivers = User::query()->where('company_id', 1)->get(['id']);
+            foreach ($receivers as $u) {
+                $u->notify(new NewAanvraagNotification($aanvraag));
+            }
+
+            Mail::to('sales@eazyonline.nl')->send(new NewAanvraagMail($aanvraag, $aanvraagLink));
+
+            // ✅ NIEUW: klantbevestiging
+            Mail::to($aanvraag->contactEmail)->send(new AanvraagReceivedCustomerMail($aanvraag));
+
+        } catch (\Throwable $e) {
+            Log::warning('[New aanvraag notify/mail] failed', [
+                'aanvraag_id' => $aanvraag->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         Log::info('Aanvraag store - created aanvraag', $aanvraag->toArray());
 

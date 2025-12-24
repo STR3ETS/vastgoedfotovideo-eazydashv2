@@ -492,9 +492,11 @@
                 </div>
               </div>
 @php
+  $authUser = auth()->user();
+
   $mentionables = \App\Models\User::query()
-    ->whereNull('company_id')
-    ->whereNotNull('email')
+    ->when(!empty($authUser?->company_id), fn ($q) => $q->where('company_id', $authUser->company_id))
+    ->when(empty($authUser?->company_id), fn ($q) => $q->whereNull('company_id'))
     ->orderBy('name')
     ->get(['id','name']);
 

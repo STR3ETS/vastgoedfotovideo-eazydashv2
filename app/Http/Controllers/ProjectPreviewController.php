@@ -72,7 +72,7 @@ class ProjectPreviewController extends Controller
 
         if (!$isApproved) {
             try {
-                Mail::to('boyd@eazyonline.nl')->send(new PreviewViewed($project, $viewLog));
+                Mail::to('sales@eazyonline.nl')->send(new PreviewViewed($project, $viewLog));
             } catch (\Throwable $e) {
                 report($e);
             }
@@ -171,8 +171,7 @@ class ProjectPreviewController extends Controller
             }
 
             // owner mails (hardcoded)
-            // Mail::to(['boyd@eazyonline.nl', 'raphael@eazyonline.nl'])
-            Mail::to(['boyd@eazyonline.nl'])
+            Mail::to(['sales@eazyonline.nl'])
                 ->send(new PreviewApprovedOwnerMail($project));
 
         } catch (\Throwable $e) {

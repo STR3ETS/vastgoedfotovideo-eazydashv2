@@ -61,12 +61,16 @@ class AanvraagCommentController extends Controller
 
         // ✅ fix: als iemand typt "@NaamBericht" -> maak "@Naam Bericht"
         if (Str::contains($bodyForSave, '@')) {
-            $internalUsers = User::query()
-                ->whereNull('company_id')
-                ->whereNotNull('email')
-                ->get(['id', 'name']);
+            $actor = auth()->user();
 
-            foreach ($internalUsers as $u) {
+            $companyUsersQuery = User::query()
+                ->whereNotNull('email')
+                ->when(!empty($actor?->company_id), fn ($q) => $q->where('company_id', $actor->company_id))
+                ->when(empty($actor?->company_id), fn ($q) => $q->whereNull('company_id'));
+
+            $companyUsers = (clone $companyUsersQuery)->get(['id', 'name']);
+
+            foreach ($companyUsers as $u) {
                 $name = (string) $u->name;
                 if ($name === '') continue;
 
@@ -84,9 +88,14 @@ class AanvraagCommentController extends Controller
 
         $comment->loadMissing('user');
 
-        // ✅ Mail naar getaggde personen (match op "@Volledige Naam")
+        // ✅ Mail + database notification naar getaggde personen (match op "@Volledige Naam")
         try {
             $actor = auth()->user();
+
+            $companyUsersQuery = User::query()
+                ->whereNotNull('email')
+                ->when(!empty($actor?->company_id), fn ($q) => $q->where('company_id', $actor->company_id))
+                ->when(empty($actor?->company_id), fn ($q) => $q->whereNull('company_id'));
 
             $bodyRaw = (string) $comment->body;
 
@@ -94,16 +103,15 @@ class AanvraagCommentController extends Controller
             $body = preg_replace('/[\x{00A0}\s]+/u', ' ', trim($bodyRaw));
 
             if (Str::contains($body, '@')) {
-                $internalUsers = User::query()
-                    ->whereNull('company_id')     // ✅ alleen interne users
-                    ->whereNotNull('email')
-                    ->get(['id', 'name', 'email']);
+                $companyUsers = (clone $companyUsersQuery)->get(['id', 'name', 'email', 'company_id']);
 
                 $boyd = User::query()->where('email', 'boyd@eazyonline.nl')->first(['id','name','email','company_id']);
 
-                Log::info('Mention debug - internal users', [
-                    'internal_count' => $internalUsers->count(),
-                    'sample' => $internalUsers->take(8)->map(fn($u) => [
+                Log::info('Mention debug - company users', [
+                    'actor_id' => $actor?->id,
+                    'actor_company_id' => $actor?->company_id,
+                    'company_count' => $companyUsers->count(),
+                    'sample' => $companyUsers->take(8)->map(fn($u) => [
                         'id' => $u->id,
                         'name' => $u->name,
                         'email' => $u->email,
@@ -122,7 +130,6 @@ class AanvraagCommentController extends Controller
                     'body_hex' => bin2hex((string) $comment->body),
                 ]);
 
-
                 $norm = function (string $s): string {
                     // NBSP/rare chars -> spatie
                     $s = str_replace("\xC2\xA0", ' ', $s);
@@ -132,7 +139,7 @@ class AanvraagCommentController extends Controller
 
                 $bodyN = $norm($body);
 
-                $mentionedUsers = $internalUsers->filter(function ($u) use ($bodyN, $norm) {
+                $mentionedUsers = $companyUsers->filter(function ($u) use ($bodyN, $norm) {
                     $needle = '@' . $norm((string) $u->name);
 
                     // komt "@naam" voor?
@@ -149,17 +156,18 @@ class AanvraagCommentController extends Controller
                 })
                 ->unique('id');
 
-                Log::info('Mention mail check', [
+                Log::info('Mention notify check', [
                     'aanvraag_id' => $aanvraag->id,
                     'body' => $body,
                     'matched' => $mentionedUsers->pluck('email')->values()->all(),
                 ]);
 
                 foreach ($mentionedUsers as $u) {
-                    // mail (heb je al)
+                    // mail
                     Mail::to($u->email)->send(
                         new AanvraagMentionedMail($aanvraag, $comment, $actor)
                     );
+
                     // ✅ database notification (bel)
                     $u->notify(new AanvraagMentionedNotification(
                         aanvraagId: (int) $aanvraag->id,

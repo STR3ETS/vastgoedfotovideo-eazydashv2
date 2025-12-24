@@ -56,26 +56,28 @@
                   <i class="fa-solid fa-message-lines text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
                 </a>
               </li>
-              <li>
-                <a href="{{ url('/app/potentiele-klanten') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
-                  <i class="fa-solid fa-bolt text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
-                </a>
-              </li>
-              <li>
-                <a href="{{ url('/app/projecten') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
-                  <i class="fa-solid fa-folders text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
-                </a>
-              </li>
-              <li>
-                <a href="{{ url('/app/marketing') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
-                  <i class="fa-solid fa-at text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
-                </a>
-              </li>
-              <li>
-                <a href="{{ route('support.seo.projects.index') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
-                  <i class="fa-brands fa-google text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
-                </a>
-              </li>
+              @if((int) auth()->user()->company_id === 1)
+                <li>
+                  <a href="{{ url('/app/potentiele-klanten') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                    <i class="fa-solid fa-bolt text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                  </a>
+                </li>
+                <li>
+                  <a href="{{ url('/app/projecten') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                    <i class="fa-solid fa-folders text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                  </a>
+                </li>
+                <li>
+                  <a href="{{ url('/app/marketing') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                    <i class="fa-solid fa-at text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                  </a>
+                </li>
+                <li>
+                  <a href="{{ route('support.seo.projects.index') }}" class="w-9 h-9 border border-gray-200 bg-white rounded-full flex items-center justify-center hover:bg-[#0F9B9F] hover:border-[#0F9B9F] group transition duration-300">
+                    <i class="fa-brands fa-google text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+                  </a>
+                </li>
+              @endif
             </ul>
           </div>
           <!-- ONDERSTE CONTENT SIDEBAR -->
@@ -531,86 +533,87 @@
           <input type="text" placeholder="Zoeken in mijn systeem..." class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#215558] font-medium outline-none">
         </div>
 
-        {{-- 🔔 Notifications bell --}}
-        <div
-          class="relative"
-          x-data='notifBell({
-            csrf: @json(csrf_token()),
-            indexUrl: @json(route("app.notifications.index")),
-            readUrlBase: @json(url("/app/notifications")),
-            readAllUrl: @json(route("app.notifications.readAll")),
-          })'
-          x-init="init()"
+{{-- 🔔 Notifications bell (hover open zoals profiel dropdown) --}}
+<div
+  class="relative inline-block group"
+  x-data="notifBell({
+    csrf: '{{ csrf_token() }}',
+    indexUrl: '{{ route('app.notifications.index') }}',
+    readUrlBase: '{{ url('/app/notifications') }}',
+    readAllUrl: '{{ route('app.notifications.readAll') }}',
+  })"
+  x-init="init()"
+>
+  <button
+    type="button"
+    class="w-9 h-9 cursor-pointer border border-gray-200 bg-white rounded-full flex items-center justify-center group transition duration-300 relative
+           hover:bg-[#0F9B9F] hover:border-[#0F9B9F]"
+    aria-label="Notifications"
+  >
+    <i class="fa-regular fa-bell text-[#215558] group-hover:text-white transition duration-200 text-base"></i>
+
+    <template x-if="unreadCount > 0">
+      <span
+        class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#0F9B9F] text-white text-[10px] font-black flex items-center justify-center"
+        x-text="unreadCount"
+      ></span>
+    </template>
+  </button>
+
+  {{-- hover bridge (zoals profiel dropdown) --}}
+  <span class="absolute right-0 top-8 h-4 min-w-[340px] block opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
+
+  <div
+    x-cloak
+    class="min-w-[340px] max-w-[420px] px-1 py-2 rounded-xl bg-white border border-gray-200 shadow-md absolute right-0 top-10 z-50
+           opacity-0 invisible translate-y-1 pointer-events-none
+           group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
+           group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:pointer-events-auto
+           transition-all duration-300 ease-out"
+  >
+    <div class="flex items-center justify-between px-3 pt-1 mb-1">
+      <p class="text-base text-[#215558] font-bold">Meldingen</p>
+
+      <button
+        type="button"
+        class="text-[11px] font-bold text-[#215558]/60 hover:text-[#215558] transition duration-300"
+        @click="readAll()"
+        x-show="unreadCount > 0"
+      >
+        Alles markeren als gelezen
+      </button>
+    </div>
+
+    <div class="px-3 pb-2 pt-0 mt-3 max-h-[320px] overflow-auto
+                [&>a+a]:border-t [&>a+a]:border-[#215558]/20
+                [&>a+a]:pt-3
+                [&>a:not(:last-of-type)]:pb-3">
+      <template x-if="items.length === 0">
+        <p class="text-xs font-semibold text-[#215558]/60">Geen meldingen.</p>
+      </template>
+
+      <template x-for="n in items" :key="n.id">
+        <a
+          class="block"
+          :href="n.data.url"
+          @click.prevent="openNotification(n)"
         >
-          <button
-            type="button"
-            class="w-9 h-9 cursor-pointer border border-gray-200 bg-white rounded-full flex items-center justify-center group transition duration-300 relative"
-            @click="toggle()"
-            aria-label="Notifications"
-          >
-            <i class="fa-regular fa-bell text-[#215558] transition duration-200 text-base"></i>
+          <div class="flex items-start justify-between gap-3 relative">
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-bold text-[#215558] truncate mb-1" x-text="n.data.title"></p>
+              <p class="text-xs font-medium text-[#215558] leading-[20px] opacity-75" x-text="n.data.body"></p>
+              <p class="text-[11px] font-semibold opacity-50 text-[#215558] mt-1" x-text="n.created_at"></p>
+            </div>
 
-            <template x-if="unreadCount > 0">
-              <span
-                class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#0F9B9F] text-white text-[10px] font-black flex items-center justify-center"
-                x-text="unreadCount"
-              ></span>
+            <template x-if="!n.read_at">
+              <span class="absolute top-1/2 -translate-y-1/2 right-1 w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
             </template>
-          </button>
-          <div
-            x-show="open"
-            x-cloak
-            @click.outside="open = false"
-            class="min-w-[340px] max-w-[420px] px-1 py-2 rounded-xl bg-white border border-gray-200 shadow-md absolute right-0 top-10 z-50
-                  transition-all duration-200"
-          >
-            <div class="flex items-center justify-between px-3 pt-1 mb-1">
-              <p class="text-base text-[#215558] font-bold">Meldingen</p>
-              <button
-                type="button"
-                class="text-[11px] font-bold text-[#215558]/60 hover:text-[#215558] transition duration-300"
-                @click="readAll()"
-                x-show="unreadCount > 0"
-              >
-                Alles markeren als gelezen
-              </button>
-            </div>
-            <div
-              class="px-3 pb-2 pt-0 mt-3 max-h-[320px] overflow-auto
-                    [&>a+a]:border-t [&>a+a]:border-[#215558]/20
-                    [&>a+a]:pt-3
-                    [&>a:not(:last-of-type)]:pb-3"
-            >
-              <template x-if="items.length === 0">
-                <p class="text-sm font-semibold text-[#215558]/60 py-3">Geen meldingen.</p>
-              </template>
-              <template x-for="n in items" :key="n.id">
-                <a
-                  class="block transition"
-                  :href="n.data.url"
-                  @click.prevent="openNotification(n)"
-                >
-                  <!-- ✅ padding zit hierbinnen (dus geen “top spacing” boven de eerste item) -->
-                  <div>
-                    <div class="flex items-start justify-between gap-3 relative">
-                      <div class="flex-1">
-                        <p class="text-xs font-bold text-[#215558] truncate mb-1" x-text="n.data.title"></p>
-                        <p class="text-xs font-medium text-[#215558] leading-[20px] opacity-75" x-text="n.data.body"></p>
-                        <p class="text-[11px] font-semibold opacity-50 text-[#215558] mt-1">
-                          <span x-text="n.created_at"></span>
-                        </p>
-                      </div>
-
-                      <template x-if="!n.read_at">
-                        <span class="absolute top-1/2 -translate-y-1/2 right-0 w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
-                      </template>
-                    </div>
-                  </div>
-                </a>
-              </template>
-            </div>
           </div>
-        </div>
+        </a>
+      </template>
+    </div>
+  </div>
+</div>
 
         <!-- Avatar dropdown (with hover bridge) -->
         <div class="relative inline-block group">
@@ -792,7 +795,6 @@
         }));
       });
     </script>
-
     <script>
       (function () {
         function currentIdFromUrl() {
@@ -826,6 +828,44 @@
           if (e.detail && e.detail.id) setActiveInSidebar(e.detail.id);
         });
       })();
+    </script>
+    <script>
+      window.notifBell = function ({ csrf, indexUrl, readUrlBase, readAllUrl }) {
+        return {
+          unreadCount: 0,
+          items: [],
+
+          async init() {
+            const res = await fetch(indexUrl, {
+              headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+              credentials: 'same-origin',
+            });
+            const data = await res.json();
+            this.unreadCount = data.unread_count || 0;
+            this.items = data.items || [];
+          },
+
+          async openNotification(n) {
+            await fetch(`${readUrlBase}/${encodeURIComponent(n.id)}`, {
+              method: 'POST',
+              headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+              credentials: 'same-origin',
+            });
+            if (n?.data?.url) window.location.href = n.data.url;
+          },
+
+          async readAll() {
+            await fetch(readAllUrl, {
+              method: 'POST',
+              headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+              credentials: 'same-origin',
+            });
+            this.unreadCount = 0;
+            const now = new Date().toISOString();
+            this.items = this.items.map(i => ({ ...i, read_at: i.read_at || now }));
+          },
+        };
+      };
     </script>
   </body>
 </html>

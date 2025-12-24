@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'set.locale' => \App\Http\Middleware\SetUserLocale::class,
             'inbound.mail.secret' => \App\Http\Middleware\VerifyInboundMailSecret::class,
+            'company_id' => \App\Http\Middleware\EnsureCompanyId::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

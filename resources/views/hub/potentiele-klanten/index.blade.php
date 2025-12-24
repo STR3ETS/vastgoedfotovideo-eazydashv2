@@ -3,24 +3,48 @@
 @section('content')
   @php
       use App\Models\User;
-      use Illuminate\Support\Str;
 
-      // Medewerkers = users zonder company_id
-      $assignees = User::query()
-          ->whereNull('company_id')
+      $authUser = auth()->user();
+
+      // ✅ Medewerkers = users binnen dezelfde company_id
+      $assigneesQuery = User::query();
+
+      if (!empty($authUser?->company_id)) {
+          $assigneesQuery->where('company_id', $authUser->company_id);
+      } else {
+          // fallback (intern)
+          $assigneesQuery->whereNull('company_id');
+      }
+
+      $assignees = $assigneesQuery
           ->orderBy('name')
           ->get();
 
-      // Voor JS: map op ID -> naam + avatar
-      $assigneesById = $assignees->mapWithKeys(function ($user) {
-          // Als je ooit een kolom 'memoji_key' hebt, wordt die gebruikt
-          $avatarKey = $user->memoji_key
-              ?? Str::lower(Str::before($user->name, ' ')); // eerste naam als key
+      // ✅ Voor JS: map op ID -> naam + avatar_url (met fallback)
+      $assigneesById = $assignees->mapWithKeys(function ($u) {
+          $avatar = trim((string) $u->avatar_url);
+
+          if ($avatar === '') {
+              $avatar = '/assets/eazyonline/memojis/default.webp';
+          } else {
+              // relatief pad -> leading slash
+              if (!preg_match('~^https?://~i', $avatar) && ($avatar[0] ?? '') !== '/') {
+                  $avatar = '/' . $avatar;
+              }
+
+              // lokaal pad bestaat niet -> fallback
+              if (!preg_match('~^https?://~i', $avatar)) {
+                  $rel = ltrim($avatar, '/');
+                  if (!file_exists(public_path($rel))) {
+                      $avatar = '/assets/eazyonline/memojis/default.webp';
+                  }
+              }
+          }
 
           return [
-              $user->id => [
-                  'name'   => $user->name,
-                  'avatar' => "/assets/eazyonline/memojis/{$avatarKey}.webp",
+              $u->id => [
+                  'name'   => $u->name,
+                  'avatar' => $avatar,
               ],
           ];
       })->all();

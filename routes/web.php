@@ -162,10 +162,20 @@ Route::prefix('app')->group(function () {
 
             /*
             |--------------------------------------------------------------------------
-            | Teamleden + online/offline status (alle users zonder company_id)
+            | Teamleden + online/offline status
             |--------------------------------------------------------------------------
+            | Als de ingelogde user een company_id heeft: toon alle users binnen diezelfde company.
+            | Anders (intern): fallback naar users zonder company_id.
             */
-            $teamMembers = User::whereNull('company_id')
+            $teamMembersQuery = User::query();
+
+            if (!empty($user->company_id)) {
+                $teamMembersQuery->where('company_id', $user->company_id);
+            } else {
+                $teamMembersQuery->whereNull('company_id');
+            }
+
+            $teamMembers = $teamMembersQuery
                 ->orderBy('name')
                 ->get()
                 ->map(function (User $member) use ($now) {
@@ -178,7 +188,6 @@ Route::prefix('app')->group(function () {
                     $statusText = 'Nog geen sessies';
 
                     if ($lastSession) {
-                        // Online als er nog geen clock_out_at is
                         $isOnline = is_null($lastSession->clock_out_at);
 
                         if ($isOnline) {
@@ -196,9 +205,25 @@ Route::prefix('app')->group(function () {
                         }
                     }
 
-                    // Avatar: voornaam.webp in /assets/eazyonline/memojis/
-                    $firstName = strtolower(explode(' ', trim($member->name))[0] ?? '');
-                    $avatar    = "/assets/eazyonline/memojis/{$firstName}.webp";
+                    // Avatar via DB (met fallback)
+                    $avatar = trim((string) $member->avatar_url);
+
+                    if ($avatar === '') {
+                        $avatar = '/assets/eazyonline/memojis/default.webp';
+                    } else {
+                        // Als het een relatief pad is, forceer een leading slash
+                        if (!preg_match('~^https?://~i', $avatar) && ($avatar[0] ?? '') !== '/') {
+                            $avatar = '/' . $avatar;
+                        }
+
+                        // Optioneel: als het een lokaal pad is en het bestand bestaat niet → fallback
+                        if (!preg_match('~^https?://~i', $avatar)) {
+                            $rel = ltrim($avatar, '/');
+                            if (!file_exists(public_path($rel))) {
+                                $avatar = '/assets/eazyonline/memojis/default.webp';
+                            }
+                        }
+                    }
 
                     return (object) [
                         'id'          => $member->id,
@@ -375,6 +400,7 @@ Route::prefix('app')->group(function () {
 
         // Potentiële klanten
         Route::prefix('potentiele-klanten')
+            ->middleware('company_id:1')
             ->name('support.potentiele-klanten.')
             ->controller(PotentieleKlantenController::class)
             ->group(function () {
@@ -393,6 +419,7 @@ Route::prefix('app')->group(function () {
 
         // Projecten
         Route::prefix('projecten')
+            ->middleware('company_id:1')
             ->name('support.projecten.')
             ->controller(ProjectenController::class)
             ->group(function () {
@@ -408,6 +435,7 @@ Route::prefix('app')->group(function () {
         });
 
         Route::prefix('seo')
+            ->middleware('company_id:1')
             ->name('support.seo.')
             ->controller(SeoProjectController::class)
             ->group(function () {
