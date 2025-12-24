@@ -11,79 +11,108 @@ class SeoAudit extends Model
 {
     use HasFactory;
 
-    /**
-     * We houden dit expres open ($guarded = []) zodat we flexibel blijven
-     * terwijl we de definitieve kolommen + migratie nog uitwerken.
-     *
-     * In de migratie (volgende stap) kun je denken aan kolommen als:
-     * - seo_project_id
-     * - source (bv. 'seranking', 'mcp', 'manual')
-     * - status (bv. 'pending', 'running', 'completed', 'failed')
-     * - score_overall, score_technical, score_content, score_authority
-     * - started_at, finished_at
-     * - raw_summary (korte samenvatting voor UI)
-     * - raw_data (volledige ruwe payload)
-     */
     protected $guarded = [];
 
     protected $casts = [
-        'started_at'   => 'datetime',
-        'finished_at'  => 'datetime',
-        'raw_summary'  => 'array',
-        'raw_data'     => 'array',
-        'score_overall'    => 'integer',
-        'score_technical'  => 'integer',
-        'score_content'    => 'integer',
-        'score_authority'  => 'integer',
+        'started_at'  => 'datetime',
+        'finished_at' => 'datetime',
+
+        'raw_summary' => 'array',
+        'raw_data'    => 'array',
+        'meta'        => 'array',
+
+        'score_overall'   => 'integer',
+        'score_technical' => 'integer',
+        'score_content'   => 'integer',
+        'score_authority' => 'integer',
+
+        'remote_audit_id' => 'integer',
     ];
 
-    /**
-     * Het SEO project waar deze audit bij hoort.
-     */
     public function project(): BelongsTo
     {
         return $this->belongsTo(SeoProject::class, 'seo_project_id');
     }
 
-    /**
-     * Alle gevonden issues / resultaten binnen deze audit.
-     * Dit sluit aan op jouw bestaande SeoAuditResult model.
-     */
     public function results(): HasMany
     {
         return $this->hasMany(SeoAuditResult::class, 'seo_audit_id');
     }
 
-    /**
-     * Eventuele SEO taken die voortkomen uit deze audit.
-     * (SeoTask maken we later, net als bij SeoProject.)
-     */
     public function tasks(): HasMany
     {
         return $this->hasMany(SeoTask::class, 'seo_audit_id');
     }
 
     /**
-     * Helper: is deze audit al klaar?
+     * Compat: sommige services/job gebruiken overall_score, domain en company.
+     * We mappen dat naar jouw echte structuur.
      */
+    public function getOverallScoreAttribute(): ?int
+    {
+        return $this->score_overall;
+    }
+
+    public function getDomainAttribute(): ?string
+    {
+        return $this->project?->domain;
+    }
+
+    public function getCompanyAttribute()
+    {
+        return $this->project?->company;
+    }
+
+    public function isPending(): bool
+    {
+        return ($this->status ?? 'pending') === 'pending';
+    }
+
     public function isCompleted(): bool
     {
-        return $this->status === 'completed';
+        return ($this->status ?? '') === 'completed';
     }
 
-    /**
-     * Helper: is deze audit mislukt?
-     */
     public function isFailed(): bool
     {
-        return $this->status === 'failed';
+        return ($this->status ?? '') === 'failed';
     }
 
-    /**
-     * Helper: is deze audit nu nog bezig?
-     */
     public function isRunning(): bool
     {
-        return $this->status === 'running';
+        return ($this->status ?? '') === 'running';
+    }
+
+    public function markRunning(): void
+    {
+        $this->status = 'running';
+        $this->started_at = $this->started_at ?? now();
+        $this->save();
+    }
+
+    public function markFailed(?string $reason = null): void
+    {
+        $this->status = 'failed';
+        $this->finished_at = now();
+
+        $meta = $this->meta ?? [];
+        if ($reason) {
+            $meta['error'] = $reason;
+        }
+        $this->meta = $meta;
+
+        $this->save();
+    }
+
+    public function markCompleted(?int $overallScore = null): void
+    {
+        $this->status = 'completed';
+        $this->finished_at = now();
+
+        if (!is_null($overallScore)) {
+            $this->score_overall = (int) $overallScore;
+        }
+
+        $this->save();
     }
 }

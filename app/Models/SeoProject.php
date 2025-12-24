@@ -101,4 +101,15 @@ class SeoProject extends Model
     {
         return $this->hasMany(SeoKeywordSnapshot::class);
     }
+
+    public function keywords(): HasMany
+    {
+        return $this->hasMany(SeoKeyword::class);
+    }
+
+    public function pages(): HasMany
+    {
+        return $this->hasMany(SeoPage::class);
+    }
+
 }
