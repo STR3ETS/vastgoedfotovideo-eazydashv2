@@ -410,7 +410,7 @@
     <div class="relative w-[900px] max-w-[95vw] bg-white rounded-4xl border border-[#215558]/20 overflow-hidden">
       <div class="flex items-center justify-between p-8">
         <h3 class="text-lg font-black text-[#215558]">
-          Plan een intakegesprek in voor {{ $aanvraag->company }}
+          Plan een intakegesprek in
         </h3>
         <button class="w-8 h-8 rounded-full bg-[#215558]/10 hover:bg-[#215558]/20 transition duration-300 flex items-center justify-center cursor-pointer"
                 @click="close()">
