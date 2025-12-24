@@ -14,6 +14,8 @@ class ProjectTask extends Model
         'type',
         'title',
         'description',
+        'status',
+        'order',
         'due_at',
         'completed_at',
     ];

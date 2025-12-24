@@ -261,6 +261,119 @@
                   </li>
               </ul>
             @endif
+
+@php
+  /** @var array $statusMap label => value */
+  $statusMap = $statusMap ?? [
+    'Prospect' => 'prospect',
+    'Contact'  => 'contact',
+    'Intake'   => 'intake',
+    'Dead'     => 'dead',
+    'Lead'     => 'lead',
+  ];
+
+  $colors = $colors ?? [
+    'prospect' => [
+      'bg'    => 'bg-[#b3e6ff]',
+      'border'=> 'border-[#92cbe8]',
+      'text'  => 'text-[#0f6199]',
+      'dot'   => 'bg-[#0f6199]',
+    ],
+    'contact' => [
+      'bg'    => 'bg-[#C2F0D5]',
+      'border'=> 'border-[#a1d3b6]',
+      'text'  => 'text-[#20603a]',
+      'dot'   => 'bg-[#20603a]',
+    ],
+    'intake' => [
+      'bg'    => 'bg-[#ffdfb3]',
+      'border'=> 'border-[#e8c392]',
+      'text'  => 'text-[#a0570f]',
+      'dot'   => 'bg-[#a0570f]',
+    ],
+    'dead' => [
+      'bg'    => 'bg-[#ffb3b3]',
+      'border'=> 'border-[#e09494]',
+      'text'  => 'text-[#8a2a2d]',
+      'dot'   => 'bg-[#8a2a2d]',
+    ],
+    'lead' => [
+      'bg'    => 'bg-[#e0d4ff]',
+      'border'=> 'border-[#c3b4f0]',
+      'text'  => 'text-[#4c2a9b]',
+      'dot'   => 'bg-[#4c2a9b]',
+    ],
+  ];
+
+  $sidebarAanvragen = \App\Models\AanvraagWebsite::query()
+    ->select('id', 'company', 'status')
+    ->orderByDesc('created_at')
+    ->limit(10)
+    ->get();
+
+  $routeAanvraag = request()->route('aanvraag');
+  $activeAanvraagId = is_object($routeAanvraag)
+    ? (int) $routeAanvraag->id
+    : (is_numeric($routeAanvraag) ? (int) $routeAanvraag : null);
+@endphp
+@if (request()->is('app/potentiele-klanten*'))
+  <ul>
+    <li class="grid gap-1" x-data="{ openPotentieleKlanten: true }">
+      <!-- Rij: Potentiele Klanten + plusje -->
+      <div class="flex items-center justify-between gap-2">
+        <a href="{{ url('/app/potentiele-klanten') }}"
+          class="text-[#215558] font-semibold text-sm hover:text-[#0F9B9F] transition duration-300">
+          Website Aanvragen
+        </a>
+        <button
+          type="button"
+          class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+          @click="openPotentieleKlanten = !openPotentieleKlanten"
+          :aria-expanded="openPotentieleKlanten.toString()"
+        >
+          <i
+            class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+            :class="openPotentieleKlanten ? 'rotate-45 text-[#0F9B9F]' : ''"
+          ></i>
+        </button>
+      </div>
+      <!-- Uitklap: Aanvragen -->
+      <div x-show="openPotentieleKlanten" x-transition>
+        <div class="border-l-2 border-l-[#215558]/25 py-2 grid gap-2">
+          @forelse($sidebarAanvragen as $aanvraag)
+            @php
+              $status = strtolower(trim($aanvraag->status ?? 'prospect'));
+              $c = $colors[$status] ?? $colors['prospect'];
+            @endphp
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2 min-w-0">
+                <hr class="w-[10px] border-1 border-[#215558]/25 shrink-0">
+                  @php $isActive = ($activeAanvraagId && (int)$aanvraag->id === (int)$activeAanvraagId); @endphp
+                  <a
+                    href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
+                    data-potkl-open="{{ $aanvraag->id }}"
+                    class="{{ $isActive ? 'text-[#0F9B9F]' : 'text-[#215558]' }} font-semibold text-sm hover:text-[#0F9B9F] transition duration-300 truncate"
+                  >
+                    {{ $aanvraag->company }}
+                  </a>
+                </a>
+              </div>
+              <span class="shrink-0 inline-flex items-center gap-1.5 px-2 py-[2px] rounded-full text-[10px] font-semibold {{ $c['bg'] }} {{ $c['text'] }}">
+                {{ __('potentiele_klanten.statuses.' . $status) }}
+              </span>
+            </div>
+          @empty
+            <div class="flex items-center gap-2">
+              <hr class="w-[10px] border-1 border-[#215558]/25">
+              <span class="text-[#215558]/60 text-sm">Geen aanvragen</span>
+            </div>
+          @endforelse
+        </div>
+      </div>
+    </li>
+  </ul>
+@endif
+
             @if (request()->is('app/marketing*'))
               <ul class="grid gap-2" x-data="{ openMailing: true }">
                   <li class="flex items-center justify-between gap-2">
@@ -418,6 +531,87 @@
           <input type="text" placeholder="Zoeken in mijn systeem..." class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#215558] font-medium outline-none">
         </div>
 
+        {{-- 🔔 Notifications bell --}}
+        <div
+          class="relative"
+          x-data='notifBell({
+            csrf: @json(csrf_token()),
+            indexUrl: @json(route("app.notifications.index")),
+            readUrlBase: @json(url("/app/notifications")),
+            readAllUrl: @json(route("app.notifications.readAll")),
+          })'
+          x-init="init()"
+        >
+          <button
+            type="button"
+            class="w-9 h-9 cursor-pointer border border-gray-200 bg-white rounded-full flex items-center justify-center group transition duration-300 relative"
+            @click="toggle()"
+            aria-label="Notifications"
+          >
+            <i class="fa-regular fa-bell text-[#215558] transition duration-200 text-base"></i>
+
+            <template x-if="unreadCount > 0">
+              <span
+                class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#0F9B9F] text-white text-[10px] font-black flex items-center justify-center"
+                x-text="unreadCount"
+              ></span>
+            </template>
+          </button>
+          <div
+            x-show="open"
+            x-cloak
+            @click.outside="open = false"
+            class="min-w-[340px] max-w-[420px] px-1 py-2 rounded-xl bg-white border border-gray-200 shadow-md absolute right-0 top-10 z-50
+                  transition-all duration-200"
+          >
+            <div class="flex items-center justify-between px-3 pt-1 mb-1">
+              <p class="text-base text-[#215558] font-bold">Meldingen</p>
+              <button
+                type="button"
+                class="text-[11px] font-bold text-[#215558]/60 hover:text-[#215558] transition duration-300"
+                @click="readAll()"
+                x-show="unreadCount > 0"
+              >
+                Alles markeren als gelezen
+              </button>
+            </div>
+            <div
+              class="px-3 pb-2 pt-0 mt-3 max-h-[320px] overflow-auto
+                    [&>a+a]:border-t [&>a+a]:border-[#215558]/20
+                    [&>a+a]:pt-3
+                    [&>a:not(:last-of-type)]:pb-3"
+            >
+              <template x-if="items.length === 0">
+                <p class="text-sm font-semibold text-[#215558]/60 py-3">Geen meldingen.</p>
+              </template>
+              <template x-for="n in items" :key="n.id">
+                <a
+                  class="block transition"
+                  :href="n.data.url"
+                  @click.prevent="openNotification(n)"
+                >
+                  <!-- ✅ padding zit hierbinnen (dus geen “top spacing” boven de eerste item) -->
+                  <div>
+                    <div class="flex items-start justify-between gap-3 relative">
+                      <div class="flex-1">
+                        <p class="text-xs font-bold text-[#215558] truncate mb-1" x-text="n.data.title"></p>
+                        <p class="text-xs font-medium text-[#215558] leading-[20px] opacity-75" x-text="n.data.body"></p>
+                        <p class="text-[11px] font-semibold opacity-50 text-[#215558] mt-1">
+                          <span x-text="n.created_at"></span>
+                        </p>
+                      </div>
+
+                      <template x-if="!n.read_at">
+                        <span class="absolute top-1/2 -translate-y-1/2 right-0 w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
+                      </template>
+                    </div>
+                  </div>
+                </a>
+              </template>
+            </div>
+          </div>
+        </div>
+
         <!-- Avatar dropdown (with hover bridge) -->
         <div class="relative inline-block group">
           <div class="min-w-9 min-h-9 rounded-full bg-white border border-gray-200 transition duration-300 cursor-pointer flex items-center justify-center"
@@ -551,7 +745,6 @@
       </script>
     @endif
 
-
     {{-- Globale i18n helper: werkt alle [data-i18n] bij, en ook attributes via data-i18n-attr --}}
     <script>
       window.applyI18n = function(dict) {
@@ -576,6 +769,63 @@
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         if (token) e.detail.headers['X-CSRF-TOKEN'] = token;
       });
+    </script>
+
+    <script>
+      document.addEventListener('click', function (e) {
+        const a = e.target.closest('a[data-potkl-open]');
+        if (!a) return;
+
+        // Alleen soft navigeren als we echt op de potentiële klanten pagina zijn
+        if (!document.querySelector('[data-potkl-page]')) return;
+
+        // normale browser acties blijven werken
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+
+        e.preventDefault();
+
+        window.dispatchEvent(new CustomEvent('potkl-open-aanvraag', {
+          detail: {
+            id: a.getAttribute('data-potkl-open'),
+            href: a.href
+          }
+        }));
+      });
+    </script>
+
+    <script>
+      (function () {
+        function currentIdFromUrl() {
+          const m = window.location.pathname.match(/potentiele-klanten\/(\d+)/);
+          return m && m[1] ? m[1] : null;
+        }
+
+        function setActiveInSidebar(id) {
+          document.querySelectorAll('a[data-potkl-open]').forEach((a) => {
+            const isActive = String(a.getAttribute('data-potkl-open')) === String(id);
+            a.classList.toggle('text-[#0F9B9F]', isActive);
+            a.classList.toggle('text-[#215558]', !isActive);
+          });
+        }
+
+        function sync() {
+          const id = currentIdFromUrl();
+          if (id) setActiveInSidebar(id);
+        }
+
+        const _pushState = history.pushState;
+        history.pushState = function () {
+          _pushState.apply(history, arguments);
+          sync();
+        };
+
+        window.addEventListener('popstate', sync);
+        window.addEventListener('DOMContentLoaded', sync);
+
+        window.addEventListener('potkl-open-aanvraag', (e) => {
+          if (e.detail && e.detail.id) setActiveInSidebar(e.detail.id);
+        });
+      })();
     </script>
   </body>
 </html>

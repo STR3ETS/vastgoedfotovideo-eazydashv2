@@ -14,6 +14,12 @@
           'text'  => 'text-[#0f6199]',
           'dot'   => 'bg-[#0f6199]',
       ],
+      'preview_approved' => [
+        'bg'    => 'bg-[#C2F0D5]',
+        'border'=> 'border-[#a1d3b6]',
+        'text'  => 'text-[#20603a]',
+        'dot'   => 'bg-[#20603a]',
+      ],
       'offerte' => [
           'bg'    => 'bg-[#ffdfb3]',
           'border'=> 'border-[#e8c392]',
@@ -23,46 +29,48 @@
   ];
 @endphp
 
-<div class="mt-3 space-y-2">
-  @foreach($statusMap as $status)
-    @php
-      $value = $status['value'];
-      $label = $status['label'];
+<div class="flex flex-wrap items-center justify-between p-2 rounded-full bg-[#f3f8f8]">
+  <ul class="flex items-center gap-2 w-full">
+    @foreach($statusMap as $status)
+      @php
+        $value = $status['value'];
+        $label = $status['label'];
 
-      $c = $colors[$value] ?? [
-          'bg'    => 'bg-gray-50',
-          'border'=> 'border-gray-200',
-          'text'  => 'text-[#215558]',
-          'dot'   => 'bg-[#215558]',
-      ];
+        $c = $colors[$value] ?? [
+            'bg'    => 'bg-gray-50',
+            'border'=> 'border-gray-200',
+            'text'  => 'text-[#215558]',
+            'dot'   => 'bg-[#215558]',
+        ];
 
-      $count = $statusCounts[$value] ?? 0;
-    @endphp
+        $count = $statusCounts[$value] ?? 0;
+      @endphp
 
-    <div class="flex items-center justify-between gap-2 p-4 text-xs font-semibold rounded-xl border
-                cursor-grab active:cursor-grabbing select-none
-                {{ $c['bg'] }} {{ $c['border'] }} {{ $c['text'] }}"
-         draggable="true"
-         x-on:dragstart="onStatusDragStart('{{ $value }}', '{{ $label }}', $el, $event)"
-         x-on:dragend="onStatusDragEnd($el)">
+      <li class="w-1/4">
+        <div class="w-full flex items-center justify-between py-2 px-3 rounded-full text-xs font-semibold border
+                    cursor-grab active:cursor-grabbing select-none
+                    {{ $c['bg'] }} {{ $c['border'] }} {{ $c['text'] }}"
+             draggable="true"
+             x-on:dragstart="onStatusDragStart('{{ $value }}', '{{ $label }}', $el, $event)"
+             x-on:dragend="onStatusDragEnd($el)">
 
-      <div class="flex flex-col">
-        <span class="text-sm font-semibold">
-          {{ $label }}
-        </span>
+          <div class="w-full flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold">
+              {{ $label }}
+            </span>
 
-        <span class="text-xs opacity-80 mt-1"
-              x-text="formatStatusCount('{{ $value }}')">
-          {{ __(
-            $count === 1
-              ? 'projecten.status_counts.singular'
-              : 'projecten.status_counts.plural',
-            ['count' => $count]
-          ) }}
-        </span>
-      </div>
-
-      <div class="w-1.5 h-1.5 rounded-full {{ $c['dot'] }}"></div>
-    </div>
-  @endforeach
+            <span class="text-[11px] opacity-80"
+                  x-text="formatStatusCount('{{ $value }}')">
+              {{ __(
+                $count === 1
+                  ? 'projecten.status_counts.singular'
+                  : 'projecten.status_counts.plural',
+                ['count' => $count]
+              ) }}
+            </span>
+          </div>
+        </div>
+      </li>
+    @endforeach
+  </ul>
 </div>

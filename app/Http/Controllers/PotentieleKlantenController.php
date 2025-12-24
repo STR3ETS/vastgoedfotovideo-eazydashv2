@@ -31,6 +31,7 @@ class PotentieleKlantenController extends Controller
                 'callLogs' => fn ($q) => $q->latest()->with('user'),
                 'statusLogs' => fn ($q) => $q->latest()->with('user'),
                 'files',
+                'comments' => fn ($q) => $q->latest()->with('user')->take(25),
             ])
             ->select(
                 'id',
@@ -83,6 +84,69 @@ class PotentieleKlantenController extends Controller
         ));
     }
 
+    public function show(AanvraagWebsite $aanvraag)
+    {
+        // we gebruiken dezelfde dataset als index, maar zetten selectedAanvraagId
+        $user = auth()->user();
+
+        $aanvragen = AanvraagWebsite::with([
+                'owner',
+                'tasks.questions',
+                'callLogs' => fn ($q) => $q->latest()->with('user'),
+                'statusLogs' => fn ($q) => $q->latest()->with('user'),
+                'files',
+                'comments' => fn ($q) => $q->latest()->with('user')->take(25),
+            ])
+            ->select(
+                'id',
+                'owner_id',
+                'choice',
+                'company',
+                'contactName',
+                'contactEmail',
+                'contactPhone',
+                'created_at',
+                'status',
+                'intake_at',
+                'intake_duration',
+                'intake_done',
+                'intake_completed_at',
+                'ai_summary'
+            )
+            ->latest()
+            ->paginate(12);
+
+        $allowedStatusVals = array_values($this->statusMap);
+
+        $statusMap = [];
+        $statusByValue = [];
+
+        foreach ($allowedStatusVals as $value) {
+            $label = __('potentiele_klanten.statuses.' . $value);
+            $statusMap[$label]     = $value;
+            $statusByValue[$value] = $label;
+        }
+
+        $statusLabels = array_keys($statusMap);
+
+        $statusCounts = AanvraagWebsite::selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $selectedAanvraagId = $aanvraag->id;
+
+        return view('hub.potentiele-klanten.index', compact(
+            'user',
+            'aanvragen',
+            'statusMap',
+            'statusByValue',
+            'statusLabels',
+            'allowedStatusVals',
+            'statusCounts',
+            'selectedAanvraagId'
+        ));
+    }
+
     public function updateStatus(Request $request, AanvraagWebsite $aanvraag)
     {
         $allowed = array_values($this->statusMap);
@@ -96,6 +160,13 @@ class PotentieleKlantenController extends Controller
 
         $oldStatus = $aanvraag->status;
         $newStatus = $data['status'];
+
+        if ($newStatus === 'contact' && $oldStatus === 'prospect' && empty($aanvraag->owner_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mislukt! Koppel eerst een medewerker aan de aanvraag om te starten.',
+            ], 422);
+        }
 
         // 🚫 Intake alleen toegestaan vanaf 'contact'
         if ($newStatus === 'intake' && $oldStatus !== 'contact') {
@@ -139,8 +210,8 @@ class PotentieleKlantenController extends Controller
         $aanvraag->save();
 
         if ($newStatus === 'lead') {
-            $aanvraag->project()->firstOrCreate(
-                [], // geen extra voorwaarden, alleen aanvraag_id uit de relatie
+            $project = $aanvraag->project()->firstOrCreate(
+                [],
                 [
                     'status'        => 'preview',
                     'company'       => $aanvraag->company,
@@ -149,6 +220,27 @@ class PotentieleKlantenController extends Controller
                     'contact_phone' => $aanvraag->contactPhone,
                 ]
             );
+
+            // ✅ Project taken aanmaken (project_tasks)
+            $project->tasks()->firstOrCreate(
+                ['type' => 'create_preview'],
+                [
+                    'title'  => 'Preview maken & preview-url opgeven',
+                    'status' => 'open',
+                    'order'  => 10,
+                ]
+            );
+
+            // ✅ intake summary opslaan (alleen als nog leeg)
+            if (blank($project->intake_ai_summary)) {
+                $summary = app(\App\Services\IntakeSummaryGenerator::class)->generate($aanvraag);
+
+                if (!blank($summary)) {
+                    $project->intake_ai_summary = $summary;
+                    $project->intake_ai_summary_generated_at = now();
+                    $project->save();
+                }
+            }
         }
 
         // value => label op basis van vertalingen

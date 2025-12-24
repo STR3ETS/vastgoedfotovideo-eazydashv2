@@ -25,7 +25,9 @@
           ];
       })->all();
   @endphp
-  <div class="col-span-5 grid grid-cols-4 w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0 overflow-hidden"
+  <div
+      data-potkl-page
+      class="col-span-5 grid grid-cols-4 w-full p-8 bg-white border border-gray-200 rounded-4xl h-full min-h-0 overflow-hidden"
       x-data="statusDnD({
           csrf: '{{ csrf_token() }}',
           updateUrlTemplate: '{{ route('support.potentiele-klanten.status.update', ['aanvraag' => '__ID__']) }}',
@@ -130,7 +132,24 @@
           @php
               $aanvragenCollection = $aanvragen ?? collect();
 
-              $firstAanvraagId = $aanvragenCollection->first()->id ?? null;
+              // ✅ ID uit de route: /potentiele-klanten/{aanvraag}
+              $routeAanvraagId = null;
+
+              // Meestal heb je $aanvraag vanuit de controller (Route Model Binding)
+              if (isset($aanvraag) && is_object($aanvraag) && isset($aanvraag->id)) {
+                  $routeAanvraagId = (int) $aanvraag->id;
+              } else {
+                  // Fallback (voor de zekerheid)
+                  $routeParam = request()->route('aanvraag');
+                  $routeAanvraagId = is_object($routeParam)
+                      ? (int) $routeParam->id
+                      : (is_numeric($routeParam) ? (int) $routeParam : null);
+              }
+
+              // ✅ Alleen actief als je echt op /{aanvraag} zit
+              $initialActiveId = ($routeAanvraagId && $aanvragenCollection->contains('id', $routeAanvraagId))
+                  ? $routeAanvraagId
+                  : null;
 
               $choiceMap = [
                   'new'   => __('potentiele_klanten.choices.new'),
@@ -139,8 +158,27 @@
           @endphp
 
           <div
-              class="mt-6 grid grid-cols-4 gap-6 flex-1 min-h-0"
-              x-data="{ activeId: @js($firstAanvraagId) }"
+            class="mt-6 grid grid-cols-4 gap-6 flex-1 min-h-0"
+            x-data='{
+              activeId: @js($initialActiveId),
+              selectAanvraag(id, href) {
+                this.activeId = Number(id);
+
+                if (href) {
+                  history.pushState({ aanvraagId: this.activeId }, "", href);
+                }
+
+                const row = this.$el.querySelector(`[data-card-row-id="${this.activeId}"]`);
+                if (row) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              }
+            }'
+            x-on:potkl-open-aanvraag.window='selectAanvraag($event.detail.id, $event.detail.href)'
+            x-init='
+              window.addEventListener("popstate", () => {
+                const m = window.location.pathname.match(/potentiele-klanten\/(\d+)/);
+                activeId = (m && m[1]) ? Number(m[1]) : null;
+              });
+            '
           >
               {{-- ===================== LEFT LIST ===================== --}}
               <div class="space-y-2 bg-[#f3f8f8] rounded-4xl p-8 h-full min-h-0 overflow-y-auto">
@@ -152,6 +190,8 @@
                       <button
                           type="button"
                           data-card-id="{{ $aanvraag->id }}"
+                          data-card-row-id="{{ $aanvraag->id }}"
+                          data-href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
                           data-status="{{ $rowStatus }}"
                           @dragover.prevent="onCardDragOver($event)"
                           @dragleave="onCardDragLeave($event)"
@@ -161,7 +201,7 @@
                           :class="activeId === {{ $aanvraag->id }}
                               ? 'bg-white border-l-[#0F9B9F]'
                               : 'bg-white border-l-[#215558]/20 hover:bg-gray-50'"
-                          @click="activeId = {{ $aanvraag->id }}"
+                          @click='selectAanvraag({{ $aanvraag->id }}, $el.dataset.href)'
                       >
                           <div class="flex items-start justify-between gap-4">
                               <div class="w-full flex items-center justify-between">
@@ -237,6 +277,12 @@
               {{-- ===================== RIGHT DETAIL ===================== --}}
               <div class="col-span-3 min-h-0 bg-[#f3f8f8] rounded-4xl overflow-hidden flex flex-col">
                   <div class="p-8 flex-1 min-h-0 overflow-y-auto">
+                      <div x-show="!activeId" x-cloak class="flex items-center gap-4">
+                        <span class="text-4xl">👈</span>
+                        <p class="text-base font-bold text-[#215558]/80 mt-1">
+                          Selecteer een potentiële klant om te beginnen.
+                        </p>
+                      </div>
                       @forelse($aanvragenCollection as $aanvraag)
                           <div
                               x-show="activeId === {{ $aanvraag->id }}"
@@ -323,9 +369,10 @@
 
   <!-- ✅ Intake planner overlay -->
   <div x-data="intakePlanner({
-          csrf: '{{ csrf_token() }}',
-          availabilityUrlTemplate: '{{ url('/app/support/intake/availability?date=__DATE__') }}',
-        })"
+    csrf: '{{ csrf_token() }}',
+    availabilityUrlTemplate: '{{ url('/app/support/intake/availability?date=__DATE__') }}',
+    assigneesById: @js($assigneesById),
+  })"
       x-init="init()"
       x-show="open"
       x-transition.opacity
@@ -336,12 +383,12 @@
     <div class="absolute inset-0 bg-black/40" @click="close()"></div>
 
     <!-- Modal -->
-    <div class="relative w-[900px] max-w-[95vw] bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-      <div class="flex items-center justify-between px-5 py-4">
+    <div class="relative w-[900px] max-w-[95vw] bg-white rounded-4xl border border-[#215558]/20 overflow-hidden">
+      <div class="flex items-center justify-between p-8">
         <h3 class="text-lg font-black text-[#215558]">
-          {{ __('potentiele_klanten.intake_modal.title') }}
+          Plan een intakegesprek in voor {{ $aanvraag->company }}
         </h3>
-        <button class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer"
+        <button class="w-8 h-8 rounded-full bg-[#215558]/10 hover:bg-[#215558]/20 transition duration-300 flex items-center justify-center cursor-pointer"
                 @click="close()">
           <i class="fa-solid fa-xmark text-[#215558]"></i>
         </button>
@@ -349,27 +396,48 @@
 
       <hr class="border-gray-200">
 
-      <div class="p-5 grid grid-cols-3 gap-4">
+      <div class="p-8 grid grid-cols-3 gap-8">
+        <div class="col-span-3 p-4 rounded-3xl bg-[#f3f8f8]">
+          <span class="w-fit px-2.5 py-0.5 mb-2 font-semibold text-purple-700 bg-purple-200 text-[11px] flex items-center gap-2 rounded-full">
+            <i class="fa-solid fa-sparkle fa-xs"></i>
+            Samenvatting door AI
+          </span>
+          <div class="mt-3" x-show="summaryLoading">
+            <p class="text-xs font-semibold text-[#215558]/70">
+              <i class="fa-solid fa-spinner fa-spin mr-1"></i> Beschikbaarheid ophalen…
+            </p>
+          </div>
+          <div class="space-y-2" x-show="!summaryLoading">
+            <p class="text-xs font-semibold text-[#215558]/80 leading-relaxed" x-text="summaryText"></p>
+            <div class="mt-2" x-show="dayTimes.length">
+              <div class="grid grid-cols-8 gap-1">
+                <template x-for="t in dayTimes" :key="t">
+                  <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white text-center border border-[#215558]/15 text-[#215558]"
+                        x-text="t"></span>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
         <!-- Linker kolom: datum -->
-        <div class="grid h-fit gap-3">
+        <div class="grid h-fit">
           <div>
-            <label class="block text-xs text-[#215558] opacity-70 mb-1">
-              {{ __('potentiele_klanten.intake_modal.date_label') }}
+            <label class="text-[11px] font-semibold opacity-50 text-[#215558]">
+              Wanneer
             </label>
             <input type="date"
                 x-model="date"
+                :min="today"
                 @change="loadDay()"
                 class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-[#215558] outline-none focus:border-[#3b8b8f] transition" />
           </div>
           <div>
-            <label class="block text-xs text-[#215558] opacity-70 mb-1">
-              {{ __('potentiele_klanten.intake_modal.duration_label') }}
+            <label class="text-[11px] font-semibold opacity-50 text-[#215558]">
+              Hoelang
             </label>
             <select x-model.number="durationMinutes"
                     @change="rebuildSlots()"
                     class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-[#215558] outline-none focus:border-[#3b8b8f] transition">
-              <option value="30">{{ __('potentiele_klanten.intake_modal.duration_30') }}</option>
-              <option value="45">{{ __('potentiele_klanten.intake_modal.duration_45') }}</option>
               <option value="60">{{ __('potentiele_klanten.intake_modal.duration_60') }}</option>
             </select>
           </div>
@@ -378,7 +446,7 @@
         <!-- Rechter kolommen: mini agenda -->
         <div class="col-span-2">
           <div class="flex items-center justify-between mb-1">
-            <p class="block text-xs text-[#215558] opacity-70">
+            <p class="text-[11px] font-semibold opacity-50 text-[#215558]">
               <span x-text="prettyDate(date)"></span>
             </p>
           </div>
@@ -386,17 +454,17 @@
           <div class="grid grid-cols-3 gap-2 max-h-[340px] overflow-y-auto pr-1">
             <template x-for="slot in slots" :key="slot.startLocal">
               <button type="button"
-                class="text-sm px-3 py-2 rounded-xl border transition cursor-pointer text-left"
+                class="text-sm p-4 rounded-xl transition cursor-pointer text-left"
                 :class="{
                   // FREE (groen) alleen als niet-picked
-                  'bg-emerald-50 border-emerald-200 text-[#215558]': slot.state === 'free' && (!picked || picked.startLocal !== slot.startLocal),
-                  'hover:bg-emerald-100':                               slot.state === 'free' && (!picked || picked.startLocal !== slot.startLocal),
+                  'bg-emerald-100 text-[#215558]': slot.state === 'free' && (!picked || picked.startLocal !== slot.startLocal),
+                  'hover:bg-emerald-200':                               slot.state === 'free' && (!picked || picked.startLocal !== slot.startLocal),
 
                   // BUSY (rood)
-                  'bg-red-50 border-red-200 text-red-700 opacity-60 cursor-not-allowed': slot.state === 'busy',
+                  'bg-red-100 text-red-700 opacity-60 cursor-not-allowed': slot.state === 'busy',
 
                   // PICKED (cyan)
-                  'bg-cyan-100 border-cyan-300 text-cyan-700': picked && picked.startLocal === slot.startLocal,
+                  'bg-cyan-100 text-cyan-700': picked && picked.startLocal === slot.startLocal,
                 }"
                 :disabled="slot.state !== 'free'"
                 @click="pickSlot(slot)">
@@ -406,13 +474,13 @@
             </template>
           </div>
 
-          <div class="mt-4 flex items-center justify-end gap-2">
+          <div class="mt-6 flex items-center justify-end gap-2">
             <button type="button"
-                    class="px-4 py-2 rounded-full border border-gray-200 text-sm font-semibold text-[#215558] hover:bg-gray-50 cursor-pointer"
+                    class="w-fit px-3 py-2 cursor-pointer text-gray-700 font-semibold text-sm bg-gray-100 hover:bg-gray-200 transition duration-300 w-full rounded-full text-center"
                     @click="close()">{{ __('potentiele_klanten.intake_modal.cancel') }}</button>
 
             <button type="button"
-                    class="px-5 py-2 rounded-full text-sm font-semibold text-white bg-[#0F9B9F] hover:bg-[#215558] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    class="w-fit px-3 py-2 cursor-pointer text-white font-semibold text-sm bg-[#0F9B9F] hover:bg-[#215558] transition duration-300 w-full rounded-full text-center disabled:opacity-50 disabled:cursor-not-allowed"
                     :disabled="!picked || loading"
                     @click="confirm()">
               <span x-show="!loading">
@@ -622,6 +690,17 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
       if (dragging === 'lead') {
         // ⬅️ Alleen droppable als intake_done = 1
         return intakeDone === true;
+      }
+
+      if (dragging === 'contact') {
+        const ownerId = (card?.dataset?.ownerId || '').trim();
+
+        // Alleen blokkeren voor Prospect -> Contact zonder owner
+        if (String(status).toLowerCase() === 'prospect' && !ownerId) {
+          return false;
+        }
+
+        return true;
       }
 
       return true; // overige statussen vrij
@@ -841,7 +920,7 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
       this.draggingLabel = label;
 
       // 🎯 Toon hints
-      if (['intake','dead','lead'].includes(value)) {
+      if (['intake','dead','lead','contact'].includes(value)) {
         this._applyDragHints();
       }
 
@@ -1070,6 +1149,10 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
           // 🔥 lijst + rechter badge direct in sync
           this._updateOwnerUi(id, newOwnerId);
 
+          window.dispatchEvent(new CustomEvent('potkl-owner-updated', {
+            detail: { id: String(id), ownerId: newOwnerId }
+          }));
+
           showToast('Gelukt! De medewerker is gekoppeld aan de aanvraag.', 'success');
         } catch (err) {
           console.error(err);
@@ -1150,9 +1233,21 @@ function statusDnD({ csrf, updateUrlTemplate, labelsByValue, statusCounts, statu
 
       // ✅ Intercept: intake -> open overlay en stop
       if (newValue === 'intake') {
+        // Owner achterhalen (eerst van deze card, anders van detail-card)
+        let ownerId = card.dataset.ownerId || null;
+        if (!ownerId) {
+          const detailCard = document.querySelector(
+            `[data-card-id="${id}"][data-owner-id]`
+          );
+          if (detailCard) {
+            ownerId = detailCard.dataset.ownerId || null;
+          }
+        }
+
         window.dispatchEvent(new CustomEvent('open-intake-planner', {
           detail: {
             aanvraagId: id,
+            ownerId,
             cardEl: card,
             oldValue,
             newValue,
@@ -1426,7 +1521,342 @@ function callLog({ csrf, storeUrl, initialCalls }) {
   };
 }
 
-function intakePlanner({ csrf, availabilityUrlTemplate }) {
+function aanvraagComments({ csrf, storeUrl, fetchUrl, initialComments, mentionables = [] }) {
+  return {
+    csrf, storeUrl, fetchUrl,
+
+    comments: Array.isArray(initialComments) ? initialComments : [],
+    threads: [],
+
+    indentPx: 18,
+    loading: false,
+
+    reply: {
+      parentId: null,
+      parentUserName: '',
+    },
+
+    sortMode: 'recent',
+
+    _index: {},
+
+    // editor state (contenteditable -> plain text)
+    body: '',
+    mentionables: mentionables || [],
+
+    mention: {
+      open: false,
+      query: '',
+      index: 0,
+      range: null,
+    },
+
+    pollMs: 4000,
+    _timer: null,
+
+    init() {
+      this._reindexAndRebuild();
+      this.poll(true);
+      this._timer = setInterval(() => this.poll(false), this.pollMs);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') this.poll(true);
+      });
+
+      this.$nextTick(() => {
+        if (this.$refs.editor) this.$refs.editor.innerHTML = '';
+        this._syncBodyFromEditor();
+      });
+    },
+
+    destroy() {
+      if (this._timer) clearInterval(this._timer);
+      this._timer = null;
+    },
+
+    _reindexAndRebuild() {
+      const idx = {};
+      for (const c of (this.comments || [])) idx[String(c.id)] = c;
+      this._index = idx;
+      this._buildThreads();
+    },
+
+    _buildThreads() {
+      const list = Array.isArray(this.comments) ? this.comments.slice() : [];
+      if (!list.length) {
+        this.threads = [];
+        return;
+      }
+
+      const byId = {};
+      for (const c of list) byId[String(c.id)] = c;
+
+      const children = {};
+      const roots = [];
+
+      for (const c of list) {
+        const pid = c.parent_id ? String(c.parent_id) : null;
+
+        if (!pid || !byId[pid]) {
+          roots.push(c);
+        } else {
+          (children[pid] ||= []).push(c);
+        }
+      }
+
+      // sort roots
+      if (this.sortMode === 'oldest') {
+        roots.sort((a, b) => Number(a.id) - Number(b.id));
+      } else {
+        roots.sort((a, b) => Number(b.id) - Number(a.id));
+      }
+
+      // children altijd oldest-first (leest lekker)
+      for (const k of Object.keys(children)) {
+        children[k].sort((a, b) => Number(a.id) - Number(b.id));
+      }
+
+      const threads = [];
+      const walk = (parentId, depth, out) => {
+        const kids = children[String(parentId)] || [];
+        for (const child of kids) {
+          out.push({ comment: child, depth });
+          walk(child.id, depth + 1, out);
+        }
+      };
+
+      for (const r of roots) {
+        const nodes = [];
+        walk(r.id, 1, nodes); // ✅ direct replies hebben depth 1
+        threads.push({ root: r, nodes });
+      }
+
+      this.threads = threads;
+    },
+
+    parentOf(c) {
+      if (!c || !c.parent_id) return null;
+      return this._index[String(c.parent_id)] || null;
+    },
+
+    parentName(c) {
+      const p = this.parentOf(c);
+      return (p && p.user_name) ? p.user_name : 'Onbekend';
+    },
+
+    startReply(c) {
+      this.reply.parentId = Number(c.id);
+      this.reply.parentUserName = c.user_name || 'Onbekend';
+      this.$nextTick(() => this.$refs.editor?.focus());
+    },
+
+    cancelReply() {
+      this.reply.parentId = null;
+      this.reply.parentUserName = '';
+    },
+
+    _escapeHtml(s) {
+      return String(s ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    },
+
+    _escapeRegExp(s) {
+      return String(s ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    },
+
+    renderBody(text) {
+      // plain text -> safe HTML + linebreaks + mention highlight
+      let html = this._escapeHtml(text ?? '').replace(/\n/g, '<br>');
+
+      // highlight @Name (boundary-safe)
+      for (const u of (this.mentionables || [])) {
+        if (!u?.name) continue;
+        const name = String(u.name);
+        const re = new RegExp(`@${this._escapeRegExp(name)}(?![\\p{L}\\p{N}_])`, 'giu');
+        html = html.replace(re, `<span class="text-blue-500 bg-blue-100 rounded-full py-0.5 px-1 text-[12px] font-bold">@${this._escapeHtml(name)}</span>`);
+      }
+      return html;
+    },
+
+    _syncBodyFromEditor() {
+      const editor = this.$refs.editor;
+      this.body = (editor?.innerText ?? '').replace(/\u00A0/g, ' ');
+    },
+
+    onEditorInput() {
+      this._syncBodyFromEditor();
+      this._maybeOpenMention();
+    },
+
+    onEditorCaretChange() {
+      this._maybeOpenMention();
+    },
+
+    _textBeforeCaret() {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return '';
+      const r = sel.getRangeAt(0);
+      if (!this.$refs.editor || !this.$refs.editor.contains(r.endContainer)) return '';
+
+      const pre = r.cloneRange();
+      pre.selectNodeContents(this.$refs.editor);
+      pre.setEnd(r.endContainer, r.endOffset);
+      return pre.toString();
+    },
+
+    _maybeOpenMention() {
+      const before = this._textBeforeCaret();
+      const m = before.match(/@([^\s@]{0,40})$/);
+      if (!m) {
+        this.mention.open = false;
+        this.mention.query = '';
+        this.mention.index = 0;
+        return;
+      }
+
+      this.mention.open = true;
+      this.mention.query = m[1] || '';
+      this.mention.index = 0;
+    },
+
+    mentionResults() {
+      if (!this.mention.open) return [];
+      const q = (this.mention.query || '').toLowerCase().trim();
+      const list = this.mentionables || [];
+      if (!q) return list.slice(0, 8);
+      return list.filter(u => (u.name || '').toLowerCase().includes(q)).slice(0, 8);
+    },
+
+    pickMention(u) {
+      // simpele insert: voeg spatie toe na naam
+      const editor = this.$refs.editor;
+      if (!editor) return;
+
+      const text = editor.innerText.replace(/\u00A0/g, ' ');
+      const newText = text.replace(/@([^\s@]{0,40})$/, `@${u.name} `);
+
+      editor.innerText = newText;
+      this._syncBodyFromEditor();
+
+      this.mention.open = false;
+      this.mention.query = '';
+      this.mention.index = 0;
+
+      // caret naar einde
+      this.$nextTick(() => {
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      });
+    },
+
+    onEditorKeydown(e) {
+      // mention navigation
+      if (this.mention.open) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); this.mention.index++; return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); this.mention.index = Math.max(0, this.mention.index - 1); return; }
+        if (e.key === 'Escape') { this.mention.open = false; return; }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const res = this.mentionResults();
+          const pick = res[this.mention.index] || res[0];
+          if (pick) this.pickMention(pick);
+          return;
+        }
+      }
+
+      // submit on Enter (no shift)
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        this.submit();
+      }
+    },
+
+    _afterId() {
+      const ids = (this.comments || []).map(c => Number(c.id) || 0);
+      return ids.length ? Math.max(...ids) : 0;
+    },
+
+    async poll(force) {
+      if (document.visibilityState !== 'visible') return;
+
+      try {
+        const afterId = this._afterId();
+        const url = afterId ? `${this.fetchUrl}?after_id=${afterId}` : this.fetchUrl;
+
+        const res = await fetch(url, {
+          headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+        });
+
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.success) return;
+
+        const incoming = data.comments || [];
+        if (!incoming.length) return;
+
+        for (const c of incoming) {
+          if (!this.comments.some(x => Number(x.id) === Number(c.id))) {
+            this.comments.unshift(c);
+          }
+        }
+
+        this._reindexAndRebuild();
+      } catch (e) {
+        console.error(e);
+      }
+    },
+
+    async submit() {
+      const text = (this.body || '').trim();
+      if (!text) return;
+
+      this.loading = true;
+      try {
+        const res = await fetch(this.storeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': this.csrf,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            body: text,
+            parent_id: this.reply.parentId || null,
+          }),
+        });
+
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.success) throw new Error('Comment opslaan mislukt');
+
+        this.comments.unshift(data.comment);
+        this._reindexAndRebuild();
+        this.cancelReply();
+
+        // reset editor
+        this.body = '';
+        if (this.$refs.editor) this.$refs.editor.innerHTML = '';
+        this.mention.open = false;
+
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.loading = false;
+      }
+    },
+  };
+}
+
+function intakePlanner({ csrf, availabilityUrlTemplate, assigneesById = {} }) {
   return {
     open: false,
     loading: false,
@@ -1435,37 +1865,59 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
     cardEl: null,
     oldValue: null,
     newValue: 'intake',
+    ownerId: null,
+    assigneesById: assigneesById || {},
+    summaryLoading: false,
+    summaryText: '',
+    dayTimes: [],
+    dayFreeCount: 0,
 
-    date: new Date().toISOString().slice(0,10),
-    durationMinutes: 30,
-    workDay: { start: '09:00', end: '16:30' },
+    today: new Date().toISOString().slice(0, 10),
+    date:  new Date().toISOString().slice(0, 10),
+
+    // ✅ Altijd hele uren
+    durationMinutes: 60,
+
+    // ✅ 09:00 t/m 17:00
+    workDay: { start: '09:00', end: '17:00' },
+
     slots: [],
     picked: null,
 
     init() {
       window.addEventListener('open-intake-planner', (e) => {
-        const { aanvraagId, updateUrl, cardEl, oldValue, newValue } = e.detail || {};
+        const { aanvraagId, updateUrl, cardEl, oldValue, newValue, ownerId } = e.detail || {};
+
         this.aanvraagId = aanvraagId;
         this.updateUrl  = updateUrl;
         this.cardEl     = cardEl;
         this.oldValue   = oldValue;
         this.newValue   = newValue || 'intake';
-        this.picked     = null;
-        this.open       = true;
+        this.ownerId    = ownerId || null;
+
+        // Altijd vanaf vandaag
+        this.date   = this.today;
+        this.picked = null;
+        this.open   = true;
         this.loadDay();
       });
     },
 
     close() {
-      this.open   = false;
+      this.open    = false;
       this.loading = false;
-      this.picked = null;
+      this.picked  = null;
     },
 
     prettyDate(yyyyMmDd) {
       if (!yyyyMmDd) return '';
       const d = new Date(yyyyMmDd + 'T00:00:00');
-      return d.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      return d.toLocaleDateString('nl-NL', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
     },
 
     slotRange(slot) {
@@ -1491,17 +1943,199 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
       return this.makeLocalDate(d, t);
     },
 
+    ownerMeta() {
+      if (!this.ownerId) return null;
+
+      const map = this.assigneesById || {};
+      const key = String(this.ownerId);
+      const numericKey = parseInt(key, 10);
+
+      const base =
+        map[key] ||
+        (Number.isFinite(numericKey) ? map[numericKey] : null) ||
+        null;
+
+      if (!base) {
+        return { name: 'Onbekend', avatar: '/assets/eazyonline/memojis/default.webp' };
+      }
+
+      return {
+        name: base.name || 'Onbekend',
+        avatar: base.avatar || '/assets/eazyonline/memojis/default.webp',
+      };
+    },
+
+    _getWeekDates() {
+      // vanaf vandaag t/m zondag
+      const start = new Date(this.today + 'T00:00:00');
+      const dow = start.getDay(); // 0=zo ... 6=za
+      const daysToSunday = (7 - dow) % 7;
+
+      const dates = [];
+      for (let i = 0; i <= daysToSunday; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        dates.push(d.toISOString().slice(0, 10));
+      }
+      return dates;
+    },
+
+    _prettyShort(yyyyMmDd) {
+      const d = new Date(yyyyMmDd + 'T00:00:00');
+      return d.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'short' });
+    },
+
+    _computeFreeLabelsForDate(dateStr, busy) {
+      const dayStart = this.makeLocalDate(dateStr, `${this.workDay.start}:00`);
+      const dayEnd   = this.makeLocalDate(dateStr, `${this.workDay.end}:00`);
+
+      const now = new Date();
+      const isToday = dateStr === this.today;
+
+      const labels = [];
+
+      for (let t = new Date(dayStart); t < dayEnd; ) {
+        const start = new Date(t);
+        const end   = new Date(t);
+        end.setMinutes(end.getMinutes() + this.durationMinutes);
+        if (end > dayEnd) break;
+
+        const isPast = isToday && end <= now;
+
+        const overlapsBusy = (busy || []).some(b => {
+          const bStart = this.parseIsoLocal(b.start);
+          const bEnd   = this.parseIsoLocal(b.end);
+          return start < bEnd && end > bStart;
+        });
+
+        if (!isPast && !overlapsBusy) {
+          labels.push(start.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }));
+        }
+
+        t.setMinutes(t.getMinutes() + this.durationMinutes);
+      }
+
+      return labels;
+    },
+
+    async loadWeekSummary() {
+      this.weekRows = [];
+
+      if (!this.ownerId) {
+        this.summaryText = 'Koppel een medewerker om direct beschikbaarheid te zien.';
+        return;
+      }
+
+      this.summaryLoading = true;
+      this.summaryText = '';
+      this.weekRows = [];
+
+      try {
+        const dates = this._getWeekDates();
+        let totalFree = 0;
+
+        for (const d of dates) {
+          let busy = [];
+
+          try {
+            const base = availabilityUrlTemplate.replace('__DATE__', d);
+            const url  = new URL(base, window.location.origin);
+
+            // owner filter (jij gebruikt dit al in loadDay)
+            url.searchParams.set('owner_id', this.ownerId);
+
+            const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+            if (res.ok) {
+              const data = await res.json().catch(() => null);
+              busy = Array.isArray(data?.busy) ? data.busy : [];
+            }
+          } catch (e) {
+            busy = [];
+          }
+
+          const freeLabels = this._computeFreeLabelsForDate(d, busy);
+          totalFree += freeLabels.length;
+
+          const show = freeLabels.slice(0, 4).join(', ');
+          const extra = freeLabels.length > 4 ? ` +${freeLabels.length - 4}` : '';
+
+          this.weekRows.push({
+            date: d,
+            label: this._prettyShort(d) + ': ',
+            text: freeLabels.length
+              ? `${freeLabels.length} plek(ken) (${show}${extra})`
+              : 'geen plekken',
+          });
+        }
+
+        const o = this.ownerMeta();
+        const firstName = o?.name ? o.name.split(' ')[0] : 'De medewerker';
+
+        this.summaryText =
+          totalFree > 0
+            ? `${firstName} is gekoppeld aan de aanvraag. Deze week zijn er nog ${totalFree} beschikbare uurblokken.`
+            : `${firstName} is gekoppeld aan de aanvraag, maar deze week lijkt volgepland.`;
+      } finally {
+        this.summaryLoading = false;
+      }
+    },
+
+    updateDaySummaryFromSlots() {
+      this.dayTimes = [];
+      this.dayFreeCount = 0;
+
+      if (!this.ownerId) {
+        this.summaryText = 'Geen medewerker gekoppeld. Koppel eerst iemand om beschikbaarheid te zien.';
+        this.summaryLoading = false;
+        return;
+      }
+
+      const free = (this.slots || []).filter(s => s.state === 'free');
+      this.dayFreeCount = free.length;
+
+      // Welke tijden (als ranges)
+      this.dayTimes = free.map(s => this.slotRange(s));
+
+      const o = this.ownerMeta();
+      const firstName = o?.name ? o.name.split(' ')[0] : 'De medewerker';
+
+      if (!free.length) {
+        this.summaryText = `${firstName} is gekoppeld aan de aanvraag, maar deze datum zit vol.`;
+      } else {
+        this.summaryText = `${firstName} is gekoppeld aan de aanvraag. Er zijn nog ${free.length} beschikbare tijdsblokken op ${this.prettyDate(this.date)}.`;
+      }
+
+      this.summaryLoading = false;
+    },
+
     async loadDay() {
-      this.slots = [];
+      // 🔒 Nooit terug in de tijd
+      if (this.date < this.today) {
+        this.date = this.today;
+      }
+
+      this.summaryLoading = true;
+
+      this.slots  = [];
       this.picked = null;
 
       let busy = [];
       try {
         if (availabilityUrlTemplate) {
-          const url = availabilityUrlTemplate.replace('__DATE__', this.date);
-          const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+          const base = availabilityUrlTemplate.replace('__DATE__', this.date);
+          const url  = new URL(base, window.location.origin);
+
+          // 👤 Owner-specifieke beschikbaarheid
+          if (this.ownerId) {
+            url.searchParams.set('owner_id', this.ownerId);
+          }
+
+          const res = await fetch(url.toString(), {
+            headers: { 'Accept': 'application/json' },
+          });
+
           if (res.ok) {
-            const data = await res.json().catch(()=>null);
+            const data = await res.json().catch(() => null);
             busy = Array.isArray(data?.busy) ? data.busy : [];
           }
         }
@@ -1512,10 +2146,16 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
       const dayStart = this.makeLocalDate(this.date, `${this.workDay.start}:00`);
       const dayEnd   = this.makeLocalDate(this.date, `${this.workDay.end}:00`);
 
+      const todayStr = this.today;
+      const now      = new Date();
+
       const slots = [];
+
+      // ✅ Alleen hele uren: 09–10, 10–11, …, 16–17
       for (let t = new Date(dayStart); t < dayEnd; ) {
         const start = new Date(t);
-        const end   = new Date(t); end.setMinutes(end.getMinutes() + this.durationMinutes);
+        const end   = new Date(t);
+        end.setMinutes(end.getMinutes() + this.durationMinutes);
         if (end > dayEnd) break;
 
         const label    = start.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
@@ -1527,36 +2167,43 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
           return start < bEnd && end > bStart;
         });
 
+        // 🔒 Slots in het verleden blokkeren
+        let isPast = false;
+        if (this.date < todayStr) {
+          isPast = true;
+        } else if (this.date === todayStr && end <= now) {
+          isPast = true;
+        }
+
         const pad = (n) => String(n).padStart(2, '0');
 
         slots.push({
           date: this.date,
 
-          // Bewaar ook UTC (alleen nodig voor overlap-checks / debugging)
           startUtc: start.toISOString(),
           endUtc:   end.toISOString(),
 
-          // 👇 LOKALE tijd (zonder Z). DIT sturen we later naar de server.
           startLocal: `${this.date}T${pad(start.getHours())}:${pad(start.getMinutes())}:00`,
           endLocal:   `${this.date}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`,
 
           startLabel: label,
           endLabel,
           label,
-          state: overlapsBusy ? 'busy' : 'free'
+          state: (overlapsBusy || isPast) ? 'busy' : 'free',
         });
 
-        t.setMinutes(t.getMinutes() + 30);
+        // ⏩ per uur opschuiven
+        t.setMinutes(t.getMinutes() + this.durationMinutes);
       }
 
       this.slots = slots;
+      this.updateDaySummaryFromSlots();
     },
 
     async confirm() {
       if (!this.picked) return;
       this.loading = true;
 
-      // ✅ Status behouden i.p.v. naar intake zetten
       const keepStatus = String(
         this.oldValue || this.cardEl?.dataset?.status || 'contact'
       ).toLowerCase();
@@ -1574,20 +2221,16 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
           },
           credentials: 'same-origin',
           body: JSON.stringify({
-            // ✅ stuur dezelfde status terug -> DB blijft gelijk
             status: keepStatus,
-
-            // ✅ intake data blijft gewoon mee
             intake_at_local: this.picked.startLocal,
             intake_duration: this.durationMinutes,
-            tz
-          })
+            tz,
+          }),
         });
 
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error('Intake plannen mislukt');
 
-        // ✅ Intake-panel direct updaten (dit mag blijven)
         if (data && data.intake_html && this.cardEl) {
           const panel = this.cardEl.querySelector(`#intake-panel-${this.aanvraagId}`);
           if (panel) {
@@ -1599,19 +2242,13 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
           }
         }
 
-        // ❌ Verwijder/laat weg:
-        // 1) "Badge updaten" block dat forced naar intake zet
-        // 3) "Logboek direct updaten" block
-        //    (statusDnD doet dit straks via soft update)
-
-        // ✅ Laat statusDnD list+detail syncen ZONDER status wijziging
         window.dispatchEvent(new CustomEvent('potkl-status-soft-update', {
           detail: {
             id: this.aanvraagId,
             oldValue: keepStatus,
             newValue: keepStatus,
-            data
-          }
+            data,
+          },
         }));
 
         showToast(potklTrans('toast.intake_planned'), 'success');
@@ -1622,8 +2259,8 @@ function intakePlanner({ csrf, availabilityUrlTemplate }) {
       } finally {
         this.loading = false;
       }
-    }
-  }
+    },
+  };
 }
 
 function filesManager({ csrf, uploadUrl, deleteUrlTemplate, initialFiles }) {
@@ -1765,16 +2402,14 @@ function aanvraagTasks(config) {
   const {
     csrf,
     updateUrl,
-
-    // ✅ optioneel: als je UI-only status buttons gebruikt
-    // geef in je tasksPayload mee:
-    // statusUpdateUrl: route('support.potentiele-klanten.status.update', ['aanvraag' => $aanvraag->id]),
     statusUpdateUrl = null,
 
     initial = {},
     cardId,
     initialStatus = 'prospect',
     initialIntakeDone = false,
+
+    initialOwnerId = '',
   } = config || {};
 
   return {
@@ -1784,6 +2419,8 @@ function aanvraagTasks(config) {
     cardId: String(cardId || ''),
     currentStatus: String(initialStatus || 'prospect').toLowerCase(),
     intakeDone: !!initialIntakeDone,
+
+    ownerId: String(initialOwnerId || '').trim(),
 
     init() {
       // ✅ Sync vanuit drag/drop of andere status-updates
@@ -1799,6 +2436,39 @@ function aanvraagTasks(config) {
           this.intakeDone = !!data.intake_done;
         }
       });
+
+      // ✅ NIEUW: owner live sync
+      window.addEventListener('potkl-owner-updated', (e) => {
+        const { id, ownerId } = e.detail || {};
+        if (!id || String(id) !== this.cardId) return;
+        this.ownerId = ownerId ? String(ownerId) : null;
+      });
+    },
+
+    getOwnerId() {
+      if (this.ownerId) return this.ownerId;
+
+      const detailCard = document.querySelector(
+        `[data-card-id="${this.cardId}"][data-owner-id]`
+      );
+      const domOwner = detailCard?.dataset?.ownerId || null;
+      this.ownerId = domOwner || null;
+      return this.ownerId;
+    },
+
+    hasOwner() {
+      return !!this.getOwnerId();
+    },
+
+    async setUiStatus(type, newStatus) {
+      const ns = String(newStatus || '').toLowerCase();
+
+      if (type === 'status_to_contact' && this.currentStatus === 'prospect' && ns === 'contact' && !this.hasOwner()) {
+        showToast('Koppel eerst een medewerker (owner) voordat je naar Contact gaat.', 'error');
+        return;
+      }
+
+      return this.setStatus(ns);
     },
 
     /**
@@ -1871,6 +2541,10 @@ function aanvraagTasks(config) {
         default:
           return false;
       }
+    },
+
+    isStatusToContactDisabled() {
+      return this.currentStatus === 'prospect' && !this.ownerId;
     },
 
     /**

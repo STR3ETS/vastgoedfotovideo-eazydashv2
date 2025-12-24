@@ -275,7 +275,7 @@
                       {{ __('potentiele_klanten.calls.none') }}
                     </p>
                   </template>
-                  <ul class="flex flex-col gap-2 divide-[#215558]/20 max-h-50 overflow-y-auto pr-1 mt-2" x-show="calls.length">
+                  <ul class="flex flex-col gap-2 divide-[#215558]/20 overflow-y-auto pr-1 mt-2" x-show="calls.length">
                     <template x-for="call in calls" :key="call.id">
                       <li class="text-xs pl-8 py-2 relative">
                         {{-- verticale lijn --}}
@@ -287,23 +287,25 @@
                         </div>
 
                         <div class="flex items-center justify-between gap-2">
-                          <div class="flex items-center gap-4">
-                            <div class="flex flex-col">
-                              <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld door</p>
-                              <p class="text-sm font-semibold text-[#215558]" x-text="(call.user_name || 'Onbekend')"></p>
+                          <div class="w-full flex flex-col gap-2">
+                            <div class="flex items-center gap-4">
+                              <div class="flex flex-col">
+                                <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld door</p>
+                                <p class="text-sm font-semibold text-[#215558]" x-text="(call.user_name || 'Onbekend')"></p>
+                              </div>
+                              <div class="flex flex-col">
+                                <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld op</p>
+                                <p class="text-sm font-semibold text-[#215558]" x-text="call.called_at"></p>
+                              </div>
                             </div>
-                            <div class="flex flex-col">
-                              <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Gebeld op</p>
-                              <p class="text-sm font-semibold text-[#215558]" x-text="call.called_at"></p>
-                            </div>
-                            <div class="flex flex-col">
+                            <div class="flex flex-col w-[80%]">
                               <p class="text-[11px] font-semibold opacity-50 text-[#215558]">Opmerking</p>
                               <p class="text-sm font-semibold text-[#215558]" x-show="call.note" x-text="call.note"></p>
                             </div>
                           </div>
 
                           <span
-                            class="inline-flex items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                            class="inline-flex whitespace-nowrap items-center text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
                             :class="{
                               'bg-red-200 text-red-700': call.outcome === 'geen_antwoord',
                               'bg-green-200 text-green-700': call.outcome === 'gesproken',
@@ -464,7 +466,6 @@
                           </p>
                         </div>
                       </div>
-
                       <div class="mt-3 text-sm text-red-600" x-show="confirmError" x-text="confirmError"></div>
 
                       <div class="mt-4 flex items-center gap-2">
@@ -490,6 +491,163 @@
                   </div>
                 </div>
               </div>
+@php
+  $mentionables = \App\Models\User::query()
+    ->whereNull('company_id')
+    ->whereNotNull('email')
+    ->orderBy('name')
+    ->get(['id','name']);
+
+  $initialComments = $aanvraag->comments()
+    ->with('user')
+    ->latest('id')
+    ->take(200)
+    ->get()
+    ->map(fn($c) => [
+      'id'         => $c->id,
+      'parent_id'  => $c->parent_id,
+      'created_at' => optional($c->created_at)->format('d-m-Y H:i'),
+      'user_name'  => optional($c->user)->name ?? 'Onbekend',
+      'body'       => $c->body,
+    ])->values();
+@endphp
+
+<div class="bg-[#fff] rounded-4xl p-8 overflow-visible">
+  <div
+    x-data='aanvraagComments({
+      csrf: @json(csrf_token()),
+      storeUrl: @json(route("support.potentiele-klanten.comments.store", ["aanvraag" => $aanvraag->id])),
+      fetchUrl: @json(route("support.potentiele-klanten.comments.index", ["aanvraag" => $aanvraag->id])),
+      initialComments: @json($initialComments),
+      mentionables: @json($mentionables),
+    })'
+    x-init="init()"
+  >
+    <h3 class="text-[#215558] font-black text-base shrink-0 flex items-center gap-2 mb-3">
+      <i class="fa-solid fa-comments fa-sm"></i>
+      Activiteiten
+    </h3>
+
+    <div class="relative">
+      {{-- Mention dropdown --}}
+      <div
+        x-show="mention.open"
+        x-cloak
+        class="absolute left-0 right-0 mt-12 bg-white border border-[#215558]/15 rounded-3xl shadow-lg overflow-hidden z-50"
+      >
+        <template x-for="(u, idx) in mentionResults()" :key="u.id">
+          <button
+            type="button"
+            class="w-full text-left px-4 py-3 hover:bg-[#f3f8f8]"
+            :class="idx === mention.index ? 'bg-[#f3f8f8]' : ''"
+            @mousedown.prevent="pickMention(u)"
+          >
+            <span class="text-sm font-semibold text-[#215558]" x-text="u.name"></span>
+          </button>
+        </template>
+      </div>
+    </div>
+
+    {{-- ✅ COMMENTS UI (zoals screenshot) --}}
+    <div>
+      {{-- Add comment box --}}
+      <div class="bg-[#f6f7f7] rounded-2xl p-4 flex items-start gap-3 border border-[#215558]/10">
+        <div class="flex-1">
+          {{-- reply indicator --}}
+          <div x-show="reply.parentId" x-cloak class="mb-2 flex items-center gap-2">
+            <span class="text-xs font-bold text-[#215558]/60">Replying to</span>
+            <span class="text-xs font-black text-[#215558]" x-text="reply.parentUserName"></span>
+            <button
+              type="button"
+              class="text-xs font-bold text-[#215558]/60 hover:text-[#215558] underline"
+              @click="cancelReply()"
+            >
+              Annuleren
+            </button>
+          </div>
+          {{-- editor --}}
+          <div
+            x-ref="editor"
+            contenteditable="true"
+            class="w-full min-h-[44px] bg-none outline-none text-sm font-semibold text-[#215558]"
+            :data-placeholder="reply.parentId ? 'Schrijf een antwoord…' : 'Schrijf een update…'"
+            @input="onEditorInput()"
+            @keydown="onEditorKeydown($event)"
+          ></div>
+
+          <style>
+            [contenteditable][data-placeholder]:empty:before { content: attr(data-placeholder); opacity: .55; }
+          </style>
+        </div>
+        <button
+          type="button"
+          class="bg-[#215558] hover:bg-[#1a4648] text-white text-xs font-black px-4 py-2 rounded-full transition disabled:opacity-60"
+          :disabled="loading"
+          @click="submit()"
+        >
+          <span x-show="!loading">Plaatsen</span>
+          <span x-show="loading"><i class="fa-solid fa-spinner fa-spin"></i></span>
+        </button>
+      </div>
+      {{-- Threads --}}
+      <div class="mt-3 space-y-2">
+        <template x-for="t in threads" :key="t.root.id">
+          <div class="relative pl-8 py-4">
+            <div class="absolute left-2.25 top-0 bottom-0 w-px bg-[#215558]/20"></div>
+            <div class="absolute left-1 top-2 w-3 h-3 rounded-full bg-[#f3f8f8] border-[2px] border-[#215558]/20 z-[1]"></div>
+            {{-- Root comment --}}
+            <div class="flex items-start gap-3">
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <div class="text-[11px] font-semibold opacity-50 text-[#215558]" x-text="t.root.user_name"></div>
+                  <div class="text-[11px] font-semibold opacity-50 text-[#215558]" x-text="t.root.created_at"></div>
+                </div>
+                <div class="text-sm font-semibold text-[#215558]" x-html="renderBody(t.root.body)"></div>
+                <div class="mt-2 flex items-center gap-4 text-xs font-bold text-[#215558]/60">
+                  <button class="hover:text-[#215558] flex items-center gap-2" type="button" @click="startReply(t.root)">
+                    <i class="fa-regular fa-comment-dots"></i> Antwoorden
+                  </button>
+                </div>
+              </div>
+            </div>
+            {{-- Replies block (vertical line left) --}}
+            <template x-if="t.nodes.length">
+              <div class="mt-4">
+                <div class="relative">
+                  {{-- 1 verticale lijn voor alle replies --}}
+                  <div class="space-y-3">
+                    <template x-for="n in t.nodes" :key="n.comment.id">
+                      <div class="relative" :style="`margin-left:${(n.depth - 1) * 30}px`">
+                        <div class="flex items-start gap-3">
+                          <div class="w-5 h-5 rounded-bl border-l border-b border-l-[#215558]/20 border-b-[#215558]/20 shrink-0"></div>
+                          <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                              <div class="text-[11px] font-semibold opacity-50 text-[#215558]" x-text="n.comment.user_name"></div>
+                              <div class="text-[11px] font-semibold opacity-50 text-[#215558]" x-text="n.comment.created_at"></div>
+                            </div>
+                            <div class="text-sm font-semibold text-[#215558]" x-html="renderBody(n.comment.body)"></div>
+                            <div class="mt-2 flex items-center gap-4 text-xs font-bold text-[#215558]/60">
+                              <button class="hover:text-[#215558] flex items-center gap-2" type="button" @click="startReply(n.comment)">
+                                <i class="fa-regular fa-comment-dots"></i> Antwoorden
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <div x-show="!threads.length" class="text-[#215558] text-xs font-semibold opacity-75">
+          Nog geen activiteiten.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
             </div>
             <div class="flex flex-col gap-6">
               <div class="bg-[#fff] rounded-4xl p-8 h-fit">
@@ -635,6 +793,8 @@
                       'cardId' => (string) $aanvraag->id,
                       'initialStatus' => $currentStatus,
                       'initialIntakeDone' => $intakeDone,
+
+                      'initialOwnerId' => (string) ($aanvraag->owner_id ?? ''),
                   ];
               @endphp
 
@@ -672,10 +832,18 @@
                       <p class="text-sm font-semibold text-[#215558]">
                         {{ $title }}
                       </p>
+                      <p
+                        x-show="'{{ $task->type }}' === 'status_to_contact' && !hasOwner()"
+                        class="text-[11px] font-semibold text-red-500 my-1"
+                      >
+                        * Koppel eerst een medewerker aan deze aanvraag.
+                      </p>
                       <button
                         type="button"
-                        class="bg-gray-200 hover:bg-gray-300 whitespace-nowrap text-[#215558] text-xs font-semibold px-3 py-1.5 rounded-full transition cursor-pointer mt-1.5"
-                        @click="setStatus('{{ $targetStatus }}')"
+                        class="bg-gray-200 hover:bg-gray-300 whitespace-nowrap text-[#215558] text-xs font-semibold px-3 py-1.5 rounded-full transition cursor-pointer mt-1.5
+                              disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-200"
+                        :disabled="'{{ $task->type }}' === 'status_to_contact' && !hasOwner()"
+                        @click="setUiStatus('{{ $task->type }}', '{{ $targetStatus }}')"
                       >
                         Status aanpassen
                       </button>

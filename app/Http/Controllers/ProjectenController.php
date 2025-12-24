@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Offerte;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use App\Models\User;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PreviewReadyMail;
 
 class ProjectenController extends Controller
 {
@@ -31,6 +34,10 @@ class ProjectenController extends Controller
             'waiting_customer' => [
                 'value' => 'waiting_customer',
                 'label' => __('projecten.statuses.waiting_customer'),
+            ],
+            'preview_approved' => [
+                'value' => 'preview_approved',
+                'label' => __('projecten.statuses.preview_approved'),
             ],
             'offerte' => [
                 'value' => 'offerte',
@@ -59,7 +66,7 @@ class ProjectenController extends Controller
     public function updateStatus(Request $request, Project $project)
     {
         $data = $request->validate([
-            'status' => ['required', 'string', 'in:preview,waiting_customer,offerte'],
+            'status' => ['required', 'string', 'in:preview,waiting_customer,preview_approved,offerte'],
         ]);
 
         $oldStatus        = $project->status;
@@ -94,11 +101,91 @@ class ProjectenController extends Controller
         ]);
     }
 
+    public function updateTaskStatus(Request $request, Project $project)
+    {
+        $data = $request->validate([
+            'type'    => ['required', 'string', 'max:60'],
+            'checked' => ['nullable'],
+            'status'  => ['nullable', 'string', 'in:open,done'],
+        ]);
+
+        $type = (string) $data['type'];
+
+        // ✅ accepteer zowel checked (true/false) als status (open/done)
+        if (array_key_exists('checked', $data) && $data['checked'] !== null) {
+            $checked = filter_var($data['checked'], FILTER_VALIDATE_BOOLEAN);
+        } elseif (!empty($data['status'])) {
+            $checked = strtolower((string) $data['status']) === 'done';
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Missing checked/status',
+            ], 422);
+        }
+
+        // call_customer blijft via offerte flow
+        if ($type === 'call_customer') {
+            $task = $this->ensureOfferteTask($project);
+        } else {
+            $task = $project->tasks()->firstOrCreate(
+                ['type' => $type],
+                [
+                    'title' => \Illuminate\Support\Str::headline($type),
+                    'order' => 999,
+                    'status' => 'open',
+                ]
+            );
+        }
+
+        $task->status = $checked ? 'done' : 'open';
+        $task->completed_at = $checked ? now() : null;
+        $task->save();
+
+        return response()->json([
+            'success'   => true,
+            'type'      => $type,
+            'status'    => $task->status,
+            'completed' => (bool) $task->completed_at,
+        ]);
+    }
+
+    public function updateAssignee(Request $request, Project $project)
+    {
+        $data = $request->validate([
+            'assignee_id' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+
+        if (!is_null($data['assignee_id'])) {
+            $isStaff = User::whereKey($data['assignee_id'])
+                ->whereNull('company_id')
+                ->exists();
+
+            if (!$isStaff) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ongeldige medewerker.',
+                ], 422);
+            }
+        }
+
+        $project->assignee_id = $data['assignee_id'] ?? null;
+        $project->save();
+
+        return response()->json([
+            'success'     => true,
+            'id'          => $project->id,
+            'assignee_id' => $project->assignee_id,
+        ]);
+    }
+
     public function updatePreview(Request $request, Project $project)
     {
         $data = $request->validate([
             'preview_url' => ['nullable', 'string', 'max:2048'],
         ]);
+
+        // onthoud oude url zodat we niet onnodig spammen
+        $oldPreviewUrl = $project->preview_url;
 
         if (! $project->preview_token) {
             $project->preview_token = Project::generatePreviewToken();
@@ -106,11 +193,58 @@ class ProjectenController extends Controller
 
         $project->preview_url = $data['preview_url'] ?: null;
 
-        if (! empty($project->preview_url)) {
-            $project->status = 'waiting_customer';
-        }
+        // ❌ NIET automatisch project status aanpassen
+        // if (! empty($project->preview_url)) {
+        //     $project->status = 'waiting_customer';
+        // }
 
         $project->save();
+
+        // ✅ Taak "create_preview" syncen met preview_url
+        $task = $project->tasks()->firstOrCreate(
+            ['type' => 'create_preview'],
+            [
+                'title'  => 'Preview maken & preview-url opgeven',
+                'status' => 'open',
+                'order'  => 10,
+            ]
+        );
+
+        if (!empty($project->preview_url)) {
+            $task->status = 'done';
+            $task->completed_at = $task->completed_at ?: now();
+        } else {
+            $task->status = 'open';
+            $task->completed_at = null;
+        }
+        $task->save();
+
+        // ✅ Mail sturen naar klant zodra preview is opgeslagen
+        $mailSent = false;
+
+        // Stuur alleen als er een preview_url is en een contact_email
+        if (!empty($project->preview_url) && !empty($project->contact_email)) {
+
+            // Stuur alleen wanneer hij net gezet is of gewijzigd is
+            $shouldSend = empty($oldPreviewUrl) || $oldPreviewUrl !== $project->preview_url;
+
+            if ($shouldSend) {
+                try {
+                    $klantUrl = route('preview.show', ['token' => $project->preview_token]);
+
+                    Mail::to($project->contact_email)->send(new PreviewReadyMail(
+                        company: $project->company ?: 'Onbekend bedrijf',
+                        contactName: $project->contact_name ?: null,
+                        klantUrl: $klantUrl,
+                        previewUrl: $project->preview_url
+                    ));
+
+                    $mailSent = true;
+                } catch (\Throwable $e) {
+                    report($e); // mail-fail mag je preview-save niet slopen
+                }
+            }
+        }
 
         $label = __('projecten.statuses.' . $project->status);
 
@@ -123,6 +257,7 @@ class ProjectenController extends Controller
                 : null,
             'status'       => $project->status,
             'label'        => $label,
+            'mail_sent'    => $mailSent,
         ]);
     }
 
@@ -595,9 +730,10 @@ TXT;
         return $project->tasks()->firstOrCreate(
             ['type' => 'call_customer'],
             [
-                'title'       => 'Bellen met de klant',
-                'description' => 'Bel de klant t.a.v. feedback/goedkeuring preview',
-                'due_at'      => null,
+                'title'       => 'Preview doornemen met de klant',
+                'description' => 'Bel de klant om de preview samen door te nemen en de volgende stappen af te stemmen.',
+                'order'       => 50,
+                'status'      => 'open',
             ]
         );
     }

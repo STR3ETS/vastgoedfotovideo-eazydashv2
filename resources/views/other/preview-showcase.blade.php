@@ -41,10 +41,26 @@
 
         <div class="flex items-center gap-2">
             {{-- Countdown --}}
+            @php
+                $initialCountdownText = 'Laden...';
+
+                if (!empty($isApproved)) {
+                    $initialCountdownText = 'Preview goedgekeurd';
+                } elseif (!empty($expiresAt) && $expiresAt->isPast()) {
+                    $initialCountdownText = 'Preview is verlopen';
+                } elseif (!empty($remainingSeconds)) {
+                    $d = intdiv($remainingSeconds, 86400);
+                    $h = intdiv($remainingSeconds % 86400, 3600);
+                    $m = intdiv($remainingSeconds % 3600, 60);
+                    $s = $remainingSeconds % 60;
+                    $initialCountdownText = sprintf('%02d:%02d:%02d:%02d over', $d, $h, $m, $s);
+                }
+            @endphp
             <p id="preview-countdown"
-               data-expires-at="{{ $expiresIso }}"
-               class="px-2 py-0.5 text-xs bg-green-200 text-green-700 font-semibold rounded-full w-fit">
-                {{-- tekst wordt door JS gevuld --}}
+                data-expires-at="{{ $expiresIso }}"
+                data-approved="{{ !empty($isApproved) ? 1 : 0 }}"
+                class="px-2 py-0.5 text-xs bg-green-200 text-green-700 font-semibold rounded-full w-fit">
+                {{ $initialCountdownText }}
             </p>
 
             {{-- Absolute eindtijd --}}
@@ -335,15 +351,23 @@
 </div>
 
 <div class="w-full fixed z-50 bottom-0 left-0 bg-white border-t border-gray-200 p-4">
-    <div class="max-w-6xl mx-auto flex items-center justify-start gap-2">
-        <a href="#"
-           class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300">
+    <div class="max-w-6xl mx-auto flex items-center justify-start gap-3">
+        <button
+            type="button"
+            id="preview-approve-btn"
+            data-approve-url="{{ route('preview.approve', $project->preview_token) }}"
+            class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300">
             Preview goedkeuren
-        </a>
-        <a href="#"
-           class="bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer font-semibold px-6 py-3 rounded-full transition duration-300">
+        </button>
+        <button
+            type="button"
+            id="preview-call-btn"
+            class="bg-gray-200 hover:bg-gray-300 text-gray-700 cursor-pointer font-semibold px-6 py-3 rounded-full transition duration-300">
             Bellen met een medewerker
-        </a>
+        </button>
+        <p id="preview-approved-msg" class="text-sm font-semibold text-green-700 hidden">
+            Je hebt de preview goedgekeurd. Bekijk je e-mail voor de vervolgstappen!
+        </p>
     </div>
 </div>
 
@@ -507,63 +531,132 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // --- countdown + lock ---
+    // --- countdown + lock + approve (FIX: maar 1 timer) ---
     const countdownEl  = document.getElementById('preview-countdown');
     const lockEl       = document.getElementById('preview-lock');
+
+    const approveBtn = document.getElementById('preview-approve-btn');
+    const callBtn    = document.getElementById('preview-call-btn');
+    const msgEl      = document.getElementById('preview-approved-msg');
+
     const expiresAtStr = countdownEl ? countdownEl.dataset.expiresAt : null;
 
-    if (expiresAtStr) {
+    let approved = !!(countdownEl && countdownEl.dataset.approved === '1');
+    let countdownTimerId = null;
+
+    function lockButtons() {
+        const lockClass = ['opacity-50','pointer-events-none'];
+        if (approveBtn) approveBtn.classList.add(...lockClass);
+        if (callBtn) callBtn.classList.add(...lockClass);
+    }
+
+    function stopCountdown() {
+        if (countdownTimerId) {
+            clearInterval(countdownTimerId);
+            countdownTimerId = null;
+        }
+    }
+
+    function setApprovedUI() {
+        approved = true;
+        if (countdownEl) countdownEl.dataset.approved = '1';
+
+        stopCountdown();
+
+        if (countdownEl) {
+            countdownEl.textContent = 'Preview goedgekeurd';
+            countdownEl.classList.remove('bg-red-100','text-red-700');
+            countdownEl.classList.add('bg-green-200','text-green-700');
+        }
+
+        lockButtons();
+        if (msgEl) msgEl.classList.remove('hidden');
+    }
+
+    function pad(n) {
+        return String(n).padStart(2, '0');
+    }
+
+    function formatRemaining(diffMs) {
+        const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+        const days    = Math.floor(totalSeconds / 86400);
+        const hours   = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    function setExpiredState() {
+        if (!countdownEl) return;
+
+        countdownEl.textContent = 'Preview is verlopen';
+        countdownEl.classList.remove('bg-green-200','text-green-700');
+        countdownEl.classList.add('bg-red-100','text-red-700');
+
+        if (lockEl) lockEl.classList.remove('hidden');
+
+        stopCountdown();
+    }
+
+    function setActiveState(text) {
+        if (!countdownEl) return;
+
+        countdownEl.textContent = text;
+        countdownEl.classList.remove('bg-red-100','text-red-700');
+        countdownEl.classList.add('bg-green-200','text-green-700');
+    }
+
+    function updateCountdown() {
+        if (!countdownEl || approved || !expiresAtStr) return;
+
         const expiresAt = new Date(expiresAtStr);
-        let timerId = null;
+        const diff = expiresAt - new Date();
 
-        function pad(n) {
-            return n.toString().padStart(2, '0');
+        if (diff <= 0) {
+            setExpiredState();
+            return;
         }
 
-        function formatRemaining(diffMs) {
-            const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+        setActiveState(formatRemaining(diff) + ' over');
+    }
 
-            const days    = Math.floor(totalSeconds / 86400);
-            const hours   = Math.floor((totalSeconds % 86400) / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-
-            // DD:HH:MM:SS
-            return `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-        }
-
-        function setExpiredState() {
-            if (!countdownEl) return;
-            countdownEl.textContent = 'Preview is verlopen';
-            countdownEl.classList.remove('bg-green-200', 'text-green-700');
-            countdownEl.classList.add('bg-red-100', 'text-red-700');
-            if (lockEl) lockEl.classList.remove('hidden');
-        }
-
-        function setActiveState(text) {
-            if (!countdownEl) return;
-            countdownEl.textContent = text;
-            countdownEl.classList.remove('bg-red-100', 'text-red-700');
-            countdownEl.classList.add('bg-green-200', 'text-green-700');
-        }
-
-        function updateCountdown() {
-            if (!countdownEl) return;
-
-            const now  = new Date();
-            const diff = expiresAt - now;
-
-            if (diff <= 0) {
-                setExpiredState();
-                if (timerId) clearInterval(timerId);
-                return;
-            }
-
-            setActiveState(formatRemaining(diff) + ' over');
-        }
-
+    // init: als al approved, direct UI locken (en GEEN timer starten)
+    if (approved) {
+        setApprovedUI();
+    } else if (expiresAtStr) {
         updateCountdown();
-        timerId = setInterval(updateCountdown, 1000);
+        countdownTimerId = setInterval(updateCountdown, 1000);
+    }
+
+    // click handler
+    if (approveBtn) {
+        approveBtn.addEventListener('click', async function () {
+            // direct UI locken (snappy)
+            setApprovedUI();
+
+            const url  = approveBtn.dataset.approveUrl;
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+
+                if (!res.ok) throw new Error('Approve failed');
+            } catch (e) {
+                if (msgEl) {
+                    msgEl.textContent = 'Er ging iets mis. Probeer het later opnieuw.';
+                    msgEl.classList.remove('hidden','text-green-700');
+                    msgEl.classList.add('text-red-700');
+                }
+            }
+        });
     }
 });
 </script>

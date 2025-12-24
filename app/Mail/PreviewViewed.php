@@ -49,6 +49,12 @@ class PreviewViewed extends Mailable
                 'ip'          => $this->viewLog->ip ?: '—',
                 'location'    => $location,
                 'countryCode' => $this->viewLog->country_code,
+                'projectId'     => $this->project->id,
+                'projectStatus' => $this->project->status ?: '—',
+                'contactName'   => $this->project->contact_name ?: null,
+                'contactEmail'  => $this->project->contact_email ?: null,
+                'contactPhone'  => $this->project->contact_phone ?: null,
+                'projectUrl'    => route('support.projecten.index') . '#project-' . $this->project->id,
             ]);
     }
 }
