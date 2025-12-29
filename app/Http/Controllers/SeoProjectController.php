@@ -9,7 +9,6 @@ use App\Jobs\RunSeoAuditJob;
 use App\Services\SeRankingClient;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 
 class SeoProjectController extends Controller
 {
@@ -49,13 +48,42 @@ class SeoProjectController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, SeRankingClient $seranking)
     {
         $data = $this->validateRequest($request);
         $data['domain'] = $this->normalizeDomain($data['domain']);
 
         $project = SeoProject::create($data);
 
+        // Probeer direct een SE Ranking project/site aan te maken
+        try {
+            $res = $seranking->createProjectSite(
+                $project->domain,                 // -> url (https://domain)
+                $project->name ?: $project->domain // -> title
+            );
+
+            $siteId = (int) ($res['id'] ?? 0);
+
+            if ($siteId > 0) {
+                $project->update([
+                    'seranking_project_id' => (string) $siteId,
+                    'last_synced_at' => null,
+                ]);
+
+                return redirect()
+                    ->route('support.seo.projects.show', $project)
+                    ->with('status', 'SEO project aangemaakt en automatisch gekoppeld met een nieuw SE Ranking project.');
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('SERanking create site failed in store()', [
+                'seo_project_id' => $project->id,
+                'domain' => $project->domain,
+                'name' => $project->name,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Fallback: oude flow
         return redirect()
             ->route('support.seo.projects.show', $project)
             ->with('status', 'SEO project aangemaakt. Stap 1: kies het juiste SE Ranking project.');
@@ -66,10 +94,17 @@ class SeoProjectController extends Controller
         $user = auth()->user();
         $project = $seoProject->load(['company', 'lastAudit']);
 
-        // Altijd de SE Ranking projecten ophalen voor de dropdown (werkt bij jou)
-        $sites = $this->fetchSerankingSites();
+        // SE Ranking projecten ophalen via service
+        $sites = [];
+        try {
+            $sites = $seranking->getProjects();
+        } catch (\Throwable $e) {
+            logger()->warning('SEO project show: getProjects failed', [
+                'seo_project_id' => $project->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
-        // Als nog niet gekoppeld: probeer 1x automatisch te matchen op domein
         if (!$project->seranking_project_id) {
             $this->autoLinkSerankingSiteIfMatch($project, $sites);
         }
@@ -160,10 +195,6 @@ class SeoProjectController extends Controller
             ->with('status', 'SEO project bijgewerkt.');
     }
 
-    /**
-     * Koppelen = gekozen site_id opslaan.
-     * Geen POST /sites meer.
-     */
     public function connectSeranking(Request $request, SeoProject $seoProject)
     {
         $request->validate([
@@ -296,7 +327,6 @@ class SeoProjectController extends Controller
                 return back()->with('status', 'In SE Ranking staat nog geen zoekmachine ingesteld voor dit project. Voeg eerst een zoekmachine toe in SE Ranking.');
             }
 
-            // Kies engine met meeste keywords (keyword_count zit in response)
             $bestEngine = collect($engines)
                 ->sortByDesc(fn ($e) => (int) ($e['keyword_count'] ?? 0))
                 ->first() ?? [];
@@ -309,7 +339,6 @@ class SeoProjectController extends Controller
 
             $keywordsRaw = $seranking->getProjectKeywords($siteId, $siteEngineId);
 
-            // Normaliseer: sommige endpoints geven een array terug, sommige een wrapper.
             $keywords = [];
             if (is_array($keywordsRaw)) {
                 if (array_is_list($keywordsRaw)) {
@@ -333,7 +362,6 @@ class SeoProjectController extends Controller
                     'keyword_id' => $kid,
                 ];
 
-                // Hou het bewust beperkt
                 if (count($recheckPayload) >= 200) {
                     break;
                 }
@@ -343,15 +371,6 @@ class SeoProjectController extends Controller
                 return back()->with('status', 'Geen keywords gevonden om te rechecken.');
             }
 
-            logger()->info('SERanking recheck: sending payload', [
-                'seo_project_id' => $seoProject->id,
-                'site_id' => $siteId,
-                'site_engine_id' => $siteEngineId,
-                'keywords_count' => count($recheckPayload),
-                'sample' => array_slice($recheckPayload, 0, 5),
-            ]);
-
-            // Docs: POST /api/sites/{site_id}/recheck/ met { "keywords": [...] } :contentReference[oaicite:3]{index=3}
             $res = $seranking->recheck($siteId, ['keywords' => $recheckPayload]);
 
             $total = (int) ($res['total'] ?? 0);
@@ -367,7 +386,6 @@ class SeoProjectController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            // In docs is de typische 400: Unknown site_engine_id :contentReference[oaicite:4]{index=4}
             $msg = $this->friendlySerankingError($e, 'Recheck starten is mislukt.');
             return back()->with('status', $msg);
         }
@@ -391,46 +409,6 @@ class SeoProjectController extends Controller
             ->with('status', 'Website audit gestart.');
     }
 
-    /**
-     * Haalt SE Ranking projecten op via GET /sites.
-     */
-    protected function fetchSerankingSites(): array
-    {
-        $key = (string) config('seranking.project_api_key', '');
-        $base = rtrim((string) config('seranking.project_base_url', 'https://api4.seranking.com'), '/');
-
-        if (trim($key) === '') {
-            return [];
-        }
-
-        try {
-            $res = Http::withHeaders([
-                'Authorization' => 'Token ' . $key,
-                'Accept'        => 'application/json',
-            ])->get($base . '/sites');
-
-            if ($res->failed()) {
-                logger()->warning('SERanking GET /sites failed', [
-                    'status' => $res->status(),
-                    'body' => $res->body(),
-                    'json' => $res->json(),
-                ]);
-                return [];
-            }
-
-            $json = $res->json();
-            return is_array($json) ? $json : [];
-        } catch (\Throwable $e) {
-            logger()->warning('SERanking GET /sites exception', [
-                'error' => $e->getMessage(),
-            ]);
-            return [];
-        }
-    }
-
-    /**
-     * Auto-link: match domein op sites[].name of sites[].title (case-insensitive).
-     */
     protected function autoLinkSerankingSiteIfMatch(SeoProject $project, array $sites): bool
     {
         if ($project->seranking_project_id) {
@@ -446,7 +424,7 @@ class SeoProjectController extends Controller
             $id = (int) ($s['id'] ?? 0);
             if ($id <= 0) continue;
 
-            $name = strtolower((string) ($s['name'] ?? ''));
+            $name  = strtolower((string) ($s['name'] ?? ''));
             $title = strtolower((string) ($s['title'] ?? ''));
 
             if (($name !== '' && str_contains($name, $needle)) || ($title !== '' && str_contains($title, $needle))) {

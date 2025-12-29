@@ -138,6 +138,49 @@ class SeRankingClient
         return $this->requestProject('get', '/sites');
     }
 
+    /**
+     * NIEUW: project/site aanmaken in SE Ranking.
+     * Belangrijk: payload is een OBJECT, geen array.
+     * POST /sites met { "url": "...", "title": "..." }
+     */
+    public function createProjectSite(string $domainOrUrl, string $title, array $options = []): array
+    {
+        $payload = array_merge([
+            'url'   => $this->normalizeProjectUrl($domainOrUrl),
+            'title' => $this->normalizeTitle($title, $domainOrUrl),
+        ], $options);
+
+        return $this->requestProject('post', '/sites', $payload);
+    }
+
+    protected function normalizeProjectUrl(string $domainOrUrl): string
+    {
+        $value = trim($domainOrUrl);
+        $value = rtrim($value, '/');
+
+        // als iemand al https:// of http:// invult, laat staan
+        if (preg_match('#^https?://#i', $value)) {
+            return $value;
+        }
+
+        // anders ga uit van domain en zet https:// ervoor
+        $value = preg_replace('#^www\.#i', 'www.', $value); // no-op maar houdt intent duidelijk
+        return 'https://' . $value;
+    }
+
+    protected function normalizeTitle(string $title, string $fallbackDomainOrUrl): string
+    {
+        $t = trim((string) $title);
+        if ($t !== '') {
+            return $t;
+        }
+
+        $f = trim($fallbackDomainOrUrl);
+        $f = preg_replace('#^https?://#i', '', $f);
+        $f = rtrim($f, '/');
+        return $f !== '' ? $f : 'Project';
+    }
+
     public function getProjectSearchEngines(int $siteId): array
     {
         return $this->requestProject('get', "/sites/{$siteId}/search-engines");
@@ -168,12 +211,10 @@ class SeRankingClient
         bool $withVolume = true,
         bool $withSerpFeatures = false
     ): array {
-        // Variant A: array params
         if (is_array($dateFromOrParams)) {
             return $this->requestProject('get', "/sites/{$siteId}/positions", $dateFromOrParams);
         }
 
-        // Variant B: losse args
         $dateFrom = (string) $dateFromOrParams;
 
         $params = [
@@ -185,7 +226,6 @@ class SeRankingClient
             $params['site_engine_id'] = (int) $siteEngineId;
         }
 
-        // SE Ranking gebruikt verschillende flags per endpoint; deze 2 zijn safe om mee te geven
         $params['with_search_volume'] = $withVolume ? 1 : 0;
         $params['with_serp_features'] = $withSerpFeatures ? 1 : 0;
 
@@ -193,9 +233,7 @@ class SeRankingClient
     }
 
     /**
-     * Recheck:
-     * Docs format: { "keywords":[{"site_engine_id":1,"keyword_id":2}] } :contentReference[oaicite:2]{index=2}
-     * Bij 400 "Bad Request" proberen we een fallback formaat.
+     * Recheck
      */
     public function recheck(int $siteId, array $payloadOrKeywords): array
     {
@@ -209,9 +247,7 @@ class SeRankingClient
             $status = $e->response?->status();
             $body   = (string) ($e->response?->body() ?? '');
 
-            // Als SE Ranking alleen "Bad Request" zegt, is vaak het request-format net anders dan docs.
             if ($status === 400 && str_contains($body, 'Bad Request')) {
-                // Fallback: {"site_engine_id": X, "keywords": [id,id,id]}
                 $keywords = $payload['keywords'] ?? [];
                 $firstEngineId = (int) (($keywords[0]['site_engine_id'] ?? 0));
 
@@ -232,7 +268,6 @@ class SeRankingClient
                     'keywords_count' => count($keywordIds),
                 ]);
 
-                // Stuur fallback als RAW JSON om zeker te zijn van format
                 return $this->requestProjectRawJson('POST', "/api/sites/{$siteId}/recheck/", $fallbackPayload);
             }
 
@@ -241,8 +276,7 @@ class SeRankingClient
     }
 
     /**
-     * Adding queries to projects (keywords toevoegen)
-     * POST https://api4.seranking.com/sites/{site_id}/keywords (top-level array)
+     * Keywords toevoegen (top-level array)
      */
     public function addProjectKeywords(int $siteId, array $items): array
     {
@@ -251,7 +285,7 @@ class SeRankingClient
     }
 
     // -----------------------------
-    // Site Audit API (jouw bestaande)
+    // Site Audit API
     // -----------------------------
 
     public function createStandardAudit(string $domain, array $settings = [], ?string $title = null): array
