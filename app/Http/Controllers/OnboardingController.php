@@ -8,6 +8,8 @@ class OnboardingController extends Controller
 {
     public function index(Request $request)
     {
-        return view('hub.onboarding.index');
+        return view('hub.onboarding.index', [
+            'user' => $request->user(),
+        ]);
     }
 }

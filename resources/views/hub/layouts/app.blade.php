@@ -108,7 +108,7 @@
               <i class="fa-solid fa-star text-[#191D38] fa-xs"></i>
               <p href="#" class="text-[#191D38] font-semibold text-sm">Favorieten</p>
             </li>
-            <li class="flex items-center gap-2 opacity-50">
+            <li class="flex items-center gap-2 opacity-50 mb-4">
               <i class="fa-solid fa-history text-[#191D38] fa-xs"></i>
               <p href="#" class="text-[#191D38] font-semibold text-sm">Recent</p>
             </li>
@@ -337,118 +337,151 @@
                   </li>
               </ul>
             @endif
-
-@php
-  /** @var array $statusMap label => value */
-  $statusMap = $statusMap ?? [
-    'Prospect' => 'prospect',
-    'Contact'  => 'contact',
-    'Intake'   => 'intake',
-    'Dead'     => 'dead',
-    'Lead'     => 'lead',
-  ];
-
-  $colors = $colors ?? [
-    'prospect' => [
-      'bg'    => 'bg-[#b3e6ff]',
-      'border'=> 'border-[#92cbe8]',
-      'text'  => 'text-[#0f6199]',
-      'dot'   => 'bg-[#0f6199]',
-    ],
-    'contact' => [
-      'bg'    => 'bg-[#C2F0D5]',
-      'border'=> 'border-[#a1d3b6]',
-      'text'  => 'text-[#20603a]',
-      'dot'   => 'bg-[#20603a]',
-    ],
-    'intake' => [
-      'bg'    => 'bg-[#ffdfb3]',
-      'border'=> 'border-[#e8c392]',
-      'text'  => 'text-[#a0570f]',
-      'dot'   => 'bg-[#a0570f]',
-    ],
-    'dead' => [
-      'bg'    => 'bg-[#ffb3b3]',
-      'border'=> 'border-[#e09494]',
-      'text'  => 'text-[#8a2a2d]',
-      'dot'   => 'bg-[#8a2a2d]',
-    ],
-    'lead' => [
-      'bg'    => 'bg-[#e0d4ff]',
-      'border'=> 'border-[#c3b4f0]',
-      'text'  => 'text-[#4c2a9b]',
-      'dot'   => 'bg-[#4c2a9b]',
-    ],
-  ];
-
-  $sidebarAanvragen = \App\Models\AanvraagWebsite::query()
-    ->select('id', 'company', 'status')
-    ->orderByDesc('created_at')
-    ->limit(10)
-    ->get();
-
-  $routeAanvraag = request()->route('aanvraag');
-  $activeAanvraagId = is_object($routeAanvraag)
-    ? (int) $routeAanvraag->id
-    : (is_numeric($routeAanvraag) ? (int) $routeAanvraag : null);
-@endphp
-@if (request()->is('app/potentiele-klanten*'))
-  <ul>
-    <li class="grid gap-1" x-data="{ openPotentieleKlanten: true }">
-      <!-- Rij: Potentiele Klanten + plusje -->
-      <div class="flex items-center justify-between gap-2">
-        <a href="{{ url('/app/potentiele-klanten') }}"
-          class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-          Website Aanvragen
-        </a>
-        <button
-          type="button"
-          class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
-          @click="openPotentieleKlanten = !openPotentieleKlanten"
-          :aria-expanded="openPotentieleKlanten.toString()"
-        >
-          <i
-            class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
-            :class="openPotentieleKlanten ? 'rotate-45 text-[#009AC3]' : ''"
-          ></i>
-        </button>
-      </div>
-      <!-- Uitklap: Aanvragen -->
-      <div x-show="openPotentieleKlanten" x-transition>
-        <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
-          @forelse($sidebarAanvragen as $aanvraag)
+            @if (request()->is('app/onboarding*'))
+            <div class="grid gap-2">
+              <ul class="grid gap-2">
+                <li class="flex items-center justify-between gap-2">
+                    <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                        Onboarding
+                    </a>
+                    <div
+                        class="w-4 h-4 bg-[#009AC3] font-semibold text-[11px] rounded-full text-white flex items-center justify-center"
+                    >
+                        2
+                    </div>
+                </li>
+                <li>
+                    <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                        <div class="flex items-center gap-2">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25">
+                            <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Naam Onboarding 1
+                            </a>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25">
+                            <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Naam Onboarding 1
+                            </a>
+                        </div>
+                    </div>
+                </li>
+              </ul>
+              <a href="#" class="text-[#009AC3] font-semibold text-sm hover:text-[#009AC3]/70 transition duration-300">
+                <i class="fa-solid fa-plus text-sm -ml-1"></i> Nieuwe onboarding
+              </a>
+            </div>
+            @endif
             @php
-              $status = strtolower(trim($aanvraag->status ?? 'prospect'));
-              $c = $colors[$status] ?? $colors['prospect'];
-            @endphp
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2 min-w-0">
-                <hr class="w-[10px] border-1 border-[#191D38]/25 shrink-0">
-                @php $isActive = ($activeAanvraagId && (int)$aanvraag->id === (int)$activeAanvraagId); @endphp
-                <a
-                  href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
-                  data-potkl-open="{{ $aanvraag->id }}"
-                  class="{{ $isActive ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300 truncate"
-                >
-                  {{ $aanvraag->company }}
-                </a>
-              </div>
-              <span class="shrink-0 inline-flex items-center gap-1.5 px-2 py-[2px] rounded-full text-[10px] font-semibold {{ $c['bg'] }} {{ $c['text'] }}">
-                {{ __('potentiele_klanten.statuses.' . $status) }}
-              </span>
-            </div>
-          @empty
-            <div class="flex items-center gap-2">
-              <hr class="w-[10px] border-1 border-[#191D38]/25">
-              <span class="text-[#191D38]/60 text-sm font-semibold">Nog geen aanvragen</span>
-            </div>
-          @endforelse
-        </div>
-      </div>
-    </li>
-  </ul>
-@endif
+              /** @var array $statusMap label => value */
+              $statusMap = $statusMap ?? [
+                'Prospect' => 'prospect',
+                'Contact'  => 'contact',
+                'Intake'   => 'intake',
+                'Dead'     => 'dead',
+                'Lead'     => 'lead',
+              ];
 
+              $colors = $colors ?? [
+                'prospect' => [
+                  'bg'    => 'bg-[#b3e6ff]',
+                  'border'=> 'border-[#92cbe8]',
+                  'text'  => 'text-[#0f6199]',
+                  'dot'   => 'bg-[#0f6199]',
+                ],
+                'contact' => [
+                  'bg'    => 'bg-[#C2F0D5]',
+                  'border'=> 'border-[#a1d3b6]',
+                  'text'  => 'text-[#20603a]',
+                  'dot'   => 'bg-[#20603a]',
+                ],
+                'intake' => [
+                  'bg'    => 'bg-[#ffdfb3]',
+                  'border'=> 'border-[#e8c392]',
+                  'text'  => 'text-[#a0570f]',
+                  'dot'   => 'bg-[#a0570f]',
+                ],
+                'dead' => [
+                  'bg'    => 'bg-[#ffb3b3]',
+                  'border'=> 'border-[#e09494]',
+                  'text'  => 'text-[#8a2a2d]',
+                  'dot'   => 'bg-[#8a2a2d]',
+                ],
+                'lead' => [
+                  'bg'    => 'bg-[#e0d4ff]',
+                  'border'=> 'border-[#c3b4f0]',
+                  'text'  => 'text-[#4c2a9b]',
+                  'dot'   => 'bg-[#4c2a9b]',
+                ],
+              ];
+
+              $sidebarAanvragen = \App\Models\AanvraagWebsite::query()
+                ->select('id', 'company', 'status')
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get();
+
+              $routeAanvraag = request()->route('aanvraag');
+              $activeAanvraagId = is_object($routeAanvraag)
+                ? (int) $routeAanvraag->id
+                : (is_numeric($routeAanvraag) ? (int) $routeAanvraag : null);
+            @endphp
+            @if (request()->is('app/potentiele-klanten*'))
+              <ul>
+                <li class="grid gap-1" x-data="{ openPotentieleKlanten: true }">
+                  <!-- Rij: Potentiele Klanten + plusje -->
+                  <div class="flex items-center justify-between gap-2">
+                    <a href="{{ url('/app/potentiele-klanten') }}"
+                      class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                      Website Aanvragen
+                    </a>
+                    <button
+                      type="button"
+                      class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                      @click="openPotentieleKlanten = !openPotentieleKlanten"
+                      :aria-expanded="openPotentieleKlanten.toString()"
+                    >
+                      <i
+                        class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+                        :class="openPotentieleKlanten ? 'rotate-45 text-[#009AC3]' : ''"
+                      ></i>
+                    </button>
+                  </div>
+                  <!-- Uitklap: Aanvragen -->
+                  <div x-show="openPotentieleKlanten" x-transition>
+                    <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                      @forelse($sidebarAanvragen as $aanvraag)
+                        @php
+                          $status = strtolower(trim($aanvraag->status ?? 'prospect'));
+                          $c = $colors[$status] ?? $colors['prospect'];
+                        @endphp
+                        <div class="flex items-center justify-between gap-3">
+                          <div class="flex items-center gap-2 min-w-0">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25 shrink-0">
+                            @php $isActive = ($activeAanvraagId && (int)$aanvraag->id === (int)$activeAanvraagId); @endphp
+                            <a
+                              href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
+                              data-potkl-open="{{ $aanvraag->id }}"
+                              class="{{ $isActive ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300 truncate"
+                            >
+                              {{ $aanvraag->company }}
+                            </a>
+                          </div>
+                          <span class="shrink-0 inline-flex items-center gap-1.5 px-2 py-[2px] rounded-full text-[10px] font-semibold {{ $c['bg'] }} {{ $c['text'] }}">
+                            {{ __('potentiele_klanten.statuses.' . $status) }}
+                          </span>
+                        </div>
+                      @empty
+                        <div class="flex items-center gap-2">
+                          <hr class="w-[10px] border-1 border-[#191D38]/25">
+                          <span class="text-[#191D38]/60 text-sm font-semibold">Nog geen aanvragen</span>
+                        </div>
+                      @endforelse
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            @endif
             @if (request()->is('app/marketing*'))
               <ul class="grid gap-2" x-data="{ openMailing: true }">
                   <li class="flex items-center justify-between gap-2">
