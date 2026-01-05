@@ -47,49 +47,53 @@
 
             <ul class="grid gap-4">
               <li>
-                <a href="{{ url('/app') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                <a href="{{ route('support.dashboard') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
                   <i class="fa-solid fa-house text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
                   <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Dashboard</p>
                 </a>
               </li>
               <li>
-                <a href="{{ url('/app/support') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                <a href="{{ route('support.planning.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-calendar text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Planning & Management</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.projecten.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-folders text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Projecten</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.taken.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-list-check text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Taken</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.onboarding.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-plus text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Onboarding</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.financien.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-dollar-sign text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Financiën</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
                   <i class="fa-solid fa-message-lines text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
                   <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Ondersteuning</p>
                 </a>
               </li>
-              @if((int) auth()->user()->company_id === 1)
-                <li>
-                  <a href="{{ url('/app/potentiele-klanten') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-solid fa-bolt text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Potentiele klanten</p>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ url('/app/projecten') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-solid fa-folders text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Projecten</p>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ url('/app/marketing') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-solid fa-at text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Marketing</p>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ route('support.seo.projects.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-brands fa-google text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">SEO-strategie</p>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ route('support.gebruikers.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-solid fa-user text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Gebruikers</p>
-                  </a>
-                </li>
-              @endif
+              <li>
+                <a href="{{ route('support.gebruikers.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-user text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Gebruikers</p>
+                </a>
+              </li>
             </ul>
           </div>
           <!-- ONDERSTE CONTENT SIDEBAR -->
@@ -104,7 +108,7 @@
               <i class="fa-solid fa-star text-[#191D38] fa-xs"></i>
               <p href="#" class="text-[#191D38] font-semibold text-sm">Favorieten</p>
             </li>
-            <li class="flex items-center gap-2 opacity-50">
+            <li class="flex items-center gap-2 opacity-50 mb-4">
               <i class="fa-solid fa-history text-[#191D38] fa-xs"></i>
               <p href="#" class="text-[#191D38] font-semibold text-sm">Recent</p>
             </li>
@@ -333,118 +337,151 @@
                   </li>
               </ul>
             @endif
-
-@php
-  /** @var array $statusMap label => value */
-  $statusMap = $statusMap ?? [
-    'Prospect' => 'prospect',
-    'Contact'  => 'contact',
-    'Intake'   => 'intake',
-    'Dead'     => 'dead',
-    'Lead'     => 'lead',
-  ];
-
-  $colors = $colors ?? [
-    'prospect' => [
-      'bg'    => 'bg-[#b3e6ff]',
-      'border'=> 'border-[#92cbe8]',
-      'text'  => 'text-[#0f6199]',
-      'dot'   => 'bg-[#0f6199]',
-    ],
-    'contact' => [
-      'bg'    => 'bg-[#C2F0D5]',
-      'border'=> 'border-[#a1d3b6]',
-      'text'  => 'text-[#20603a]',
-      'dot'   => 'bg-[#20603a]',
-    ],
-    'intake' => [
-      'bg'    => 'bg-[#ffdfb3]',
-      'border'=> 'border-[#e8c392]',
-      'text'  => 'text-[#a0570f]',
-      'dot'   => 'bg-[#a0570f]',
-    ],
-    'dead' => [
-      'bg'    => 'bg-[#ffb3b3]',
-      'border'=> 'border-[#e09494]',
-      'text'  => 'text-[#8a2a2d]',
-      'dot'   => 'bg-[#8a2a2d]',
-    ],
-    'lead' => [
-      'bg'    => 'bg-[#e0d4ff]',
-      'border'=> 'border-[#c3b4f0]',
-      'text'  => 'text-[#4c2a9b]',
-      'dot'   => 'bg-[#4c2a9b]',
-    ],
-  ];
-
-  $sidebarAanvragen = \App\Models\AanvraagWebsite::query()
-    ->select('id', 'company', 'status')
-    ->orderByDesc('created_at')
-    ->limit(10)
-    ->get();
-
-  $routeAanvraag = request()->route('aanvraag');
-  $activeAanvraagId = is_object($routeAanvraag)
-    ? (int) $routeAanvraag->id
-    : (is_numeric($routeAanvraag) ? (int) $routeAanvraag : null);
-@endphp
-@if (request()->is('app/potentiele-klanten*'))
-  <ul>
-    <li class="grid gap-1" x-data="{ openPotentieleKlanten: true }">
-      <!-- Rij: Potentiele Klanten + plusje -->
-      <div class="flex items-center justify-between gap-2">
-        <a href="{{ url('/app/potentiele-klanten') }}"
-          class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-          Website Aanvragen
-        </a>
-        <button
-          type="button"
-          class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
-          @click="openPotentieleKlanten = !openPotentieleKlanten"
-          :aria-expanded="openPotentieleKlanten.toString()"
-        >
-          <i
-            class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
-            :class="openPotentieleKlanten ? 'rotate-45 text-[#009AC3]' : ''"
-          ></i>
-        </button>
-      </div>
-      <!-- Uitklap: Aanvragen -->
-      <div x-show="openPotentieleKlanten" x-transition>
-        <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
-          @forelse($sidebarAanvragen as $aanvraag)
+            @if (request()->is('app/onboarding*'))
+            <div class="grid gap-2">
+              <ul class="grid gap-2">
+                <li class="flex items-center justify-between gap-2">
+                    <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                        Onboarding
+                    </a>
+                    <div
+                        class="w-4 h-4 bg-[#009AC3] font-semibold text-[11px] rounded-full text-white flex items-center justify-center"
+                    >
+                        2
+                    </div>
+                </li>
+                <li>
+                    <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                        <div class="flex items-center gap-2">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25">
+                            <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Naam Onboarding 1
+                            </a>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25">
+                            <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Naam Onboarding 1
+                            </a>
+                        </div>
+                    </div>
+                </li>
+              </ul>
+              <a href="#" class="text-[#009AC3] font-semibold text-sm hover:text-[#009AC3]/70 transition duration-300">
+                <i class="fa-solid fa-plus text-sm -ml-1"></i> Nieuwe onboarding
+              </a>
+            </div>
+            @endif
             @php
-              $status = strtolower(trim($aanvraag->status ?? 'prospect'));
-              $c = $colors[$status] ?? $colors['prospect'];
-            @endphp
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2 min-w-0">
-                <hr class="w-[10px] border-1 border-[#191D38]/25 shrink-0">
-                @php $isActive = ($activeAanvraagId && (int)$aanvraag->id === (int)$activeAanvraagId); @endphp
-                <a
-                  href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
-                  data-potkl-open="{{ $aanvraag->id }}"
-                  class="{{ $isActive ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300 truncate"
-                >
-                  {{ $aanvraag->company }}
-                </a>
-              </div>
-              <span class="shrink-0 inline-flex items-center gap-1.5 px-2 py-[2px] rounded-full text-[10px] font-semibold {{ $c['bg'] }} {{ $c['text'] }}">
-                {{ __('potentiele_klanten.statuses.' . $status) }}
-              </span>
-            </div>
-          @empty
-            <div class="flex items-center gap-2">
-              <hr class="w-[10px] border-1 border-[#191D38]/25">
-              <span class="text-[#191D38]/60 text-sm font-semibold">Nog geen aanvragen</span>
-            </div>
-          @endforelse
-        </div>
-      </div>
-    </li>
-  </ul>
-@endif
+              /** @var array $statusMap label => value */
+              $statusMap = $statusMap ?? [
+                'Prospect' => 'prospect',
+                'Contact'  => 'contact',
+                'Intake'   => 'intake',
+                'Dead'     => 'dead',
+                'Lead'     => 'lead',
+              ];
 
+              $colors = $colors ?? [
+                'prospect' => [
+                  'bg'    => 'bg-[#b3e6ff]',
+                  'border'=> 'border-[#92cbe8]',
+                  'text'  => 'text-[#0f6199]',
+                  'dot'   => 'bg-[#0f6199]',
+                ],
+                'contact' => [
+                  'bg'    => 'bg-[#C2F0D5]',
+                  'border'=> 'border-[#a1d3b6]',
+                  'text'  => 'text-[#20603a]',
+                  'dot'   => 'bg-[#20603a]',
+                ],
+                'intake' => [
+                  'bg'    => 'bg-[#ffdfb3]',
+                  'border'=> 'border-[#e8c392]',
+                  'text'  => 'text-[#a0570f]',
+                  'dot'   => 'bg-[#a0570f]',
+                ],
+                'dead' => [
+                  'bg'    => 'bg-[#ffb3b3]',
+                  'border'=> 'border-[#e09494]',
+                  'text'  => 'text-[#8a2a2d]',
+                  'dot'   => 'bg-[#8a2a2d]',
+                ],
+                'lead' => [
+                  'bg'    => 'bg-[#e0d4ff]',
+                  'border'=> 'border-[#c3b4f0]',
+                  'text'  => 'text-[#4c2a9b]',
+                  'dot'   => 'bg-[#4c2a9b]',
+                ],
+              ];
+
+              $sidebarAanvragen = \App\Models\AanvraagWebsite::query()
+                ->select('id', 'company', 'status')
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get();
+
+              $routeAanvraag = request()->route('aanvraag');
+              $activeAanvraagId = is_object($routeAanvraag)
+                ? (int) $routeAanvraag->id
+                : (is_numeric($routeAanvraag) ? (int) $routeAanvraag : null);
+            @endphp
+            @if (request()->is('app/potentiele-klanten*'))
+              <ul>
+                <li class="grid gap-1" x-data="{ openPotentieleKlanten: true }">
+                  <!-- Rij: Potentiele Klanten + plusje -->
+                  <div class="flex items-center justify-between gap-2">
+                    <a href="{{ url('/app/potentiele-klanten') }}"
+                      class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                      Website Aanvragen
+                    </a>
+                    <button
+                      type="button"
+                      class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                      @click="openPotentieleKlanten = !openPotentieleKlanten"
+                      :aria-expanded="openPotentieleKlanten.toString()"
+                    >
+                      <i
+                        class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+                        :class="openPotentieleKlanten ? 'rotate-45 text-[#009AC3]' : ''"
+                      ></i>
+                    </button>
+                  </div>
+                  <!-- Uitklap: Aanvragen -->
+                  <div x-show="openPotentieleKlanten" x-transition>
+                    <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                      @forelse($sidebarAanvragen as $aanvraag)
+                        @php
+                          $status = strtolower(trim($aanvraag->status ?? 'prospect'));
+                          $c = $colors[$status] ?? $colors['prospect'];
+                        @endphp
+                        <div class="flex items-center justify-between gap-3">
+                          <div class="flex items-center gap-2 min-w-0">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25 shrink-0">
+                            @php $isActive = ($activeAanvraagId && (int)$aanvraag->id === (int)$activeAanvraagId); @endphp
+                            <a
+                              href="{{ route('support.potentiele-klanten.show', ['aanvraag' => $aanvraag->id]) }}"
+                              data-potkl-open="{{ $aanvraag->id }}"
+                              class="{{ $isActive ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300 truncate"
+                            >
+                              {{ $aanvraag->company }}
+                            </a>
+                          </div>
+                          <span class="shrink-0 inline-flex items-center gap-1.5 px-2 py-[2px] rounded-full text-[10px] font-semibold {{ $c['bg'] }} {{ $c['text'] }}">
+                            {{ __('potentiele_klanten.statuses.' . $status) }}
+                          </span>
+                        </div>
+                      @empty
+                        <div class="flex items-center gap-2">
+                          <hr class="w-[10px] border-1 border-[#191D38]/25">
+                          <span class="text-[#191D38]/60 text-sm font-semibold">Nog geen aanvragen</span>
+                        </div>
+                      @endforelse
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            @endif
             @if (request()->is('app/marketing*'))
               <ul class="grid gap-2" x-data="{ openMailing: true }">
                   <li class="flex items-center justify-between gap-2">
@@ -662,82 +699,6 @@
 
         <div class="flex-1">
           <input type="text" placeholder="Zoeken in mijn systeem..." class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#191D38] font-medium outline-none">
-        </div>
-
-        {{-- 🔔 Notifications bell (hover open zoals profiel dropdown) --}}
-        <div
-          class="relative inline-block group"
-          x-data="notifBell({
-            csrf: '{{ csrf_token() }}',
-            indexUrl: '{{ route('app.notifications.index') }}',
-            readUrlBase: '{{ url('/app/notifications') }}',
-            readAllUrl: '{{ route('app.notifications.readAll') }}',
-          })"
-          x-init="init()"
-        >
-          <button
-            type="button"
-            class="w-9 h-9 cursor-pointer border border-gray-200 bg-white rounded-full flex items-center justify-center group transition duration-300 relative
-                  hover:bg-[#009AC3] hover:border-[#009AC3]"
-            aria-label="Notifications"
-          >
-            <i class="fa-regular fa-bell text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-            <template x-if="unreadCount > 0">
-              <span
-                class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#009AC3] text-white text-[10px] font-black flex items-center justify-center"
-                x-text="unreadCount"
-              ></span>
-            </template>
-          </button>
-          {{-- hover bridge (zoals profiel dropdown) --}}
-          <span class="absolute right-0 top-8 h-4 min-w-[340px] block opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-          <div
-            x-cloak
-            class="min-w-[340px] max-w-[420px] px-1 py-2 rounded-xl bg-white border border-gray-200 shadow-md absolute right-0 top-10 z-50
-                  opacity-0 invisible translate-y-1 pointer-events-none
-                  group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
-                  group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:pointer-events-auto
-                  transition-all duration-300 ease-out"
-          >
-            <div class="flex items-center justify-between px-3 pt-1 mb-1">
-              <p class="text-base text-[#191D38] font-bold">Meldingen</p>
-              <button
-                type="button"
-                class="text-[11px] font-bold text-[#191D38]/60 hover:text-[#191D38] transition duration-300"
-                @click="readAll()"
-                x-show="unreadCount > 0"
-              >
-                Alles markeren als gelezen
-              </button>
-            </div>
-            <div class="px-3 pb-2 pt-0 mt-3 max-h-[320px] overflow-auto
-                        [&>a+a]:border-t [&>a+a]:border-[#191D38]/20
-                        [&>a+a]:pt-3
-                        [&>a:not(:last-of-type)]:pb-3">
-              <template x-if="items.length === 0">
-                <p class="text-xs font-semibold text-[#191D38]/60">Geen meldingen.</p>
-              </template>
-              <template x-for="n in items" :key="n.id">
-                <a
-                  class="block"
-                  :href="n.data.url"
-                  @click.prevent="openNotification(n)"
-                >
-                  <div class="flex items-start justify-between gap-3 relative">
-                    <div class="flex-1 min-w-0">
-                      <p class="text-xs font-bold text-[#191D38] truncate mb-1" x-text="n.data.title"></p>
-                      <p class="text-xs font-medium text-[#191D38] leading-[20px] opacity-75" x-text="n.data.body"></p>
-                      <p class="text-[11px] font-semibold opacity-50 text-[#191D38] mt-1" x-text="n.created_at"></p>
-                    </div>
-
-                    <template x-if="!n.read_at">
-                      <span class="absolute top-1/2 -translate-y-1/2 right-1 w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
-                    </template>
-                  </div>
-                </a>
-              </template>
-            </div>
-          </div>
         </div>
 
         <!-- Avatar dropdown (with hover bridge) -->

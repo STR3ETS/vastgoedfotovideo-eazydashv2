@@ -50,8 +50,32 @@
                         <i class="fa-solid fa-house text-[300px] rotate-[-10deg] absolute z-1 -right-4 text-[#191D38]/10"></i>
                     </div>
                     <div class="flex-1 w-full overflow-hidden flex flex-col min-h-0">
-                        <div class="mb-4">
-                            <input type="text" placeholder="Zoeken op titel..." class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#191D38] font-medium outline-none">
+                        <div class="mb-4 flex items-center justify-between gap-4">
+                            <div>
+                                <input
+                                type="text"
+                                placeholder="Zoeken op titel..."
+                                class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#191D38] font-medium outline-none"
+                                >
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="relative">
+                                <select
+                                    class="h-9 bg-white border border-gray-200 pl-4 pr-10 rounded-full text-xs text-[#191D38] font-medium outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="newest">Nieuwste eerst</option>
+                                    <option value="oldest">Oudste eerst</option>
+                                    <option value="title_asc">Titel A–Z</option>
+                                    <option value="title_desc">Titel Z–A</option>
+                                    <option value="status">Status</option>
+                                </select>
+                                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#191D38]/60">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.24 4.5a.75.75 0 0 1-1.08 0l-4.24-4.5a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd"/>
+                                    </svg>
+                                </span>
+                                </div>
+                            </div>
                         </div>
                         <div class="shrink-0 px-6 py-4 bg-[#191D38]/10 rounded-tl-2xl rounded-tr-2xl">
                             <div class="grid grid-cols-[2.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
@@ -124,24 +148,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-[#F5EFED70] w-full xl:w-[350px] shrink-0 rounded-2xl p-8 min-w-0 flex flex-col h-full min-h-0">
-                    @php
-                        $firstName  = strtolower(explode(' ', trim($user->name))[0] ?? '');
-                        $userAvatar = "/assets/eazyonline/memojis/{$firstName}.webp";
-                    @endphp
-                    <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center p-2 mx-auto border-2 border-[#009AC350] relative shrink-0">
-                        <div class="{{ isset($activeSession) && $activeSession ? 'hidden' : 'flex' }} w-4 h-4 absolute z-1 right-1 top-1 items-center justify-center">
-                            <div class="w-4 h-4 rounded-full bg-red-500 absolute z-2"></div>
-                            <div class="w-3 h-3 rounded-full bg-red-500 animate-ping"></div>
-                        </div>
-                        <div class="{{ isset($activeSession) && $activeSession ? 'flex' : 'hidden' }} w-4 h-4 absolute z-1 right-1 top-1 items-center justify-center">
-                            <div class="w-4 h-4 rounded-full bg-green-500 absolute z-2"></div>
-                            <div class="w-3 h-3 rounded-full bg-green-500 animate-ping"></div>
-                        </div>
-                        <img src="{{ $userAvatar }}" alt="{{ $user->name }}">
-                    </div>
-                    <h2 class="text-[#191D38] font-bold text-base text-center mt-4 mb-2 shrink-0">{{ $user->name }} 👋</h2>
-                    <p class="text-xs text-[#191D38] font-semibold text-center mb-6 shrink-0">Laten we weer gaan knallen vandaag!</p>
+                <div class="bg-[#191D38]/5 w-full xl:w-[350px] shrink-0 rounded-2xl p-8 min-w-0 flex flex-col h-full min-h-0">
                     <div class="w-full p-6 bg-white rounded-2xl flex flex-col mb-2 shrink-0">
                         <h2 class="text-[#191D38] font-semibold text-sm shrink-0">Actieve projecten</h2>
                         <p class="text-[#191D38] font-black text-3xl shrink-0 mb-1">40</p>
@@ -155,7 +162,7 @@
                     <div class="w-full flex-1 min-h-0 p-6 bg-white rounded-2xl flex flex-col">
                         <h2 class="text-[#191D38] font-semibold text-sm shrink-0 mb-2">Rit meldingen</h2>
                         {{-- optioneel: scrollbare inhoud --}}
-                        <div class="flex-1 min-h-0 overflow-auto bg-[#F5EFED70] rounded-2xl p-6">
+                        <div class="flex-1 min-h-0 overflow-auto bg-[#191D38]/5 rounded-2xl p-6">
                             {{-- content --}}
                         </div>
                     </div>
