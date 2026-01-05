@@ -47,49 +47,53 @@
 
             <ul class="grid gap-4">
               <li>
-                <a href="{{ url('/app') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                <a href="{{ route('support.dashboard') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
                   <i class="fa-solid fa-house text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
                   <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Dashboard</p>
                 </a>
               </li>
               <li>
-                <a href="{{ url('/app/support') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                <a href="{{ route('support.planning.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-calendar text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Planning & Management</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.projecten.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-folders text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Projecten</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.taken.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-list-check text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Taken</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.onboarding.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-plus text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Onboarding</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.financien.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-dollar-sign text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Financiën</p>
+                </a>
+              </li>
+              <li>
+                <a href="{{ route('support.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
                   <i class="fa-solid fa-message-lines text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
                   <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Ondersteuning</p>
                 </a>
               </li>
-              @if((int) auth()->user()->company_id === 1)
-                <li>
-                  <a href="{{ url('/app/potentiele-klanten') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-solid fa-bolt text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Potentiele klanten</p>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ url('/app/projecten') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-solid fa-folders text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Projecten</p>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ url('/app/marketing') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-solid fa-at text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Marketing</p>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ route('support.seo.projects.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-brands fa-google text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">SEO-strategie</p>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ route('support.gebruikers.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
-                    <i class="fa-solid fa-user text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Gebruikers</p>
-                  </a>
-                </li>
-              @endif
+              <li>
+                <a href="{{ route('support.gebruikers.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                  <i class="fa-solid fa-user text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                  <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Gebruikers</p>
+                </a>
+              </li>
             </ul>
           </div>
           <!-- ONDERSTE CONTENT SIDEBAR -->
@@ -662,82 +666,6 @@
 
         <div class="flex-1">
           <input type="text" placeholder="Zoeken in mijn systeem..." class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#191D38] font-medium outline-none">
-        </div>
-
-        {{-- 🔔 Notifications bell (hover open zoals profiel dropdown) --}}
-        <div
-          class="relative inline-block group"
-          x-data="notifBell({
-            csrf: '{{ csrf_token() }}',
-            indexUrl: '{{ route('app.notifications.index') }}',
-            readUrlBase: '{{ url('/app/notifications') }}',
-            readAllUrl: '{{ route('app.notifications.readAll') }}',
-          })"
-          x-init="init()"
-        >
-          <button
-            type="button"
-            class="w-9 h-9 cursor-pointer border border-gray-200 bg-white rounded-full flex items-center justify-center group transition duration-300 relative
-                  hover:bg-[#009AC3] hover:border-[#009AC3]"
-            aria-label="Notifications"
-          >
-            <i class="fa-regular fa-bell text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
-            <template x-if="unreadCount > 0">
-              <span
-                class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#009AC3] text-white text-[10px] font-black flex items-center justify-center"
-                x-text="unreadCount"
-              ></span>
-            </template>
-          </button>
-          {{-- hover bridge (zoals profiel dropdown) --}}
-          <span class="absolute right-0 top-8 h-4 min-w-[340px] block opacity-0 pointer-events-none group-hover:pointer-events-auto"></span>
-          <div
-            x-cloak
-            class="min-w-[340px] max-w-[420px] px-1 py-2 rounded-xl bg-white border border-gray-200 shadow-md absolute right-0 top-10 z-50
-                  opacity-0 invisible translate-y-1 pointer-events-none
-                  group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
-                  group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:pointer-events-auto
-                  transition-all duration-300 ease-out"
-          >
-            <div class="flex items-center justify-between px-3 pt-1 mb-1">
-              <p class="text-base text-[#191D38] font-bold">Meldingen</p>
-              <button
-                type="button"
-                class="text-[11px] font-bold text-[#191D38]/60 hover:text-[#191D38] transition duration-300"
-                @click="readAll()"
-                x-show="unreadCount > 0"
-              >
-                Alles markeren als gelezen
-              </button>
-            </div>
-            <div class="px-3 pb-2 pt-0 mt-3 max-h-[320px] overflow-auto
-                        [&>a+a]:border-t [&>a+a]:border-[#191D38]/20
-                        [&>a+a]:pt-3
-                        [&>a:not(:last-of-type)]:pb-3">
-              <template x-if="items.length === 0">
-                <p class="text-xs font-semibold text-[#191D38]/60">Geen meldingen.</p>
-              </template>
-              <template x-for="n in items" :key="n.id">
-                <a
-                  class="block"
-                  :href="n.data.url"
-                  @click.prevent="openNotification(n)"
-                >
-                  <div class="flex items-start justify-between gap-3 relative">
-                    <div class="flex-1 min-w-0">
-                      <p class="text-xs font-bold text-[#191D38] truncate mb-1" x-text="n.data.title"></p>
-                      <p class="text-xs font-medium text-[#191D38] leading-[20px] opacity-75" x-text="n.data.body"></p>
-                      <p class="text-[11px] font-semibold opacity-50 text-[#191D38] mt-1" x-text="n.created_at"></p>
-                    </div>
-
-                    <template x-if="!n.read_at">
-                      <span class="absolute top-1/2 -translate-y-1/2 right-1 w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
-                    </template>
-                  </div>
-                </a>
-              </template>
-            </div>
-          </div>
         </div>
 
         <!-- Avatar dropdown (with hover bridge) -->

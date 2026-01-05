@@ -148,24 +148,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-[#F5EFED70] w-full xl:w-[350px] shrink-0 rounded-2xl p-8 min-w-0 flex flex-col h-full min-h-0">
-                    @php
-                        $firstName  = strtolower(explode(' ', trim($user->name))[0] ?? '');
-                        $userAvatar = "/assets/eazyonline/memojis/{$firstName}.webp";
-                    @endphp
-                    <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center p-2 mx-auto border-2 border-[#009AC350] relative shrink-0">
-                        <div class="{{ isset($activeSession) && $activeSession ? 'hidden' : 'flex' }} w-4 h-4 absolute z-1 right-1 top-1 items-center justify-center">
-                            <div class="w-4 h-4 rounded-full bg-red-500 absolute z-2"></div>
-                            <div class="w-3 h-3 rounded-full bg-red-500 animate-ping"></div>
-                        </div>
-                        <div class="{{ isset($activeSession) && $activeSession ? 'flex' : 'hidden' }} w-4 h-4 absolute z-1 right-1 top-1 items-center justify-center">
-                            <div class="w-4 h-4 rounded-full bg-green-500 absolute z-2"></div>
-                            <div class="w-3 h-3 rounded-full bg-green-500 animate-ping"></div>
-                        </div>
-                        <img src="{{ $userAvatar }}" alt="{{ $user->name }}">
-                    </div>
-                    <h2 class="text-[#191D38] font-bold text-base text-center mt-4 mb-2 shrink-0">{{ $user->name }} 👋</h2>
-                    <p class="text-xs text-[#191D38] font-semibold text-center mb-6 shrink-0">Laten we weer gaan knallen vandaag!</p>
+                <div class="bg-[#191D38]/5 w-full xl:w-[350px] shrink-0 rounded-2xl p-8 min-w-0 flex flex-col h-full min-h-0">
                     <div class="w-full p-6 bg-white rounded-2xl flex flex-col mb-2 shrink-0">
                         <h2 class="text-[#191D38] font-semibold text-sm shrink-0">Actieve projecten</h2>
                         <p class="text-[#191D38] font-black text-3xl shrink-0 mb-1">40</p>
@@ -179,7 +162,7 @@
                     <div class="w-full flex-1 min-h-0 p-6 bg-white rounded-2xl flex flex-col">
                         <h2 class="text-[#191D38] font-semibold text-sm shrink-0 mb-2">Rit meldingen</h2>
                         {{-- optioneel: scrollbare inhoud --}}
-                        <div class="flex-1 min-h-0 overflow-auto bg-[#F5EFED70] rounded-2xl p-6">
+                        <div class="flex-1 min-h-0 overflow-auto bg-[#191D38]/5 rounded-2xl p-6">
                             {{-- content --}}
                         </div>
                     </div>
