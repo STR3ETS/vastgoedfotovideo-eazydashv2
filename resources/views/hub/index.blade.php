@@ -50,8 +50,32 @@
                         <i class="fa-solid fa-house text-[300px] rotate-[-10deg] absolute z-1 -right-4 text-[#191D38]/10"></i>
                     </div>
                     <div class="flex-1 w-full overflow-hidden flex flex-col min-h-0">
-                        <div class="mb-4">
-                            <input type="text" placeholder="Zoeken op titel..." class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#191D38] font-medium outline-none">
+                        <div class="mb-4 flex items-center justify-between gap-4">
+                            <div>
+                                <input
+                                type="text"
+                                placeholder="Zoeken op titel..."
+                                class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#191D38] font-medium outline-none"
+                                >
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="relative">
+                                <select
+                                    class="h-9 bg-white border border-gray-200 pl-4 pr-10 rounded-full text-xs text-[#191D38] font-medium outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="newest">Nieuwste eerst</option>
+                                    <option value="oldest">Oudste eerst</option>
+                                    <option value="title_asc">Titel A–Z</option>
+                                    <option value="title_desc">Titel Z–A</option>
+                                    <option value="status">Status</option>
+                                </select>
+                                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#191D38]/60">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.24 4.5a.75.75 0 0 1-1.08 0l-4.24-4.5a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd"/>
+                                    </svg>
+                                </span>
+                                </div>
+                            </div>
                         </div>
                         <div class="shrink-0 px-6 py-4 bg-[#191D38]/10 rounded-tl-2xl rounded-tr-2xl">
                             <div class="grid grid-cols-[2.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
