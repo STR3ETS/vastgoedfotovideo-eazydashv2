@@ -589,7 +589,7 @@
                             :aria-expanded="openUser.toString()"
                         >
                             <i
-                                class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+                                class="fa-solid fa-plus text-gray-500 text-[11px] pb-0.25 transition-transform duration-200"
                                 :class="openUser ? 'rotate-45 text-[#009AC3]' : ''"
                             ></i>
                         </button>
