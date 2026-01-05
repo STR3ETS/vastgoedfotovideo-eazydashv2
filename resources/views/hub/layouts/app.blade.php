@@ -34,7 +34,7 @@
     @endif
   </head>
   <!-- <body class="max-h-screen flex bg-cover bg-center" style="background-image: url('/assets/app-bg-1920.webp')"> -->
-  <body class="max-h-screen flex bg-[#F5EFED]">
+  <body class="max-h-screen flex bg-[#191D38]/5">
     <!-- SIDEBAR -->
     <aside class="w-fit h-screen pl-2 py-2">
       <div class="flex h-full">
