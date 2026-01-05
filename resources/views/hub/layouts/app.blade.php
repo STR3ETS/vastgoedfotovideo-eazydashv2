@@ -576,9 +576,71 @@
                   </li>
               </ul>
             @endif
-          </ul>
-        </div>
-      </div>
+            @if (request()->is('app/gebruikers*'))
+                <ul class="grid gap-2" x-data="{ openUser: true }">
+                    <li class="flex items-center justify-between gap-2">
+                        <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                            Gebruikers
+                        </a>
+                        <button
+                            type="button"
+                            class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                            @click="openUser = !openUser"
+                            :aria-expanded="openUser.toString()"
+                        >
+                            <i
+                                class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
+                                :class="openUser ? 'rotate-45 text-[#009AC3]' : ''"
+                            ></i>
+                        </button>
+                    </li>
+                    <li x-show="openUser" x-transition>
+                        <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                            <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                    Admin
+                                </a>
+                            </div>
+                        </div>
+                        <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                            <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                    Klant
+                                </a>
+                            </div>
+                        </div>
+                        <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                            <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                    Team manager
+                                </a>
+                            </div>
+                        </div>
+                        <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                            <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                    Klant manager
+                                </a>
+                            </div>
+                        </div>
+                        <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                            <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                    Fotograaf
+                                </a>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            @endif
+        </ul>
+    </div>
+    </div>
     </aside>
 
     <!-- MAIN -->

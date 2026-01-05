@@ -31,16 +31,6 @@
             <i class="min-w-[16px] fa-solid fa-user text-[#215558] fa-sm"></i>
             <p class="px-1 text-sm text-[#215558] font-semibold">{{ __('gebruikers.add.klant') }}</p>
           </a>
-          <a href="#" id="open-create-medewerker" role="menuitem"
-             class="w-full p-2 rounded-xl flex items-center gap-1 hover:bg-gray-200 transition duration-300">
-            <i class="min-w-[16px] fa-solid fa-building text-[#215558] fa-sm"></i>
-            <p class="px-1 text-sm text-[#215558] font-semibold">{{ __('gebruikers.add.medewerker') }}</p>
-          </a>
-          <a href="#" id="open-create-bedrijf" role="menuitem"
-            class="w-full p-2 rounded-xl flex items-center gap-1 hover:bg-gray-200 transition duration-300">
-            <i class="min-w-[16px] fa-solid fa-building-columns text-[#215558] fa-sm"></i>
-            <p class="px-1 text-sm text-[#215558] font-semibold">{{ __('gebruikers.add.bedrijf') }}</p>
-          </a>
         </div>
 
         {{-- 2) Create panel met formulier --}}
