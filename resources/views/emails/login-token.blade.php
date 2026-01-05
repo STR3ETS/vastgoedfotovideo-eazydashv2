@@ -1,33 +1,53 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <title>Jouw Eazy login code</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jouw inlogcode</title>
 </head>
-<body style="margin:0; padding:0; font-family: 'Inter Tight', sans-serif; background-color:#f7f9fa;">
-    <div style="max-width:600px; margin:0 auto; padding:2rem; background-color:#ffffff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.05);">
-        <h2 style="color:#21c2d3; font-weight:bold; font-size:24px; margin-bottom:0.5rem;">
-            EazyOnline <span style="color:#191919;"></span>
-        </h2>
-        <p style="font-size:16px; color:#333;">
-            Je probeert in te loggen bij <strong>EazyOnline</strong>. Gebruik onderstaande code om toegang te krijgen:
-        </p>
-
-        <div style="text-align:center; margin:2rem 0;">
-            <div style="display:inline-block; padding:1rem 2rem; background-color:#21c2d3; color:white; font-size:28px; font-weight:bold; letter-spacing:6px; border-radius:10px;">
-                {{ $token }}
-            </div>
+<body style="margin:0;padding:0;background:#F5EFED;font-family:'Inter Tight', Arial, Helvetica, sans-serif;">
+  <div style="width:100%;padding:50px 14px;">
+    <div style="max-width:600px;margin:0 auto;">
+      <!-- Logo -->
+      <div style="padding:0 6px 14px 6px;">
+        <img src="{{ $message->embed(public_path('assets/vastgoedfotovideo/logo-full.png')) }}"
+             alt="Vastgoed Foto Video"
+             style="height:34px;max-width:100%;display:block;">
+      </div>
+      <!-- Card -->
+      <div style="background:#ffffff;border-radius:32px;overflow:hidden;">
+        <!-- Header -->
+        <div style="padding:28px 28px 0 28px;">
+          <h1 style="margin:0;color:#191D38;font-size:32px;line-height:1.15;font-weight:900;letter-spacing:-2px;">
+            Je probeert in te loggen.
+          </h1>
+          <p style="margin:14px 0 14px 0;color:rgba(25,29,56,0.75);font-size:16px;line-height:1.6;font-weight:600;">
+            Onderstaand is de code die je kan gebruiken om in te loggen in jouw VastgoedFotoVideo omgeving. <span style="opacity:50%;">Heb je deze code niet aangevraagd? Negeer deze e-mail dan veilig.</span>
+          </p>
         </div>
+        <!-- Code block -->
+        <div style="padding:22px 28px 0 28px;">
+          <div style="display:inline-block;background:#009AC3;color:#fff;border-radius:12px;padding:16px 14px 16px 22px;
+                      font-size:30px;font-weight:900;letter-spacing:10px;line-height:1;box-shadow:0 10px 20px rgba(0,154,195,0.22);">
+            {{ $token }}
+          </div>
 
-        <p style="font-size:14px; color:#555;">
-            Deze code is 15 minuten geldig. Heb je dit niet zelf aangevraagd? Dan kun je deze mail veilig negeren.
-        </p>
+          <p style="margin:18px 0 0 0;color:rgba(25,29,56,0.65);font-size:13px;line-height:1.6;font-weight:600;opacity:50%;">
+            Deze code is 15 minuten geldig.
+          </p>
+        </div>
+        <!-- Footer -->
+        <div style="padding:24px 28px 26px 28px;">
+          <div style="height:1px;background:rgba(25,29,56,0.08);margin:0 0 14px 0;"></div>
 
-        <hr style="margin:2rem 0; border:none; border-top:1px solid #eee;">
-
-        <p style="font-size:12px; color:#aaa;">
-            &copy; {{ date('Y') }} EazyOnline – Alle rechten voorbehouden.
-        </p>
+          <p style="margin:0;color:#191D38;font-size:12px;line-height:1.6;font-weight:600;">
+            &copy; {{ date('Y') }} Vastgoed Foto Video – Alle rechten voorbehouden.
+          </p>
+        </div>
+      </div>
+      <!-- Small spacing -->
+      <div style="height:10px;"></div>
     </div>
+  </div>
 </body>
 </html>

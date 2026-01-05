@@ -19,73 +19,68 @@
 </head>
 <body class="bg-[#eff5f7]">
 
-<div class="w-full h-screen flex items-center justify-center px-[2rem] bg-[url(https://i.imgur.com/DXXpMGQ.png)] bg-cover bg-center">
-    <a href="/" class="absolute left-4 top-4 text-white font-medium text-sm flex items-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
-        Terug
-    </a>
-    <div class="w-full md:w-[25rem] p-[1.5rem] bg-white rounded-xl relative flex flex-col items-center">
-        <h1 class="text-white text-[50px] font-black leading-[1.05] absolute z-[1] -top-[5rem] flex">
-            <span class="text-[#215558]">Inloggen</span>
-        </h1>
-
-        <form id="login-form" action="{{ session('token_input') ? route('support.verify_token') : route('support.send_token') }}" method="POST" class="w-full flex flex-col items-center">
-            @csrf
-
-            @if ($errors->any())
-                <div class="text-red-500 text-sm p-2 bg-red-100 border border-red-500 w-full rounded text-center">
-                    {{ $errors->first() }}
-                </div>
-            @endif
-
-            <input type="email" name="email" id="email" placeholder="Voer je e-mailadres in"
-                   value="{{ old('email', session('email')) }}"
-                   class="form-control w-full px-4 py-3 rounded-lg ring-1 ring-gray-300 mb-4 focus:outline-none focus:ring-[#4CC5CC] transition"
-                   @if(session('token_input')) readonly style="opacity: 50%; cursor: not-allowed;" @endif>
-                    @if(session('email'))
-                        <div class="feedback w-full text-sm text-green-600 bg-green-100 border border-green-300 rounded p-2 text-center">
-                            Er is een inlogcode verstuurd naar <strong>{{ session('email') }}</strong>. Controleer je e-mail.
-                        </div>
-                    @endif
-
-            @if(session('token_input'))
-            <div id="token-group" class="w-full relative flex flex-col items-center space-y-4">
-                <input type="hidden" id="temp_token" name="temp_token" value="{{ session('temp_token') }}">
-
-                <div class="grid grid-cols-6 gap-2 sm:gap-4 pb-4 w-full max-w-xs sm:max-w-md">
-                    @for ($i = 0; $i < 6; $i++)
-                        <input 
-                            type="text" 
-                            maxlength="1" 
-                            class="w-full h-12 sm:h-14 text-center text-lg border rounded otp-box bg-white focus:outline-none focus:ring-2 focus:ring-[#21c2d3]"
-                            autofocus="{{ $i === 0 ? 'true' : 'false' }}">
-                    @endfor
-                </div>
+<div class="w-full h-screen flex items-center justify-center bg-[#F5EFED] bg-cover bg-center">
+    <div class="w-1/2 h-full flex items-center justify-center relative">
+        <img class="max-h-10 absolute z-999 top-4 left-4" src="/assets/vastgoedfotovideo/logo-full.png" alt="VastgoedFotoVideo">
+        <div class="w-full md:w-[25rem] p-6 bg-white rounded-2xl relative flex flex-col items-center">
+            <div class="absolute z-[1] -top-[4rem]">
+                <h1 class="text-[#191D38] text-4xl font-black tracking-tight">Welkom terug.</h1>
             </div>
-
-            @endif
-
-            @if (!session('token_input'))
-                <button type="submit" class="bg-[#215558] w-full text-white py-3 rounded-full font-semibold">
-                    Aanmelden
-                </button>
-            @endif
-        </form>
-
-        @if(session('token_input'))
-            <form action="{{ route('support.resend_token') }}" method="POST" class="mt-3 w-full text-center">
+            <div class="absolute z-[1] -bottom-[3rem]">
+                <h2 class="text-[#191D38]/20 text-sm font-semibold tracking-tight">Een software in samenwerking met <a href="https://www.eazyonline.nl" target="_blank" class="underline">Eazyonline</a></h2>
+            </div>
+            <form id="login-form" action="{{ session('token_input') ? route('support.verify_token') : route('support.send_token') }}" method="POST" class="w-full flex flex-col items-center">
                 @csrf
-                <input type="hidden" name="email" value="{{ session('email') }}">
-                <input type="hidden" name="temp_token" value="{{ session('temp_token') }}">
-                <button type="submit" class="text-sm text-gray-500 underline">Geen code ontvangen? Vraag een nieuwe aan</button>
+                @if ($errors->any())
+                    <div class="text-[#DF2935] font-semibold text-sm p-2 bg-[#DF2935]/20 w-full rounded-full text-center mb-3">
+                        {{ $errors->first() }}
+                    </div>
+                @endif
+                <input type="email" name="email" id="email" placeholder="Voer je e-mailadres in"
+                    value="{{ old('email', session('email')) }}"
+                    class="form-control w-full px-4 py-3 rounded-lg ring-1 ring-[#191D38]/10 text-[#191D38] mb-6 focus:outline-none focus:ring-[#009AC3] transition"
+                    @if(session('token_input')) readonly style="opacity: 50%; cursor: not-allowed;" @endif>
+                        @if(session('email'))
+                            <div class="feedback w-full text-sm text-[#87A878] bg-[#87A878]/20 rounded p-2 text-center mb-3">
+                                Er is een inlogcode verstuurd naar <strong>{{ session('email') }}</strong>. Controleer je e-mail.
+                            </div>
+                        @endif
+                @if(session('token_input'))
+                <div id="token-group" class="w-full relative flex flex-col items-center space-y-4">
+                    <input type="hidden" id="temp_token" name="temp_token" value="{{ session('temp_token') }}">
+                    <div class="grid grid-cols-6 gap-2 sm:gap-4 pb-4 w-full max-w-xs sm:max-w-md">
+                        @for ($i = 0; $i < 6; $i++)
+                            <input 
+                                type="text" 
+                                maxlength="1" 
+                                class="w-full h-12 sm:h-14 text-center text-[#191D38] text-lg border border-[#191D38]/10 rounded otp-box bg-white focus:outline-none focus:border-[#009AC3] transition duration-300"
+                                autofocus="{{ $i === 0 ? 'true' : 'false' }}">
+                        @endfor
+                    </div>
+                </div>
+                @endif
+                @if (!session('token_input'))
+                    <button type="submit" class="bg-[#009AC3] w-full text-white py-3 rounded-full font-semibold">
+                        Aanmelden
+                    </button>
+                @endif
             </form>
+            @if(session('token_input'))
+                <form action="{{ route('support.resend_token') }}" method="POST" class="mt-3 w-full text-center">
+                    @csrf
+                    <input type="hidden" name="email" value="{{ session('email') }}">
+                    <input type="hidden" name="temp_token" value="{{ session('temp_token') }}">
+                    <button type="submit" class="text-sm text-[#191D38]/70 cursor-pointer  underline">Geen code ontvangen? Vraag een nieuwe aan</button>
+                </form>
 
-            <p class="text-sm text-gray-500" id="edit-email">
-                Wil je het e-mailadres wijzigen? Klik <a href="#" class="underline">hier</a>.
-            </p>
-        @endif
+                <p class="text-sm text-[#191D38]/50" id="edit-email">
+                    Wil je het e-mailadres wijzigen? Klik <a href="#" class="underline">hier</a>.
+                </p>
+            @endif
+        </div>
+    </div>
+    <div class="w-1/2 h-full p-4">
+        <div class="w-full h-full rounded-4xl bg-[url('/assets/vastgoedfotovideo/auth/login-bg.jpg')] bg-cover bg-center"></div>
     </div>
 </div>
 

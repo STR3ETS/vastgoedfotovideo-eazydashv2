@@ -824,7 +824,12 @@
                       $isUiOnly = (bool) ($meta['ui_only'] ?? false);
                       $targetStatus = $meta['target_status'] ?? null;
                     @endphp
-
+                    <p
+                      x-show="'{{ $task->type }}' === 'status_to_contact' && !hasOwner()"
+                      class="mb-2 w-fit text-[11px] font-semibold text-red-500 px-2.5 py-0.5 rounded-full bg-red-100"
+                    >
+                      <strong>Om te beginnen:</strong> Koppel een medewerker
+                    </p>
                     <div x-show="isVisible('{{ $task->type }}')" x-cloak>
                       <p class="text-[11px] font-semibold opacity-50 text-[#215558]">
                         {{ $category }}
@@ -833,12 +838,6 @@
                       @if($isUiOnly)
                       <p class="text-sm font-semibold text-[#215558]">
                         {{ $title }}
-                      </p>
-                      <p
-                        x-show="'{{ $task->type }}' === 'status_to_contact' && !hasOwner()"
-                        class="text-[11px] font-semibold text-red-500 my-1"
-                      >
-                        * Koppel eerst een medewerker aan deze aanvraag.
                       </p>
                       <button
                         type="button"

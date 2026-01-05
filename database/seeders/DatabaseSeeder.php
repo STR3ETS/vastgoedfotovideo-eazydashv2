@@ -2,9 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\Company;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
@@ -16,55 +17,64 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // ✅ 1) Company aanmaken (Vastgoed Foto Video)
+        $company = Company::updateOrCreate(
+            ['name' => 'Vastgoed Foto Video'],
+            [
+                'country_code' => 'NL',
+                'website'      => 'https://www.vastgoedfotovideo.nl/',
+                'email'        => 'info@vastgoedfotovideo.nl',
+                'phone'        => '0318 891 586',
+                'street'       => 'De Smalle Zijde',
+                'house_number' => '5-10',
+                'postal_code'  => '3903 LL',
+                'city'         => 'Veenendaal',
+                'kvk_number'   => '51978458',
+                'vat_number'   => null,
+                'trade_name'   => 'VastgoedFotoVideo',
+                'legal_form'   => 'Eenmanszaak',
+            ]
+        );
 
-        User::create([
-            'name' => 'Boyd Halfman',
-            'email' => 'boyd@eazyonline.nl',
-            'password' => Hash::make('password'),
-            'rol' => 'admin',
-        ]);
-        User::create([
-            'name' => 'Yael Scholten',
-            'email' => 'yael@eazyonline.nl',
-            'password' => Hash::make('password'),
-            'rol' => 'admin',
-        ]);
-        User::create([
-            'name' => 'Raphael Muskitta',
-            'email' => 'raphael@eazyonline.nl',
-            'password' => Hash::make('password'),
-            'rol' => 'admin',
-        ]);
-        User::create([
-            'name' => 'Martijn Visser',
-            'email' => 'martijn@eazyonline.nl',
-            'password' => Hash::make('password'),
-            'rol' => 'admin',
-        ]);
-        User::create([
-            'name' => 'Johnny Muskitta',
-            'email' => 'johnny@eazyonline.nl',
-            'password' => Hash::make('password'),
-            'rol' => 'medewerker',
-        ]);
-        User::create([
-            'name' => 'Joris Lindner',
-            'email' => 'joris@eazyonline.nl',
-            'password' => Hash::make('password'),
-            'rol' => 'medewerker',
-        ]);
-        User::create([
-            'name' => 'Laurien Pesulima',
-            'email' => 'laurina@eazyonline.nl',
-            'password' => Hash::make('password'),
-            'rol' => 'medewerker',
-        ]);
-        User::create([
-            'name' => 'Laurenzo Soemopawiro',
-            'email' => 'laurenzo@eazyonline.nl',
-            'password' => Hash::make('password'),
-            'rol' => 'medewerker',
-        ]);
+        // ✅ 2) Users aanmaken + koppelen aan company
+        $users = [
+            [
+                'name'  => 'Test Klant',
+                'email' => 'test@klant.nl',
+                'rol'   => 'klant',
+            ],
+            [
+                'name'  => 'Test Team Manager',
+                'email' => 'test@teammanager.nl',
+                'rol'   => 'team-manager',
+            ],
+            [
+                'name'  => 'Test Klant Manager',
+                'email' => 'test@klantmanager.nl',
+                'rol'   => 'client-manager',
+            ],
+            [
+                'name'  => 'Test Fotograaf',
+                'email' => 'test@fotograaf.nl',
+                'rol'   => 'fotograaf',
+            ],
+            [
+                'name'  => 'Test Admin',
+                'email' => 'test@admin.nl',
+                'rol'   => 'admin',
+            ],
+        ];
+
+        foreach ($users as $u) {
+            User::updateOrCreate(
+                ['email' => $u['email']],
+                [
+                    'name'       => $u['name'],
+                    'password'   => Hash::make('password'),
+                    'rol'        => $u['rol'],
+                    'company_id' => $company->id,
+                ]
+            );
+        }
     }
 }

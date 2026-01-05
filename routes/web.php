@@ -32,7 +32,7 @@ use App\Http\Controllers\AanvraagCommentController;
 use App\Http\Controllers\NotificationController;
 
 // eazyonline.nl website
-Route::view('/', 'website.home')->name('pages.home');
+Route::view('/', 'auth.login')->name('login');
 Route::post('/aanvraag/website', [AanvraagController::class, 'storeWebsiteAanvraag']);
 
 // Login

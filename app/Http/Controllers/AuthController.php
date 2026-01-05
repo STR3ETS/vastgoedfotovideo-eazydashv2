@@ -18,6 +18,10 @@ class AuthController extends Controller
     {
         $data = $request->validate([
             'email' => ['required', 'email', 'exists:users,email'],
+        ], [
+            'email.required' => 'Vul je e-mailadres in.',
+            'email.email'    => 'Vul een geldig e-mailadres in.',
+            'email.exists'   => 'Oepsss... Dit e-mailadres is niet bekend bij ons.',
         ]);
 
         $user = User::where('email', $data['email'])->firstOrFail();
@@ -26,13 +30,13 @@ class AuthController extends Controller
         $token = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         // Code + vervaltijd opslaan op user
-        $user->remember_token = $token;               // OTP hier!
+        $user->remember_token = $token; // OTP hier
         $user->otp_expires_at = now()->addMinutes(15);
         $user->save();
 
         // Mail versturen
         Mail::send('emails.login-token', ['token' => $token], function ($m) use ($user) {
-            $m->to($user->email)->subject('Jouw EazySupport inlogcode');
+            $m->to($user->email)->subject('Je probeert in te loggen bij VastgoedFotoVideo');
         });
 
         return back()->with([
@@ -46,6 +50,12 @@ class AuthController extends Controller
         $data = $request->validate([
             'email'      => ['required', 'email', 'exists:users,email'],
             'temp_token' => ['required', 'string', 'size:6'],
+        ], [
+            'email.required'      => 'Vul je e-mailadres in.',
+            'email.email'         => 'Vul een geldig e-mailadres in.',
+            'email.exists'        => 'Oepsss... Dit e-mailadres is niet bekend bij ons.',
+            'temp_token.required' => 'Vul de 6-cijferige code in.',
+            'temp_token.size'     => 'De code moet precies 6 cijfers zijn.',
         ]);
 
         $user = User::where('email', $data['email'])->firstOrFail();
@@ -56,7 +66,7 @@ class AuthController extends Controller
 
         if (! $isValid) {
             return back()
-                ->withErrors(['temp_token' => 'Token is ongeldig of verlopen.'])
+                ->withErrors(['temp_token' => 'De code is ongeldig of verlopen.'])
                 ->withInput();
         }
 
@@ -75,6 +85,10 @@ class AuthController extends Controller
     {
         $data = $request->validate([
             'email' => ['required', 'email', 'exists:users,email'],
+        ], [
+            'email.required' => 'Vul je e-mailadres in.',
+            'email.email'    => 'Vul een geldig e-mailadres in.',
+            'email.exists'   => 'Oepsss... Dit e-mailadres is niet bekend bij ons.',
         ]);
 
         // Vorige OTP ongeldig maken (optioneel)
@@ -97,11 +111,12 @@ class AuthController extends Controller
     public function dismissFirstLogin(Request $request)
     {
         $user = $request->user();
+
         if ($user && $user->first_login) {
             $user->first_login = false;
             $user->save();
         }
-        
+
         return response('');
     }
 }
