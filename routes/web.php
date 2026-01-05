@@ -330,29 +330,13 @@ Route::prefix('app')->group(function () {
             ->controller(GebruikersController::class)
             ->group(function () {
                 Route::get('/', 'index')->name('index');
-
-                Route::get('/klanten', 'klanten')->name('klanten');
-                Route::get('/medewerkers', 'medewerkers')->name('medewerkers');
-
+                Route::get('/lijst/{rol}', 'lijst')->name('lijst');
+                Route::get('/{user}', 'show')->whereNumber('user')->name('show');
+                Route::patch('/{user}', 'update')->whereNumber('user')->name('update');
+                Route::delete('/{user}', 'destroy')->whereNumber('user')->name('destroy');
                 Route::post('/', 'store')->name('store');
-
-                Route::get   ('/klanten/{klant}', 'showKlant')->name('klanten.show');
-                Route::patch ('/klanten/{klant}', 'updateKlant')->name('klanten.update');
-                Route::delete('/klanten/{klant}', 'destroyKlant')->name('klanten.destroy');
-
-                Route::get   ('/medewerkers/{medewerker}', 'showMedewerker')->name('medewerkers.show');
-                Route::patch ('/medewerkers/{medewerker}', 'updateMedewerker')->name('medewerkers.update');
-                Route::delete('/medewerkers/{medewerker}', 'destroyMedewerker')->name('medewerkers.destroy');
-
-                Route::get('/bedrijven', 'bedrijven')->name('bedrijven');
-                Route::get('/bedrijven/{company}', 'bedrijfShow')->name('bedrijven.show');
-                Route::post('/bedrijven', 'storeBedrijf')->name('bedrijven.store');
-                Route::get ('/bedrijven/{company}/personen', 'bedrijfPersonen')->name('bedrijven.personen');
-                Route::post('/bedrijven/{company}/personen/koppel', 'bedrijfPersonenKoppel')->name('bedrijven.personen.koppel');
-                Route::delete('/bedrijven/{company}/personen/{user}', 'bedrijfPersonenOntkoppel')->name('bedrijven.personen.ontkoppel');
-                Route::get('/bedrijven/{company}/personen/lijst', 'bedrijfPersonenLijst')->name('bedrijven.personen.lijst');
-                Route::post('/bedrijven/{company}/personen/{user}/toggle-admin', 'bedrijfToggleAdmin')->name('bedrijven.admin.toggle');
             });
+
 
         // ✅ Logout (auth)
         Route::post('/logout', [AuthController::class, 'logout'])->name('support.logout');
