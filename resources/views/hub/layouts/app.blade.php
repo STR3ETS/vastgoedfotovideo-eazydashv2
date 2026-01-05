@@ -340,34 +340,11 @@
             @if (request()->is('app/onboarding*'))
             <div class="grid gap-2">
               <ul class="grid gap-2">
-                <li class="flex items-center justify-between gap-2">
-                    <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                        Onboarding
-                    </a>
-                    <div
-                        class="w-4 h-4 bg-[#009AC3] font-semibold text-[11px] rounded-full text-white flex items-center justify-center"
-                    >
-                        2
-                    </div>
-                </li>
-                <li>
-                    <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
-                        <div class="flex items-center gap-2">
-                            <hr class="w-[10px] border-1 border-[#191D38]/25">
-                            <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                Naam Onboarding 1
-                            </a>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <hr class="w-[10px] border-1 border-[#191D38]/25">
-                            <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                Naam Onboarding 1
-                            </a>
-                        </div>
-                    </div>
-                </li>
+                <a href="{{ url('/app/onboarding') }}" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                    Overzicht
+                </a>
               </ul>
-              <a href="#" class="text-[#009AC3] font-semibold text-sm hover:text-[#009AC3]/70 transition duration-300">
+              <a href="{{ url('/app/onboarding/nieuw') }}" class="text-[#009AC3] font-semibold text-sm hover:text-[#009AC3]/70 transition duration-300">
                 <i class="fa-solid fa-plus text-sm -ml-1"></i> Nieuwe onboarding
               </a>
             </div>

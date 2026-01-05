@@ -279,6 +279,24 @@ Route::prefix('app')->group(function () {
             ->controller(OnboardingController::class)
             ->group(function () {
                 Route::get('/', 'index')->name('index');
+                Route::get('/nieuw', 'create')->name('create');
+
+                Route::get('/stap-1', 'step1')->name('step1');
+                Route::post('/stap-1', 'storeStep1')->name('step1.store');
+                Route::get('/stap-2', 'step2')->name('step2');
+                Route::post('/stap-2', 'storeStep2')->name('step2.store');
+                Route::get('/stap-3', 'step3')->name('step3');
+                Route::post('/stap-3', 'storeStep3')->name('step3.store');
+                Route::get('/stap-4', 'step4')->name('step4');
+                Route::post('/stap-4', 'storeStep4')->name('step4.store');
+                Route::get('/stap-5', 'step5')->name('step5');
+                Route::post('/stap-5', 'storeStep5')->name('step5.store');
+                Route::get('/stap-6', 'step6')->name('step6');
+                Route::post('/submit', 'submit')->name('submit');
+
+                Route::post('/reset', 'reset')->name('reset');
+
+                Route::get('/{onboardingRequest}', 'show')->name('show');
             });
 
         // ✅ Financiën (menu) - jouw bestaande offertes-overzicht verhuisd hierheen

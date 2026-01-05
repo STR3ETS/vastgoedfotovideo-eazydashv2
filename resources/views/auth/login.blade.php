@@ -60,7 +60,7 @@
                 </div>
                 @endif
                 @if (!session('token_input'))
-                    <button type="submit" class="bg-[#009AC3] w-full text-white py-3 rounded-full font-semibold">
+                    <button type="submit" class="bg-[#009AC3] hover:bg-[#009AC3]/70 transition duration-200 w-full text-white py-3 rounded-full font-semibold">
                         Aanmelden
                     </button>
                 @endif
