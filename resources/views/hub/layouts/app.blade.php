@@ -83,6 +83,12 @@
                     <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">SEO-strategie</p>
                   </a>
                 </li>
+                <li>
+                  <a href="{{ route('support.gebruikers.index') }}" class="px-4 h-9 border border-gray-200 bg-white rounded-full flex items-center hover:bg-[#009AC3] hover:border-[#009AC3] group transition duration-300">
+                    <i class="fa-solid fa-user text-[#191D38] group-hover:text-white transition duration-200 text-base"></i>
+                    <p class="text-sm text-[#191D38] font-semibold group-hover:text-white transition duration-200 ml-2">Gebruikers</p>
+                  </a>
+                </li>
               @endif
             </ul>
           </div>
