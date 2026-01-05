@@ -53,7 +53,7 @@
                         <div class="mb-4">
                             <input type="text" placeholder="Zoeken op titel..." class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#191D38] font-medium outline-none">
                         </div>
-                        <div class="shrink-0 px-6 py-4 bg-[#191D38]/20 rounded-tl-2xl rounded-tr-2xl">
+                        <div class="shrink-0 px-6 py-4 bg-[#191D38]/10 rounded-tl-2xl rounded-tr-2xl">
                             <div class="grid grid-cols-[2.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
                                 <p class="text-[#191D38] font-bold text-xs opacity-50">Titel</p>
                                 <p class="text-[#191D38] font-bold text-xs opacity-50">Aangemaakt door</p>
@@ -62,37 +62,65 @@
                                 <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Acties</p>
                             </div>
                         </div>
-                        <div class="flex-1 min-h-0 bg-[#191D38]/10 overflow-y-auto rounded-bl-2xl rounded-br-2xl">
-<div class="px-6 py-5 divide-y divide-[#191D38]/10">
-  <div class="py-3 pt-0 grid grid-cols-[2.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
-    <div class="text-[#191D38] font-semibold text-sm">Lorem ipsum dolor sit amet consectetur.</div>
-    <div class="text-[#191D38] text-sm">Lorem, ipsum.</div>
-    <div class="text-[#191D38] text-sm">05-01-2026</div>
-    <div class="text-[#87A878] bg-[#87A878]/20 text-xs font-semibold rounded-full py-1.5 text-center">Open</div>
-    <div class="justify-end text-[#191D38] flex items-center gap-2">
-      <button class="cursor-pointer">
-        <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
-      </button>
-      <button class="cursor-pointer">
-        <i class="fa-solid fa-pencil hover:text-[#009AC3] transition duration-200"></i>
-      </button>
-    </div>
-  </div>
-  <div class="py-3 pb-0 grid grid-cols-[2.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
-    <div class="text-[#191D38] font-semibold text-sm">Lorem ipsum dolor sit amet consectetur.</div>
-    <div class="text-[#191D38] text-sm">Lorem, ipsum.</div>
-    <div class="text-[#191D38] text-sm">05-01-2026</div>
-    <div class="text-[#87A878] bg-[#87A878]/20 text-xs font-semibold rounded-full py-1.5 text-center">Open</div>
-    <div class="justify-end text-[#191D38] flex items-center gap-2">
-      <button class="cursor-pointer">
-        <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
-      </button>
-      <button class="cursor-pointer">
-        <i class="fa-solid fa-pencil hover:text-[#009AC3] transition duration-200"></i>
-      </button>
-    </div>
-  </div>
-</div>
+                        <div class="flex-1 min-h-0 bg-[#191D38]/5 overflow-y-auto rounded-bl-2xl rounded-br-2xl">
+                            <div class="px-6 py-5 divide-y divide-[#191D38]/10">
+                                <div class="py-3 pt-0 grid grid-cols-[2.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
+                                    <div class="text-[#191D38] font-semibold text-sm">Lorem ipsum dolor sit amet consectetur.</div>
+                                    <div class="text-[#191D38] text-sm">Lorem, ipsum.</div>
+                                    <div class="text-[#191D38] text-sm">05-01-2026</div>
+                                    <div class="text-[#2A324B] bg-[#2A324B]/20 text-xs font-semibold rounded-full py-1.5 text-center">Concept</div>
+                                    <div class="justify-end text-[#191D38] flex items-center gap-2">
+                                        <button class="cursor-pointer">
+                                            <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
+                                        </button>
+                                        <button class="cursor-pointer">
+                                            <i class="fa-solid fa-pencil hover:text-[#009AC3] transition duration-200"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="py-3 grid grid-cols-[2.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
+                                    <div class="text-[#191D38] font-semibold text-sm">Lorem ipsum dolor sit amet consectetur.</div>
+                                    <div class="text-[#191D38] text-sm">Lorem, ipsum.</div>
+                                    <div class="text-[#191D38] text-sm">05-01-2026</div>
+                                    <div class="text-[#87A878] bg-[#87A878]/20 text-xs font-semibold rounded-full py-1.5 text-center">Open</div>
+                                    <div class="justify-end text-[#191D38] flex items-center gap-2">
+                                        <button class="cursor-pointer">
+                                            <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
+                                        </button>
+                                        <button class="cursor-pointer">
+                                            <i class="fa-solid fa-pencil hover:text-[#009AC3] transition duration-200"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="py-3 grid grid-cols-[2.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
+                                    <div class="text-[#191D38] font-semibold text-sm">Lorem ipsum dolor sit amet consectetur.</div>
+                                    <div class="text-[#191D38] text-sm">Lorem, ipsum.</div>
+                                    <div class="text-[#191D38] text-sm">05-01-2026</div>
+                                    <div class="text-[#DF2935] bg-[#DF2935]/20 text-xs font-semibold rounded-full py-1.5 text-center">Gesloten</div>
+                                    <div class="justify-end text-[#191D38] flex items-center gap-2">
+                                        <button class="cursor-pointer">
+                                            <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
+                                        </button>
+                                        <button class="cursor-pointer">
+                                            <i class="fa-solid fa-pencil hover:text-[#009AC3] transition duration-200"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="py-3 pb-0 grid grid-cols-[2.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
+                                    <div class="text-[#191D38] font-semibold text-sm">Lorem ipsum dolor sit amet consectetur.</div>
+                                    <div class="text-[#191D38] text-sm">Lorem, ipsum.</div>
+                                    <div class="text-[#191D38] text-sm">05-01-2026</div>
+                                    <div class="text-[#DF9A57] bg-[#DF9A57]/20 text-xs font-semibold rounded-full py-1.5 text-center">Gearchiveerd</div>
+                                    <div class="justify-end text-[#191D38] flex items-center gap-2">
+                                        <button class="cursor-pointer">
+                                            <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
+                                        </button>
+                                        <button class="cursor-pointer">
+                                            <i class="fa-solid fa-pencil hover:text-[#009AC3] transition duration-200"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
