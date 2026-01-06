@@ -617,52 +617,124 @@
                 </li>
 
                 <li x-show="openUser" x-transition>
-                <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
-
-                    <div class="flex items-center gap-2">
-                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                    <a href="{{ $roleLink('Admin') }}"
-                        class="{{ $isActive('Admin') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                        Admin
-                    </a>
+                    <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                        <div class="flex items-center gap-2">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25">
+                            <a href="{{ $roleLink('Admin') }}"
+                                class="{{ $isActive('Admin') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Admin
+                            </a>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25">
+                            <a href="{{ $roleLink('Klant') }}"
+                                class="{{ $isActive('Klant') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Klant
+                            </a>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25">
+                            <a href="{{ $roleLink('Team manager') }}"
+                                class="{{ $isActive('Team manager') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Team manager
+                            </a>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25">
+                            <a href="{{ $roleLink('Klant manager') }}"
+                                class="{{ $isActive('Klant manager') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Klant manager
+                            </a>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <hr class="w-[10px] border-1 border-[#191D38]/25">
+                            <a href="{{ $roleLink('Fotograaf') }}"
+                                class="{{ $isActive('Fotograaf') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Fotograaf
+                            </a>
+                        </div>
                     </div>
-
-                    <div class="flex items-center gap-2">
-                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                    <a href="{{ $roleLink('Klant') }}"
-                        class="{{ $isActive('Klant') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                        Klant
-                    </a>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                    <a href="{{ $roleLink('Team manager') }}"
-                        class="{{ $isActive('Team manager') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                        Team manager
-                    </a>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                    <a href="{{ $roleLink('Klant manager') }}"
-                        class="{{ $isActive('Klant manager') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                        Klant manager
-                    </a>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                    <a href="{{ $roleLink('Fotograaf') }}"
-                        class="{{ $isActive('Fotograaf') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                        Fotograaf
-                    </a>
-                    </div>
-
-                </div>
                 </li>
             </ul>
             @endif
+
+            @if (request()->is('app/planning-management*'))
+                @php
+                    $section = request()->query('section', 'today'); // today | planning | qc | team
+                    $baseUrl = url('/app/planning-management');
+
+                    $link = fn(string $key) => $baseUrl . '?section=' . $key;
+
+                    $linkClass = function (string $key) use ($section) {
+                        $active = $section === $key;
+                        return ($active ? 'text-[#009AC3]' : 'text-[#191D38]')
+                            . ' font-semibold text-sm hover:text-[#009AC3] transition duration-300';
+                    };
+                @endphp
+
+                <ul class="grid gap-2" x-data="{ openUser: true }">
+                    <li class="flex items-center justify-between gap-2">
+                        <a href="{{ $baseUrl }}"
+                        class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                            Planningsoverzicht
+                        </a>
+
+                        <button
+                            type="button"
+                            class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                            @click="openUser = !openUser"
+                            :aria-expanded="openUser.toString()"
+                        >
+                            <i
+                                class="fa-solid fa-plus text-gray-500 text-[11px] pb-0.25 transition-transform duration-200"
+                                :class="openUser ? 'rotate-45 text-[#009AC3]' : ''"
+                            ></i>
+                        </button>
+                    </li>
+
+                    <li x-show="openUser" x-transition>
+                        <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                            <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="{{ $link('today') }}"
+                                data-planning-section="today"
+                                class="{{ $linkClass('today') }}">
+                                    Veldoverzicht vandaag
+                                </a>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="{{ $link('planning') }}"
+                                data-planning-section="planning"
+                                class="{{ $linkClass('planning') }}">
+                                    Planning
+                                </a>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="{{ $link('qc') }}"
+                                data-planning-section="qc"
+                                class="{{ $linkClass('qc') }}">
+                                    Kwaliteitscontrole
+                                </a>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="{{ $link('team') }}"
+                                data-planning-section="team"
+                                class="{{ $linkClass('team') }}">
+                                    Team
+                                </a>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            @endif
+
+
 
         </ul>
     </div>

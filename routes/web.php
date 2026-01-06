@@ -15,6 +15,7 @@ use App\Http\Controllers\SupportController;
 use App\Http\Controllers\GebruikersController;
 use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PlanningController;
 
 // ✅ Landing/login
 Route::view('/', 'auth.login')->name('login');
@@ -257,7 +258,7 @@ Route::prefix('app')->group(function () {
 
         // ✅ Planning & Management (menu)
         // Pas de view aan naar jouw echte blade indien nodig
-        Route::view('/planning-management', 'hub.planning.index')->name('support.planning.index');
+        Route::get('/planning-management', [PlanningController::class, 'index'])->name('support.planning.index');
 
         // Planning endpoints die je al had (onderdeel van planning)
         Route::prefix('support/intake')
