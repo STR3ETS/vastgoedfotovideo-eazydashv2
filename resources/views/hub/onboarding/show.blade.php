@@ -3,164 +3,183 @@
 @section('content')
 <div class="col-span-5 flex-1 min-h-0">
   <div class="w-full p-8 bg-white border border-gray-200 rounded-2xl h-full min-h-0 flex flex-col">
+
+    @php
+      // status labels (later uitbreidbaar)
+      $status = $row->status ?? 'new';
+
+      $statusLabel = match($status) {
+        'new' => 'Voltooid',
+        'cancelled' => 'Geannuleerd',
+        'archived' => 'Gearchiveerd',
+        default => 'Voltooid',
+      };
+
+      $statusClass = match($status) {
+        'new' => 'text-[#87A878] bg-[#87A878]/20',
+        'cancelled' => 'text-[#DF2935] bg-[#DF2935]/20',
+        'archived' => 'text-[#DF9A57] bg-[#DF9A57]/20',
+        default => 'text-[#87A878] bg-[#87A878]/20',
+      };
+
+      $packages = [
+        'pro' => [
+          'title' => 'Pro pakket',
+          'subtitle' => "Alles van Plus + interactieve tools.",
+          'price' => '€509,-',
+        ],
+        'plus' => [
+          'title' => 'Plus pakket',
+          'subtitle' => "Alles van Essentials + extra functies & beelden.",
+          'price' => '€385,-',
+        ],
+        'essentials' => [
+          'title' => 'Essentials pakket',
+          'subtitle' => "Compleet pakket met foto’s en video’s.",
+          'price' => '€325,-',
+        ],
+        'media' => [
+          'title' => 'Media pakket',
+          'subtitle' => "Foto- en videografie + 360 graden foto’s.",
+          'price' => '€260,-',
+        ],
+        'buiten' => [
+          'title' => 'Buiten pakket',
+          'subtitle' => "Foto’s, video en 360 fotografie buiten.",
+          'price' => '€75,-',
+        ],
+        'funda_klaar' => [
+          'title' => 'Funda klaar pakket',
+          'subtitle' => "Alle essentials direct klaar voor Funda.",
+          'price' => '€50,-',
+        ],
+      ];
+
+      $extrasMap = [
+        'privacy_check' => ['title' => 'Privacy check', 'price' => 10],
+        'detailfotos' => ['title' => 'Detailfoto’s', 'price' => 25],
+        'hoogtefotografie_8m' => ['title' => 'Hoogtefotografie 8 meter', 'price' => 25],
+        'plattegrond_in_video' => ['title' => 'Plattegronden verwerkt in video', 'price' => 15],
+        'tekst_video' => ['title' => 'Tekst toevoegen video', 'price' => 15],
+        'floorplanner_3d' => ['title' => 'Floorplanner plattegronden 3D', 'price' => 10],
+        'meubels_toevoegen' => ['title' => 'Plattegronden toevoegen: meubels', 'price' => 10],
+        'tuin_toevoegen' => ['title' => 'Plattegronden toevoegen: tuin', 'price' => 10],
+        'artist_impression' => ['title' => 'Artist impression', 'price' => 95],
+        'woningtekst' => ['title' => 'Woningtekst', 'price' => 85],
+        'video_1min' => ['title' => '1 minuut video', 'price' => 15],
+        'foto_slideshow' => ['title' => 'Foto slideshow', 'price' => 15],
+        'levering_24u' => ['title' => 'Levering binnen 24 uur', 'price' => 35],
+        'huisstijl_plattegrond' => ['title' => 'Plattegronden in eigen huisstijl', 'price' => 10],
+        'm2_per_ruimte' => ['title' => 'Plattegronden: m2 per ruimte aangegeven', 'price' => 5],
+        'style_shoot' => ['title' => 'Style shoot', 'price' => 40],
+      ];
+
+      // Selected package/extras
+      $packageKey = strtolower((string) ($row->package ?? ''));
+      $selectedPackage = $packages[$packageKey] ?? null;
+
+      $selectedExtras = $row->extras ?? [];
+      if (is_string($selectedExtras)) {
+        $decoded = json_decode($selectedExtras, true);
+        $selectedExtras = is_array($decoded) ? $decoded : [];
+      }
+      if (!is_array($selectedExtras)) $selectedExtras = [];
+
+      // Invoice helpers
+      $fmt = fn($amount) => '€' . number_format((float) $amount, 0, ',', '.') . ',-';
+      $toAmount = function($price) {
+        if (is_numeric($price)) return (float) $price;
+        $digits = preg_replace('/[^\d]/', '', (string) $price);
+        return $digits === '' ? 0 : (float) $digits;
+      };
+
+      // Build invoice lines
+      $lines = [];
+
+      if ($selectedPackage) {
+        $pkgAmount = (int) $toAmount($selectedPackage['price'] ?? 0);
+
+        $lines[] = [
+          'title'    => $selectedPackage['title'] ?? 'Pakket',
+          'subtitle' => $selectedPackage['subtitle'] ?? null,
+          'qty'      => 1,
+          'unit'     => $pkgAmount,
+          'total'    => $pkgAmount,
+        ];
+      } else {
+        $lines[] = [
+          'title'    => 'Pakket (onbekend)',
+          'subtitle' => 'Key: ' . (($row->package ?? '') !== '' ? $row->package : '—'),
+          'qty'      => 1,
+          'unit'     => 0,
+          'total'    => 0,
+        ];
+      }
+
+      foreach ($selectedExtras as $key) {
+        $ex = $extrasMap[$key] ?? null;
+
+        $lines[] = [
+          'title'    => $ex['title'] ?? $key,
+          'subtitle' => null,
+          'qty'      => 1,
+          'unit'     => (int) ($ex['price'] ?? 0),
+          'total'    => (int) ($ex['price'] ?? 0),
+        ];
+      }
+
+      $grandTotal = array_sum(array_map(fn($l) => (int) ($l['total'] ?? 0), $lines));
+
+      // UI helper classes (zelfde style als kostenplaatje)
+      $sectionWrap   = "overflow-hidden rounded-2xl";
+      $sectionHeader = "shrink-0 px-6 py-4 bg-[#191D38]/10";
+      $sectionBody   = "bg-[#191D38]/5";
+      $labelClass    = "text-[#191D38] font-bold text-xs opacity-50";
+      $valueClass    = "text-[#191D38] text-sm font-semibold";
+
+      $navPrevBtn = "h-9 inline-flex text-xs items-center justify-center bg-[#2A324B]/20 hover:bg-[#2A324B]/10 transition duration-200 px-6 text-[#2A324B]/40 rounded-full font-semibold cursor-pointer";
+
+      // Map query (Google Maps embed)
+      $fullAddress = trim(($row->address ?? '') . ', ' . ($row->postcode ?? '') . ' ' . ($row->city ?? ''));
+      $mapsQ = urlencode($fullAddress);
+
+      // Breadcrumb label (klein, alleen voor inzien)
+      $crumbLabel = trim(($row->address ?? '') . ' — ' . ($row->city ?? ''));
+      $crumbLabel = $crumbLabel !== ' — ' ? $crumbLabel : 'Aanvraag';
+    @endphp
+
+    {{-- Breadcrumbs (sticky / altijd zichtbaar) --}}
+    <div class="shrink-0 mb-4 flex items-center justify-between">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-semibold text-[#191D38]/50">
+        <a href="{{ route('support.dashboard') }}" class="hover:text-[#191D38] transition">
+          Dashboard
+        </a>
+        <span class="opacity-40">/</span>
+        <a href="{{ route('support.onboarding.index') }}" class="hover:text-[#191D38] transition">
+          Onboarding
+        </a>
+        <span class="opacity-40">/</span>
+        <a href="{{ route('support.onboarding.index') }}" class="hover:text-[#191D38] transition">
+          Overzicht
+        </a>
+        <span class="opacity-40">/</span>
+        <span class="text-[#009AC3]">
+          {{ $crumbLabel }}
+        </span>
+      </nav>
+      <div class="flex items-center gap-4">
+        <a href="{{ route('support.onboarding.index') }}" class="{{ $navPrevBtn }}">
+          Terug naar overzicht
+        </a>
+        <div class="{{ $statusClass }} text-xs font-semibold rounded-full h-9 flex items-center px-8 text-center">
+          {{ $statusLabel }}
+        </div>
+      </div>
+    </div>
+
+    {{-- Scroll container --}}
     <div class="flex-1 w-full min-h-0 overflow-y-auto pr-2 pl-1">
       <div class="w-full mx-auto">
-
-        {{-- Header --}}
-        <div class="pt-2">
-          @php
-            // status labels (later uitbreidbaar)
-            $status = $row->status ?? 'new';
-
-            $statusLabel = match($status) {
-              'new' => 'Voltooid',
-              'cancelled' => 'Geannuleerd',
-              'archived' => 'Gearchiveerd',
-              default => 'Voltooid',
-            };
-
-            $statusClass = match($status) {
-              'new' => 'text-[#87A878] bg-[#87A878]/20',
-              'cancelled' => 'text-[#DF2935] bg-[#DF2935]/20',
-              'archived' => 'text-[#DF9A57] bg-[#DF9A57]/20',
-              default => 'text-[#87A878] bg-[#87A878]/20',
-            };
-
-            $packages = [
-              'pro' => [
-                'title' => 'Pro pakket',
-                'subtitle' => "Alles van Plus + interactieve tools.",
-                'price' => '€509,-',
-              ],
-              'plus' => [
-                'title' => 'Plus pakket',
-                'subtitle' => "Alles van Essentials + extra functies & beelden.",
-                'price' => '€385,-',
-              ],
-              'essentials' => [
-                'title' => 'Essentials pakket',
-                'subtitle' => "Compleet pakket met foto’s en video’s.",
-                'price' => '€325,-',
-              ],
-              'media' => [
-                'title' => 'Media pakket',
-                'subtitle' => "Foto- en videografie + 360 graden foto’s.",
-                'price' => '€260,-',
-              ],
-              'buiten' => [
-                'title' => 'Buiten pakket',
-                'subtitle' => "Foto’s, video en 360 fotografie buiten.",
-                'price' => '€75,-',
-              ],
-              'funda_klaar' => [
-                'title' => 'Funda klaar pakket',
-                'subtitle' => "Alle essentials direct klaar voor Funda.",
-                'price' => '€50,-',
-              ],
-            ];
-
-            $extrasMap = [
-              'privacy_check' => ['title' => 'Privacy check', 'price' => 10],
-              'detailfotos' => ['title' => 'Detailfoto’s', 'price' => 25],
-              'hoogtefotografie_8m' => ['title' => 'Hoogtefotografie 8 meter', 'price' => 25],
-              'plattegrond_in_video' => ['title' => 'Plattegronden verwerkt in video', 'price' => 15],
-              'tekst_video' => ['title' => 'Tekst toevoegen video', 'price' => 15],
-              'floorplanner_3d' => ['title' => 'Floorplanner plattegronden 3D', 'price' => 10],
-              'meubels_toevoegen' => ['title' => 'Plattegronden toevoegen: meubels', 'price' => 10],
-              'tuin_toevoegen' => ['title' => 'Plattegronden toevoegen: tuin', 'price' => 10],
-              'artist_impression' => ['title' => 'Artist impression', 'price' => 95],
-              'woningtekst' => ['title' => 'Woningtekst', 'price' => 85],
-              'video_1min' => ['title' => '1 minuut video', 'price' => 15],
-              'foto_slideshow' => ['title' => 'Foto slideshow', 'price' => 15],
-              'levering_24u' => ['title' => 'Levering binnen 24 uur', 'price' => 35],
-              'huisstijl_plattegrond' => ['title' => 'Plattegronden in eigen huisstijl', 'price' => 10],
-              'm2_per_ruimte' => ['title' => 'Plattegronden: m2 per ruimte aangegeven', 'price' => 5],
-              'style_shoot' => ['title' => 'Style shoot', 'price' => 40],
-            ];
-
-            // Selected package/extras
-            $packageKey = strtolower((string) ($row->package ?? ''));
-            $selectedPackage = $packages[$packageKey] ?? null;
-
-            $selectedExtras = $row->extras ?? [];
-            if (is_string($selectedExtras)) {
-              $decoded = json_decode($selectedExtras, true);
-              $selectedExtras = is_array($decoded) ? $decoded : [];
-            }
-            if (!is_array($selectedExtras)) $selectedExtras = [];
-
-            // Invoice helpers
-            $fmt = fn($amount) => '€' . number_format((float) $amount, 0, ',', '.') . ',-';
-            $toAmount = function($price) {
-              if (is_numeric($price)) return (float) $price;
-              $digits = preg_replace('/[^\d]/', '', (string) $price);
-              return $digits === '' ? 0 : (float) $digits;
-            };
-
-            // Build invoice lines
-            $lines = [];
-
-            if ($selectedPackage) {
-              $pkgAmount = (int) $toAmount($selectedPackage['price'] ?? 0);
-
-              $lines[] = [
-                'title'    => $selectedPackage['title'] ?? 'Pakket',
-                'subtitle' => $selectedPackage['subtitle'] ?? null,
-                'qty'      => 1,
-                'unit'     => $pkgAmount,
-                'total'    => $pkgAmount,
-              ];
-            } else {
-              $lines[] = [
-                'title'    => 'Pakket (onbekend)',
-                'subtitle' => 'Key: ' . (($row->package ?? '') !== '' ? $row->package : '—'),
-                'qty'      => 1,
-                'unit'     => 0,
-                'total'    => 0,
-              ];
-            }
-
-            foreach ($selectedExtras as $key) {
-              $ex = $extrasMap[$key] ?? null;
-
-              $lines[] = [
-                'title'    => $ex['title'] ?? $key,
-                'subtitle' => null,
-                'qty'      => 1,
-                'unit'     => (int) ($ex['price'] ?? 0),
-                'total'    => (int) ($ex['price'] ?? 0),
-              ];
-            }
-
-            $grandTotal = array_sum(array_map(fn($l) => (int) ($l['total'] ?? 0), $lines));
-
-            // UI helper classes (zelfde style als kostenplaatje)
-            $sectionWrap   = "overflow-hidden rounded-2xl";
-            $sectionHeader = "shrink-0 px-6 py-4 bg-[#191D38]/10";
-            $sectionBody   = "bg-[#191D38]/5";
-            $labelClass    = "text-[#191D38] font-bold text-xs opacity-50";
-            $valueClass    = "text-[#191D38] text-sm font-semibold";
-
-            $navPrevBtn = "h-9 inline-flex text-xs items-center justify-center bg-[#2A324B]/20 hover:bg-[#2A324B]/10 transition duration-200 px-6 text-[#2A324B]/40 rounded-full font-semibold cursor-pointer";
-
-            // Map query (Google Maps embed)
-            $fullAddress = trim(($row->address ?? '') . ', ' . ($row->postcode ?? '') . ' ' . ($row->city ?? ''));
-            $mapsQ = urlencode($fullAddress);
-          @endphp
-
-          <div class="w-full flex items-center justify-between gap-4 mb-8">
-            <div class="justify-self-start">
-              <a href="{{ route('support.onboarding.index') }}" class="{{ $navPrevBtn }}">
-                Terug naar overzicht
-              </a>
-            </div>
-
-            <div class="{{ $statusClass }} text-xs font-semibold rounded-full py-1.5 px-4 text-center">
-              {{ $statusLabel }}
-            </div>
-          </div>
-        </div>
-
         {{-- Content blocks --}}
         <div class="grid grid-cols-2 gap-4 pb-1">
 
@@ -204,7 +223,7 @@
                       </div>
                     </div>
 
-                    {{-- Hier: planning blok om ruimte op te vullen (i.p.v. oppervlakte verdeling) --}}
+                    {{-- Planning (ruimte vullen, puur data) --}}
                     <div class="mt-4 pt-4 border-t border-[#191D38]/10">
                       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
@@ -324,9 +343,9 @@
               <div class="px-6 py-4 bg-[#191D38]/10 border-t border-[#191D38]/10">
                 <div class="grid grid-cols-[1fr_0.25fr_0.35fr_0.35fr] items-center gap-6">
                   <p class="text-[#191D38] font-bold text-xs opacity-50">Omschrijving</p>
-                  <p class="text-[#191D38] font-bold text-xs opacity-50 text-center">Aantal</p>
-                  <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Prijs</p>
-                  <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Totaal</p>
+                  <p class="text-[#191D38] font-bold text-xs opacity-50 text-start">Aantal</p>
+                  <p class="text-[#191D38] font-bold text-xs opacity-50">Prijs</p>
+                  <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Totaalprijs</p>
                 </div>
               </div>
 
@@ -335,25 +354,20 @@
                   @foreach($lines as $line)
                     <div class="py-3 grid grid-cols-[1fr_0.25fr_0.35fr_0.35fr] items-start gap-6">
                       <div class="min-w-0">
-                        <p class="text-[#191D38] text-sm font-semibold leading-tight">
+                        <p class="text-[#191D38] font-semibold text-sm">
                           {{ $line['title'] }}
                         </p>
-                        @if(!empty($line['subtitle']))
-                          <p class="text-[#191D38]/60 text-xs font-semibold mt-1">
-                            {{ $line['subtitle'] }}
-                          </p>
-                        @endif
                       </div>
 
-                      <div class="text-[#191D38] text-sm font-semibold text-center">
+                      <div class="text-[#191D38] text-sm">
                         {{ $line['qty'] }}
                       </div>
 
-                      <div class="text-[#191D38] text-sm font-semibold text-right">
+                      <div class="text-[#191D38] text-sm">
                         {{ $fmt($line['unit']) }}
                       </div>
 
-                      <div class="text-[#191D38] text-sm font-bold text-right">
+                      <div class="text-[#009AC3] text-sm text-right">
                         {{ $fmt($line['total']) }}
                       </div>
                     </div>
