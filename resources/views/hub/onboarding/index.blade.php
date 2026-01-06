@@ -3,10 +3,30 @@
 @section('content')
 <div class="col-span-5 flex-1 min-h-0">
   <div class="w-full p-8 bg-white border border-gray-200 rounded-2xl h-full min-h-0 flex flex-col">
-    <div class="flex-1 w-full overflow-hidden flex flex-col min-h-0">
 
-      {{-- Top bar --}}
-      <div class="mb-4 flex items-center justify-between gap-4">
+    @php
+      // Breadcrumbs labels
+      $crumbLabel = 'Overzicht';
+      $navNewBtn  = "h-9 inline-flex text-xs items-center justify-center bg-[#009AC3] hover:bg-[#009AC3]/70 transition duration-200 px-6 text-white rounded-full font-semibold cursor-pointer";
+    @endphp
+
+    {{-- Breadcrumbs (altijd zichtbaar) --}}
+    <div class="shrink-0 mb-4 flex items-center justify-between">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-semibold text-[#191D38]/50">
+        <a href="{{ route('support.dashboard') }}" class="hover:text-[#191D38] transition">
+          Dashboard
+        </a>
+        <span class="opacity-40">/</span>
+        <a href="{{ route('support.onboarding.index') }}" class="hover:text-[#191D38] transition">
+          Onboarding
+        </a>
+        <span class="opacity-40">/</span>
+        <span class="text-[#009AC3]">
+          {{ $crumbLabel }}
+        </span>
+      </nav>
+
+      <div class="flex items-center gap-3">
         <form method="GET" action="{{ route('support.onboarding.index') }}" class="flex items-center gap-3">
           <input
             type="text"
@@ -36,7 +56,13 @@
             </span>
           </div>
         </form>
+        <a href="{{ route('support.onboarding.create') }}" class="{{ $navNewBtn }}">
+          Nieuwe onboarding
+        </a>
       </div>
+    </div>
+
+    <div class="flex-1 w-full overflow-hidden flex flex-col min-h-0">
 
       {{-- Header row --}}
       <div class="shrink-0 px-6 py-4 bg-[#191D38]/10 rounded-tl-2xl rounded-tr-2xl">
@@ -60,11 +86,10 @@
               'archived'  => ['label' => 'Gearchiveerd','class'=> 'text-[#DF9A57] bg-[#DF9A57]/20'],
             ];
           @endphp
+
           @if(!empty($hasDraft))
             @php
-              $draftDate = now()->format('d-m-Y'); // geen started_at? dan vandaag
-              // Optioneel: als je ooit started_at toevoegt in session:
-              // $draftDate = !empty($wizard['started_at'] ?? null) ? \Carbon\Carbon::parse($wizard['started_at'])->format('d-m-Y') : now()->format('d-m-Y');
+              $draftDate = now()->format('d-m-Y');
               $pill = $statusMap['concept'];
             @endphp
             <div class="py-3 pt-0 grid grid-cols-[0.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
@@ -81,14 +106,12 @@
               </div>
             </div>
           @endif
+
           @forelse($rows as $r)
             @php
-              // Voor nu: alles wat in DB staat = “Voltooid”
-              // Later kan je $r->status = cancelled/archived gebruiken
               $key = 'completed';
               if ($r->status === 'cancelled') $key = 'cancelled';
               if ($r->status === 'archived')  $key = 'archived';
-
               $pill = $statusMap[$key];
             @endphp
             <div class="py-3 grid grid-cols-[0.2fr_1fr_1fr_1fr_0.8fr] items-center gap-6">
@@ -115,6 +138,7 @@
               </div>
             @endif
           @endforelse
+
           @if(!empty($rows) && method_exists($rows, 'links'))
             <div class="pt-6">
               {{ $rows->links() }}
@@ -122,6 +146,7 @@
           @endif
         </div>
       </div>
+
     </div>
   </div>
 </div>
