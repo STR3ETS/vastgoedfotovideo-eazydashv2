@@ -39,7 +39,7 @@
         @php
           $navPrevBtn = "h-9 inline-flex text-xs items-center justify-center bg-[#009AC3] hover:bg-[#009AC3]/70 transition duration-200 px-6 text-white rounded-full font-semibold cursor-pointer";
         @endphp
-        <a href="{{ route('support.onboarding.index') }}" class="{{ $navPrevBtn }}">
+        <a href="{{ route('support.onboarding.create') }}" class="{{ $navPrevBtn }}">
           Nieuwe onboarding
         </a>
       </div>
