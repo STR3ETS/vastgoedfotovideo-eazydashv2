@@ -141,7 +141,7 @@
             $labelClass    = "text-[#191D38] font-bold text-xs opacity-50";
             $valueClass    = "text-[#191D38] text-sm font-semibold";
 
-            $navPrevBtn = "h-11 inline-flex items-center justify-center bg-[#2A324B]/20 hover:bg-[#2A324B]/10 transition duration-200 px-6 text-[#2A324B]/40 rounded-full font-semibold cursor-pointer";
+            $navPrevBtn = "h-9 inline-flex text-xs items-center justify-center bg-[#2A324B]/20 hover:bg-[#2A324B]/10 transition duration-200 px-6 text-[#2A324B]/40 rounded-full font-semibold cursor-pointer";
 
             // Map query (Google Maps embed)
             $fullAddress = trim(($row->address ?? '') . ', ' . ($row->postcode ?? '') . ' ' . ($row->city ?? ''));
@@ -187,7 +187,7 @@
                       </div>
                     </div>
 
-                    <div class="mt-6 pt-6 border-t border-[#191D38]/10">
+                    <div class="mt-4 pt-4 border-t border-[#191D38]/10">
                       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                           <p class="{{ $labelClass }} mb-1">Oppervlakte woning</p>
@@ -205,7 +205,7 @@
                     </div>
 
                     {{-- Hier: planning blok om ruimte op te vullen (i.p.v. oppervlakte verdeling) --}}
-                    <div class="mt-6 pt-6 border-t border-[#191D38]/10">
+                    <div class="mt-4 pt-4 border-t border-[#191D38]/10">
                       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                           <p class="{{ $labelClass }} mb-1">Datum</p>
@@ -223,7 +223,7 @@
 
                   {{-- Rechts: map --}}
                   <div class="w-full lg:w-1/2">
-                    <div class="w-full aspect-[26/10] rounded-2xl overflow-hidden ring-1 ring-[#191D38]/10 bg-white">
+                    <div class="w-full aspect-[31/10] rounded-2xl overflow-hidden ring-1 ring-[#191D38]/10 bg-white">
                       <iframe
                         title="Map"
                         class="w-full h-full"
