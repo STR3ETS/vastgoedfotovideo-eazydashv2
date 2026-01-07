@@ -4,7 +4,8 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TeamInviteController;
-use App\Http\Controllers\ProjectenController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProjectTakenController;
 use App\Http\Controllers\TakenController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\FinancienController;
@@ -43,9 +44,15 @@ Route::prefix('app')->group(function () {
         Route::prefix('projecten')
             ->middleware('company_id:1')
             ->name('support.projecten.')
-            ->controller(ProjectenController::class)
             ->group(function () {
-                Route::get('/', 'index')->name('index');
+                Route::controller(ProjectController::class)->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::get('/{project}', 'show')->name('show');
+                });
+                Route::patch('/{project}/tasks/{task}/status', [ProjectTakenController::class, 'updateStatus'])->name('taken.update')->scopeBindings();
+                Route::patch('/{project}/tasks/bulk/status', [ProjectTakenController::class, 'bulkUpdateStatus'])->name('taken.bulk_status')->scopeBindings();
+                Route::patch('/{project}/tasks/{task}/assignee', [ProjectTakenController::class, 'updateAssignee'])->name('taken.assignee')->scopeBindings();
+                Route::patch('/{project}/tasks/{task}/due-date', [ProjectTakenController::class, 'updateDueDate'])->name('taken.due_date')->scopeBindings();
             });
 
         Route::prefix('taken')

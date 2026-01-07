@@ -304,6 +304,9 @@ class OnboardingController extends Controller
             'status'               => 'new',
         ]);
 
+        $project = app(\App\Actions\CreateProjectFromOnboardingRequest::class)
+            ->execute($record, $request->user()->id);
+
         $this->clearWizard($request);
 
         return redirect()->route('support.onboarding.index')
