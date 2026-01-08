@@ -35,6 +35,7 @@
   </head>
   <!-- <body class="max-h-screen flex bg-cover bg-center" style="background-image: url('/assets/app-bg-1920.webp')"> -->
   <body class="max-h-screen flex bg-[#191D38]/5">
+    <p class="text-[1.5px] fixed left-0 top-0 opacity-15 select-none hover:cursor-default">Software gemaakt door <a class="hover:underline hover:cursor-default" href="https://www.linkedin.com/in/boyd-tygo-halfman-46b76723a/" target="_blank">Boyd Halfman</a> & <a class="hover:underline hover:cursor-default" href="https://www.linkedin.com/in/ya%C3%ABl-scholten-a3b741273/" target="_blank">Yael Scholten</a></p>
     <!-- SIDEBAR -->
     <aside class="w-fit h-screen pl-2 py-2">
       <div class="flex h-full">

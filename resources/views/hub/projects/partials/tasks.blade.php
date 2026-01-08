@@ -11,6 +11,8 @@
     'name' => $u->name,
     'rol' => $u->rol ?? null,
   ])->values();
+
+  $taskCols = "grid-cols-[40px_minmax(0,1.12fr)_minmax(0,0.45fr)_minmax(0,0.65fr)_minmax(0,0.45fr)_minmax(0,0.45fr)_minmax(0,0.45fr)_110px]";
 @endphp
 
 <div
@@ -160,7 +162,7 @@
 
     {{-- Header row --}}
     <div class="px-6 py-4 bg-[#191D38]/10 border-t border-[#191D38]/10">
-      <div class="grid grid-cols-[0.18fr_1.12fr_0.45fr_0.65fr_0.45fr_0.45fr_0.45fr_0.22fr] items-center gap-6">
+      <div class="grid {{ $taskCols }} items-center gap-6">
         <div class="flex items-center">
           <input
             type="checkbox"
@@ -207,7 +209,7 @@
           @endphp
 
           <div
-            class="py-3 grid grid-cols-[0.18fr_1.12fr_0.45fr_0.65fr_0.45fr_0.45fr_0.45fr_0.22fr] items-center gap-6 transition-opacity duration-200"
+            class="py-3 grid {{ $taskCols }} items-center gap-6 transition-opacity duration-200"
             x-data='{
               edit:false,
               name: @json($t->name),
@@ -283,7 +285,7 @@
               <button
                 type="button"
                 x-on:click="open = !open"
-                class="{{ $taskPill['class'] }} cursor-pointer w-full text-xs font-semibold rounded-full py-1.5 inline-flex items-center justify-start gap-2 px-4 text-left"
+                class="{{ $taskPill['class'] }} cursor-pointer w-full text-xs font-semibold rounded-full py-1.5 inline-flex items-center justify-center gap-2 px-4 text-left"
               >
                 <span>{{ $taskPill['label'] }}</span>
               </button>
@@ -789,15 +791,15 @@
             {{-- Acties --}}
             <div class="flex items-center justify-end gap-2">
               {{-- pencil --}}
-              <!-- <button
+              <button
                 type="button"
                 x-show="!edit"
                 x-on:click="openEdit()"
                 class="cursor-pointer"
                 title="Bewerk taaknaam"
               >
-                <i class="fa-solid fa-pen-to-square hover:text-[#009AC3] transition duration-200"></i>
-              </button> -->
+                <i class="fa-solid fa-pencil hover:text-[#009AC3] transition duration-200"></i>
+              </button>
 
               {{-- save/cancel (edit mode) --}}
               <button
