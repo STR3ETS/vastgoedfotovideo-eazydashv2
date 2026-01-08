@@ -1181,7 +1181,7 @@
             {{-- QC --}}
             @if ($section === 'qc')
                 <div class="flex-1 min-h-0 bg-[#191D38]/5 rounded-2xl p-8 flex items-center justify-center">
-                    <p class="text-[#191D38]/70 text-sm font-semibold">Kwaliteitscontrole komt hier.</p>
+                    <p class="text-[#191D38]/70 text-sm font-semibold">Kwaliteitscontrole.</p>
                 </div>
             @endif
 
