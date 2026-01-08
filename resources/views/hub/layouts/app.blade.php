@@ -783,5 +783,11 @@
         };
       };
     </script>
+    <script>
+      document.addEventListener('htmx:configRequest', function (e) {
+        var token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (token) e.detail.headers['X-CSRF-TOKEN'] = token;
+      });
+    </script>
   </body>
 </html>

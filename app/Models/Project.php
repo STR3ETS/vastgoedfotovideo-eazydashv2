@@ -52,9 +52,11 @@ class Project extends Model
         return $this->hasMany(ProjectTask::class)->orderBy('sort_order')->orderBy('id');
     }
 
-    public function financeItems(): HasMany
+    public function financeItems()
     {
-        return $this->hasMany(ProjectFinanceItem::class)->orderBy('id', 'desc');
+        return $this->hasMany(ProjectFinanceItem::class)
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc');
     }
 
     public function planningItems(): HasMany

@@ -6,6 +6,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectTakenController;
+use App\Http\Controllers\ProjectTaskChatController;
+use App\Http\Controllers\ProjectTaskSubtaskController;
+use App\Http\Controllers\ProjectFinancienController;
 use App\Http\Controllers\TakenController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\FinancienController;
@@ -51,10 +54,41 @@ Route::prefix('app')->group(function () {
                     Route::get('/', 'index')->name('index');
                     Route::get('/{project}', 'show')->name('show');
                 });
+
+                // TAKEN
+                Route::patch('/{project}/tasks/{task}/name', [ProjectTakenController::class, 'updateName'])->name('taken.name')->scopeBindings();
                 Route::patch('/{project}/tasks/{task}/status', [ProjectTakenController::class, 'updateStatus'])->name('taken.update')->scopeBindings();
                 Route::patch('/{project}/tasks/bulk/status', [ProjectTakenController::class, 'bulkUpdateStatus'])->name('taken.bulk_status')->scopeBindings();
                 Route::patch('/{project}/tasks/{task}/assignee', [ProjectTakenController::class, 'updateAssignee'])->name('taken.assignee')->scopeBindings();
+                Route::get('/{project}/tasks/location-suggest', [ProjectTakenController::class, 'locationSuggest'])->name('taken.location_suggest')->scopeBindings();
+                Route::patch('/{project}/tasks/{task}/location', [ProjectTakenController::class, 'updateLocation'])->name('taken.location')->scopeBindings();
                 Route::patch('/{project}/tasks/{task}/due-date', [ProjectTakenController::class, 'updateDueDate'])->name('taken.due_date')->scopeBindings();
+                Route::post('/{project}/tasks', [ProjectTakenController::class, 'store'])->name('taken.store')->scopeBindings();
+                Route::delete('/{project}/tasks/bulk/delete', [ProjectTakenController::class, 'bulkDestroy'])->name('taken.bulk_destroy')->scopeBindings();
+                Route::delete('/{project}/tasks/{task}', [ProjectTakenController::class, 'destroy'])->name('taken.destroy')->scopeBindings();
+
+                // DETAIL TAKEN
+                Route::get('/{project}/tasks/{task}', [ProjectTakenController::class, 'show'])->name('taken.show')->whereNumber('task')->scopeBindings();
+                Route::patch('/{project}/tasks/{task}/description', [ProjectTakenController::class, 'updateDescription'])->name('taken.description')->scopeBindings();
+                Route::get('/{project}/tasks/{task}/chat', [ProjectTaskChatController::class, 'messages'])->name('taken.chat.messages')->scopeBindings();
+                Route::post('/{project}/tasks/{task}/chat', [ProjectTaskChatController::class, 'store'])->name('taken.chat.store')->scopeBindings();
+                Route::get('/{project}/tasks/{task}/chat/attachments/{attachment}', [ProjectTaskChatController::class, 'download'])->name('taken.chat.attachments.download')->scopeBindings();
+                Route::prefix('{project}/tasks/{task}/subtasks')
+                    ->scopeBindings()
+                    ->name('taken.subtasks.')
+                    ->group(function () {
+                        Route::post('/', [ProjectTaskSubtaskController::class, 'store'])->name('store');
+                        Route::patch('/{subtask}/status',   [ProjectTaskSubtaskController::class, 'updateStatus'])->name('status');
+                        Route::patch('/{subtask}/assignee', [ProjectTaskSubtaskController::class, 'updateAssignee'])->name('assignee');
+                        Route::patch('/{subtask}/due-date', [ProjectTaskSubtaskController::class, 'updateDueDate'])->name('due_date');
+                        Route::delete('/bulk/delete', [ProjectTaskSubtaskController::class, 'bulkDestroy'])->name('bulk_destroy');
+                        Route::delete('/{subtask}',   [ProjectTaskSubtaskController::class, 'destroy'])->name('destroy');
+                    });
+
+                // FINANCIEEL
+                Route::post('/{project}/finance-items', [ProjectFinancienController::class, 'store'])->name('finance.store')->scopeBindings();
+                Route::patch('/{project}/finance-items/{financeItem}', [ProjectFinancienController::class, 'update'])->name('finance.update')->scopeBindings();
+                Route::delete('/{project}/finance-items/{financeItem}', [ProjectFinancienController::class, 'destroy'])->name('finance.destroy')->scopeBindings();
             });
 
         Route::prefix('taken')

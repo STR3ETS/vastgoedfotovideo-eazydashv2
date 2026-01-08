@@ -259,56 +259,17 @@
             'sectionBody' => $sectionBody,
           ])
 
+          <hr class="border-[#191D38]/10 col-span-2 my-4">
+
           {{-- Finance --}}
-          <div class="col-span-2">
-            <div class="{{ $sectionWrap }}">
-              <div class="{{ $sectionHeader }} flex items-center justify-between gap-4">
-                <p class="text-[#191D38] font-black text-sm">Financieel</p>
-                <p class="text-[#191D38]/60 text-xs font-semibold">
-                  Totaal: <span class="text-[#191D38] font-black">{{ $fmtCents($financeTotal) }}</span>
-                </p>
-              </div>
+          @include('hub.projects.partials.finance', [
+            'project' => $project,
+            'sectionWrap' => $sectionWrap,
+            'sectionHeader' => $sectionHeader,
+            'sectionBody' => $sectionBody,
+          ])
 
-              <div class="px-6 py-4 bg-[#191D38]/10 border-t border-[#191D38]/10">
-                <div class="grid grid-cols-[1fr_0.25fr_0.35fr_0.35fr] items-center gap-6">
-                  <p class="text-[#191D38] font-bold text-xs opacity-50">Omschrijving</p>
-                  <p class="text-[#191D38] font-bold text-xs opacity-50 text-start">Aantal</p>
-                  <p class="text-[#191D38] font-bold text-xs opacity-50">Prijs</p>
-                  <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Totaalprijs</p>
-                </div>
-              </div>
-
-              <div class="{{ $sectionBody }}">
-                <div class="px-6 py-2 divide-y divide-[#191D38]/10">
-                  @forelse($project->financeItems as $item)
-                    <div class="py-3 grid grid-cols-[1fr_0.25fr_0.35fr_0.35fr] items-start gap-6">
-                      <div class="min-w-0">
-                        <p class="text-[#191D38] font-semibold text-sm">
-                          {{ $item->description }}
-                        </p>
-                      </div>
-
-                      <div class="text-[#191D38] text-sm">
-                        {{ (int) ($item->quantity ?? 1) }}
-                      </div>
-
-                      <div class="text-[#191D38] text-sm">
-                        {{ $fmtCents((int) ($item->unit_price_cents ?? 0)) }}
-                      </div>
-
-                      <div class="text-[#009AC3] text-sm text-right">
-                        {{ $fmtCents((int) ($item->total_cents ?? 0)) }}
-                      </div>
-                    </div>
-                  @empty
-                    <div class="py-10 text-center text-sm font-semibold text-[#191D38]/50">
-                      Nog geen financiële regels.
-                    </div>
-                  @endforelse
-                </div>
-              </div>
-            </div>
-          </div>
+          <hr class="border-[#191D38]/10 col-span-2 my-4">
 
           {{-- Planning --}}
           <div class="col-span-2">
@@ -363,8 +324,10 @@
     var target = evt.target;
     if (!target) return;
 
-    if (target.id === 'project-tasks' && window.Alpine && typeof window.Alpine.initTree === 'function') {
-      window.Alpine.initTree(target);
+    if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+      if (target.id === 'project-tasks' || target.id === 'project-finance') {
+        window.Alpine.initTree(target);
+      }
     }
   });
 </script>
