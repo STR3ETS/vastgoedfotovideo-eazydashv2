@@ -42,9 +42,9 @@ Route::prefix('app')->group(function () {
         })->name('support.dashboard');
 
         Route::get('/planning-management', [PlanningController::class, 'index'])->name('support.planning.index');
-        Route::get('/planning-management/{onboardingRequest}/bewerken', [PlanningController::class, 'edit'])->name('support.planning.edit');
-        Route::patch('/planning-management/{onboardingRequest}', [PlanningController::class, 'update'])->name('support.planning.update');
-        Route::delete('/planning-management/{onboardingRequest}', [PlanningController::class, 'destroy'])->name('support.planning.destroy');
+        Route::get('/planning-management/{planningItem}/bewerken', [PlanningController::class, 'edit'])->name('support.planning.edit');
+        Route::patch('/planning-management/{planningItem}', [PlanningController::class, 'update'])->name('support.planning.update');
+        Route::delete('/planning-management/{planningItem}', [PlanningController::class, 'destroy'])->name('support.planning.destroy');
 
         Route::prefix('projecten')
             ->middleware('company_id:1')
