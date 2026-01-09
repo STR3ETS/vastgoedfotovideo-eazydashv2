@@ -8,19 +8,111 @@
 
   $errorsBag = $financeErrors ?? null;
 
-  // kolommen incl. actions
-  $cols = "grid-cols-[1fr_0.25fr_0.35fr_0.35fr_0.22fr]";
+  // ✅ kolommen incl. checkbox + actions
+  $cols = "grid-cols-[40px_minmax(0,1fr)_minmax(0,0.25fr)_minmax(0,0.35fr)_minmax(0,0.35fr)_minmax(0,0.22fr)]";
+
+  // ✅ 1x sorteren (ook voor modal)
+  $financeItems = ($project->financeItems ?? collect())
+    ->sortBy(fn($i) => [$i->created_at?->timestamp ?? 0, $i->id])
+    ->values();
+
+  // ✅ seed voor offerte modal (prefill)
+  $financeSeed = $financeItems->map(fn($i) => [
+    'id' => (int) $i->id,
+    'description' => (string) ($i->description ?? ''),
+    'quantity' => (int) ($i->quantity ?? 1),
+    'unit_price_cents' => (int) ($i->unit_price_cents ?? 0),
+  ])->values();
 @endphp
 
 <div
   id="project-finance"
   class="col-span-2"
   x-data='{
+    projectId: @json($project->id),
+    storageKey: null,
+
+    // ✅ selectie
+    selected: [],
+
+    financeSeed: @json($financeSeed),
+
+    // ✅ add-rij
     addOpen:false,
     newDescription:"",
     newQty: 1,
     newPrice:"",
 
+    // ✅ offerte modal
+    quoteOpen: false,
+    quoteDate: "",
+    quoteExpireDate: "",
+    quoteStatus: "draft",   // draft | sent | accepted | rejected
+    quoteNotes: "",
+    vatRate: 21,
+    quoteItems: [],
+
+    init(){
+      this.storageKey = "project_finance_selected_" + this.projectId;
+
+      // restore selectie na HTMX swap / page reload
+      this.restoreSelection();
+
+      // drop ids die niet meer bestaan in de huidige DOM
+      this.$nextTick(() => this.normalizeSelection());
+
+      // persist bij elke wijziging
+      this.$watch("selected", (v) => {
+        try { sessionStorage.setItem(this.storageKey, JSON.stringify((v || []).map(String))); } catch(e) {}
+      });
+    },
+
+    restoreSelection(){
+      try{
+        const raw = sessionStorage.getItem(this.storageKey);
+        if(!raw) return;
+        const arr = JSON.parse(raw);
+        if(Array.isArray(arr)){
+          this.selected = arr.map(String);
+        }
+      } catch(e) {}
+    },
+
+    normalizeSelection(){
+      const ids = Array.from(this.$root.querySelectorAll("input[data-finance-checkbox]"))
+        .map(cb => String(cb.value));
+
+      this.selected = (this.selected || []).map(String).filter(id => ids.includes(id));
+    },
+
+    isSelected(id){
+      return this.selected.includes(String(id));
+    },
+
+    toggleAll(ev){
+      const on = ev.target.checked;
+      const ids = Array.from(this.$root.querySelectorAll("input[data-finance-checkbox]"))
+        .filter(cb => !cb.disabled)
+        .map(cb => String(cb.value));
+
+      this.selected = on ? ids : [];
+    },
+
+    isAllSelected(){
+      const ids = Array.from(this.$root.querySelectorAll("input[data-finance-checkbox]"))
+        .filter(cb => !cb.disabled)
+        .map(cb => String(cb.value));
+
+      return ids.length > 0 && ids.every(id => this.selected.includes(id));
+    },
+
+    clearSelection(){
+      this.selected = [];
+      const master = this.$root.querySelector("input[data-master-checkbox]");
+      if(master) master.checked = false;
+    },
+
+    // ✅ add-rij helpers
     openAdd(){
       this.addOpen = true;
       this.$nextTick(() => this.$refs.descInput?.focus());
@@ -31,8 +123,106 @@
       this.newDescription = "";
       this.newQty = 1;
       this.newPrice = "";
+    },
+
+    // =========================
+    // ✅ Offerte modal helpers
+    // =========================
+    pad(n){ return String(n).padStart(2,"0"); },
+
+    dateKey(d){
+      return d.getFullYear()+"-"+this.pad(d.getMonth()+1)+"-"+this.pad(d.getDate());
+    },
+
+    formatCents(c){
+      const v = Number(c) || 0;
+      try{
+        return "€ " + new Intl.NumberFormat("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v / 100);
+      } catch(e){
+        return "€ " + ((v/100).toFixed(2)).replace(".", ",");
+      }
+    },
+
+    centsToEurInput(c){
+      const v = Number(c) || 0;
+      // voor inputveld: 12,50
+      return ((v/100).toFixed(2)).replace(".", ",");
+    },
+
+    eurToCents(value){
+      let v = String(value ?? "").trim();
+      v = v.replace("€", "").replace(/\s/g, "");
+      // duizendtallen eruit, komma -> punt
+      v = v.replace(/\./g, "").replace(",", ".");
+      const f = parseFloat(v);
+      if(!isFinite(f)) return 0;
+      return Math.round(f * 100);
+    },
+
+    lineTotalCents(it){
+      const qty = Math.max(1, Number(it.qty) || 1);
+      const unit = this.eurToCents(it.unit_price_eur);
+      return qty * Math.max(0, unit);
+    },
+
+    subTotalCents(){
+      return (this.quoteItems || []).reduce((s, it) => s + this.lineTotalCents(it), 0);
+    },
+
+    vatCents(){
+      const rate = Math.max(0, Number(this.vatRate) || 0);
+      return Math.round(this.subTotalCents() * rate / 100);
+    },
+
+    grandTotalCents(){
+      return this.subTotalCents() + this.vatCents();
+    },
+
+    seedQuote(){
+      // defaults
+      const now = new Date();
+      const exp = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30);
+
+      this.quoteDate = this.dateKey(now);
+      this.quoteExpireDate = this.dateKey(exp);
+      this.quoteStatus = "draft";
+      this.quoteNotes = "";
+      this.vatRate = 21;
+
+      // items vanuit finance
+      this.quoteItems = (this.financeSeed || []).map(i => ({
+        key: String(i.id),
+        description: i.description || "",
+        qty: Math.max(1, Number(i.quantity) || 1),
+        unit_price_eur: this.centsToEurInput(i.unit_price_cents || 0)
+      }));
+    },
+
+    openQuote(){
+      this.seedQuote();
+      this.quoteOpen = true;
+      this.$nextTick(() => { document.documentElement.classList.add("overflow-hidden"); });
+    },
+
+    closeQuote(){
+      this.quoteOpen = false;
+      this.$nextTick(() => { document.documentElement.classList.remove("overflow-hidden"); });
+    },
+
+    removeQuoteItem(idx){
+      this.quoteItems.splice(idx, 1);
+    },
+
+    addQuoteItem(){
+      this.quoteItems.push({
+        key: "new-" + Date.now(),
+        description: "",
+        qty: 1,
+        unit_price_eur: "0,00"
+      });
     }
   }'
+  x-init="init()"
 >
   <div class="{{ $sectionWrap }} overflow-visible">
     <div class="{{ $sectionHeader }} rounded-t-2xl flex items-center justify-between gap-4">
@@ -44,13 +234,60 @@
         </p>
       </div>
 
-      <button
-        type="button"
-        x-on:click="openAdd()"
-        class="h-8 px-4 inline-flex items-center gap-2 rounded-full bg-[#009AC3] text-white text-xs font-semibold hover:bg-[#009AC3]/80 transition duration-200"
-      >
-        Nieuwe regel aanmaken
-      </button>
+      <div class="flex items-center gap-2">
+        <div
+          x-cloak
+          x-show="selected.length > 0"
+          class="flex items-center gap-2 mr-4"
+        >
+          <span class="text-[#191D38] font-bold text-xs opacity-50">
+            Geselecteerd: <span x-text="selected.length"></span>
+          </span>
+        </div>
+
+        <button
+          type="button"
+          x-on:click="openAdd()"
+          class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#009AC3] text-white text-xs font-semibold hover:bg-[#009AC3]/80 transition duration-200"
+        >
+          Nieuwe regel aanmaken
+        </button>
+
+        <button
+          type="button"
+          x-on:click="openQuote()"
+          class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#191D38] text-white text-xs font-semibold hover:bg-[#191D38]/80 transition duration-200"
+        >
+          Offerte maken
+        </button>
+
+        {{-- ✅ Bulk delete button --}}
+        <form
+          x-cloak
+          x-show="selected.length > 0"
+          method="POST"
+          action="{{ route('support.projecten.finance.bulk_destroy', ['project' => $project]) }}"
+
+          hx-post="{{ route('support.projecten.finance.bulk_destroy', ['project' => $project]) }}"
+          hx-target="#project-finance"
+          hx-swap="outerHTML"
+          hx-confirm="Weet je zeker dat je de geselecteerde financiële regels wilt verwijderen?"
+        >
+          @csrf
+          @method('DELETE')
+
+          <template x-for="id in selected" :key="'bulk-fin-del-'+id">
+            <input type="hidden" name="finance_item_ids[]" :value="id">
+          </template>
+
+          <button
+            type="submit"
+            class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#DF2935] text-white text-xs font-semibold hover:bg-[#DF2935]/80 transition duration-200"
+          >
+            Verwijder geselecteerde
+          </button>
+        </form>
+      </div>
     </div>
 
     {{-- Errors (optioneel) --}}
@@ -65,9 +302,19 @@
     {{-- Header row --}}
     <div class="px-6 py-4 bg-[#191D38]/10 border-t border-[#191D38]/10">
       <div class="grid {{ $cols }} items-center gap-6">
+        <div class="flex items-center">
+          <input
+            type="checkbox"
+            data-master-checkbox
+            class="h-4 w-4 rounded border-[#191D38]/20"
+            x-on:change="toggleAll($event)"
+            :checked="isAllSelected()"
+          >
+        </div>
+
         <p class="text-[#191D38] font-bold text-xs opacity-50">Omschrijving</p>
         <p class="text-[#191D38] font-bold text-xs opacity-50 text-start">Aantal</p>
-        <p class="text-[#191D38] font-bold text-xs opacity-50">Prijs</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Prijs per eenheid</p>
         <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Totaalprijs</p>
         <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Acties</p>
       </div>
@@ -77,7 +324,6 @@
     <div class="{{ $sectionBody }} rounded-b-2xl">
       <div class="px-6 py-2 divide-y divide-[#191D38]/10">
         @php
-          // ✅ nieuw: sorteren zodat newest altijd onderaan staat
           $financeItems = ($project->financeItems ?? collect())
             ->sortBy(fn($i) => [$i->created_at?->timestamp ?? 0, $i->id])
             ->values();
@@ -85,12 +331,11 @@
 
         @forelse($financeItems as $item)
           @php
-            // ✅ belangrijk: geen duizend-separator, anders breekt eurToCents bij "1.234,56"
             $priceInit = number_format(((int) ($item->unit_price_cents ?? 0)) / 100, 2, ',', '');
           @endphp
 
           <div
-            class="py-3 grid {{ $cols }} items-center gap-6"
+            class="py-3 grid {{ $cols }} items-center gap-6 transition-opacity duration-200"
             x-data='{
               edit:false,
               desc: @json($item->description),
@@ -112,10 +357,22 @@
                 this.edit = false;
               }
             }'
+            x-bind:class="(selected.length > 0 && !selected.includes(String({{ $item->id }}))) ? 'opacity-50' : 'opacity-100'"
           >
+            {{-- ✅ Checkbox --}}
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                value="{{ $item->id }}"
+                data-finance-checkbox
+                class="h-4 w-4 rounded border-[#191D38]/20"
+                x-model="selected"
+              >
+            </div>
+
             {{-- Omschrijving --}}
             <div class="min-w-0">
-              <p x-show="!edit" class="text-[#191D38] font-semibold text-sm">
+              <p x-show="!edit" class="text-[#191D38] font-semibold text-sm truncate">
                 {{ $item->description }}
               </p>
 
@@ -171,8 +428,6 @@
 
             {{-- Acties --}}
             <div class="flex items-center justify-end gap-2">
-
-              {{-- Read-only actions --}}
               <button
                 type="button"
                 x-show="!edit"
@@ -201,7 +456,6 @@
                 </button>
               </form>
 
-              {{-- Edit mode actions --}}
               <form
                 x-cloak
                 x-show="edit"
@@ -216,7 +470,6 @@
                 @csrf
                 @method('PATCH')
 
-                {{-- ✅ hidden fields die meegaan in submit --}}
                 <input type="hidden" name="description" :value="desc">
                 <input type="hidden" name="quantity" :value="qty">
                 <input type="hidden" name="unit_price_eur" :value="price">
@@ -251,7 +504,7 @@
           </div>
         @endforelse
 
-        {{-- ✅ Nieuwe regel rij (onderaan, net als taken) --}}
+        {{-- ✅ Nieuwe regel rij (onderaan) --}}
         <form
           x-cloak
           x-show="addOpen"
@@ -264,6 +517,9 @@
           hx-swap="outerHTML"
         >
           @csrf
+
+          {{-- checkbox kolom leeg --}}
+          <div></div>
 
           <div class="min-w-0">
             <input
@@ -324,6 +580,273 @@
           </div>
         </form>
 
+      </div>
+    </div>
+  </div>
+
+@php
+  $quoteStatusMap = [
+    'draft'    => ['label' => 'Concept',   'class' => 'text-[#DF9A57] bg-[#DF9A57]/20'],
+    'sent'     => ['label' => 'Verzonden', 'class' => 'text-[#009AC3] bg-[#009AC3]/20'],
+    'accepted' => ['label' => 'Akkoord',  'class' => 'text-[#87A878] bg-[#87A878]/20'],
+    'rejected' => ['label' => 'Afgewezen', 'class' => 'text-[#DF2935] bg-[#DF2935]/20'],
+  ];
+
+  $quotes = ($project->quotes ?? collect())->values();
+
+  $qCols = "grid-cols-[160px_140px_1fr_140px_140px_140px_90px]";
+@endphp
+
+@if($quotes->count() > 0)
+  <div class="mt-6 border-t border-[#191D38]/10 pt-6">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-[#191D38] font-black text-sm">Offertes</p>
+    </div>
+
+    <div class="px-6 py-4 bg-[#191D38]/10 rounded-t-2xl border border-[#191D38]/10">
+      <div class="grid {{ $qCols }} gap-4 items-center">
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Nummer</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Datum</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Status</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Ex. BTW</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">BTW</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Incl. BTW</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Acties</p>
+      </div>
+    </div>
+
+    <div class="bg-[#191D38]/5 rounded-b-2xl border border-t-0 border-[#191D38]/10 divide-y divide-[#191D38]/10 px-6 py-2">
+      @foreach($quotes as $q)
+        @php
+          $key  = strtolower((string)($q->status ?? 'draft'));
+          $pill = $quoteStatusMap[$key] ?? ['label' => ucfirst($key), 'class' => 'text-[#191D38] bg-[#191D38]/10'];
+
+          $sub = (int) ($q->sub_total_cents ?? 0);
+          $vat = (int) ($q->vat_cents ?? 0);
+          $tot = (int) ($q->total_cents ?? ($sub + $vat));
+        @endphp
+
+        <div class="grid {{ $qCols }} gap-4 items-center py-3">
+          <div class="text-[#191D38] font-semibold text-sm">
+            {{ $q->quote_number ?? '—' }}
+          </div>
+
+          <div class="text-[#191D38] text-sm">
+            {{ \Carbon\Carbon::parse($q->quote_date)->format('d-m-Y') }}
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $pill['class'] }}">
+              {{ $pill['label'] }}
+            </span>
+          </div>
+
+          <div class="text-[#191D38] text-sm">
+            {{ $fmtCents($sub) }}
+          </div>
+
+          <div class="text-[#191D38] text-sm">
+            {{ $fmtCents($vat) }}
+          </div>
+
+          <div class="text-[#009AC3] text-sm">
+            {{ $fmtCents($tot) }}
+          </div>
+
+          <div class="flex justify-end">
+            <a
+              href="{{ route('support.projecten.finance.offertes.pdf', ['project' => $project, 'quote' => $q]) }}"
+              class="inline-flex items-center justify-center"
+              title="Download PDF"
+            >
+              <i class="fa-solid fa-download hover:text-[#009AC3] transition duration-200"></i>
+            </a>
+          </div>
+        </div>
+      @endforeach
+    </div>
+  </div>
+@endif
+
+  {{-- ✅ Offerte modal (styling aligned with page) --}}
+  <div
+    x-cloak
+    x-show="quoteOpen"
+    x-on:keydown.escape.window="closeQuote()"
+    class="fixed inset-0 z-[999] flex items-center justify-center p-6"
+  >
+    {{-- backdrop --}}
+    <div class="absolute inset-0 bg-black/40" x-on:click="closeQuote()"></div>
+
+    {{-- modal --}}
+    <div class="relative w-[min(1100px,calc(100%-2rem))] max-h-[85vh] bg-white rounded-2xl shadow-xl ring-1 ring-[#191D38]/10 overflow-hidden">
+
+      {{-- header (zelfde vibe als section header) --}}
+      <div class="px-6 py-4 bg-[#191D38]/5 border-b border-[#191D38]/10 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <i class="fa-regular fa-file-lines text-[#009AC3]"></i>
+          <div>
+            <p class="text-[#191D38] font-black text-sm leading-tight">Offerte maken</p>
+            <p class="text-[#191D38]/50 text-xs font-semibold">
+              Project: {{ $project->title ?? '—' }}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          x-on:click="closeQuote()"
+          class="h-9 w-9 inline-flex items-center justify-center rounded-full bg-white ring-1 ring-[#191D38]/10 hover:bg-[#191D38]/5 transition"
+          aria-label="Sluiten"
+        >
+          <i class="fa-solid fa-xmark text-[#2A324B]/70"></i>
+        </button>
+      </div>
+
+      {{-- body (scroll) --}}
+      <div class="p-6 overflow-y-auto custom-scroll max-h-[calc(85vh-64px)]">
+
+        {{-- top fields --}}
+        <div class="grid grid-cols-2 gap-6">
+          <div>
+            <div>
+              <label class="text-[#191D38] font-bold text-xs opacity-50">Offertedatum *</label>
+              <input
+                type="date"
+                x-model="quoteDate"
+                class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+              >
+            </div>
+          </div>
+
+          <div>
+            <div>
+              <label class="text-[#191D38] font-bold text-xs opacity-50">Vervaldatum *</label>
+              <input
+                type="date"
+                x-model="quoteExpireDate"
+                class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="my-6 border-t border-[#191D38]/10"></div>
+
+        {{-- header row (zelfde als tabel header op page) --}}
+        <div class="px-6 py-4 bg-[#191D38]/10 rounded-tr-xl rounded-tl-xl">
+          <div class="grid grid-cols-[minmax(260px,1fr)_120px_170px_170px] gap-4 items-center">
+            <p class="text-[#191D38] font-bold text-xs opacity-50">Omschrijving</p>
+            <p class="text-[#191D38] font-bold text-xs opacity-50">Aantal</p>
+            <p class="text-[#191D38] font-bold text-xs opacity-50">Prijs per eenheid</p>
+            <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Totaalprijs</p>
+          </div>
+        </div>
+
+        {{-- table body (zelfde tint + divide) --}}
+        <div class="bg-[#191D38]/5 rounded-bl-xl rounded-br-xl px-6 py-2 divide-y divide-[#191D38]/10 px-4">
+          <template x-for="(it, idx) in quoteItems" :key="it.key">
+            <div class="grid grid-cols-[minmax(260px,1fr)_120px_170px_170px] gap-4 py-3 items-center">
+              <input
+                type="text"
+                x-model="it.description"
+                class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+              >
+
+              <input
+                type="number"
+                min="1"
+                x-model.number="it.qty"
+                class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+              >
+
+              <input
+                type="text"
+                x-model="it.unit_price_eur"
+                placeholder="Bijv. 49,95"
+                class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+              >
+
+              <span class="w-full inline-flex items-center justify-end text-xs text-[#009AC3] text-right" x-text="formatCents(lineTotalCents(it))"></span>
+            </div>
+          </template>
+
+          <div x-show="quoteItems.length === 0" class="py-8 text-center text-sm font-semibold text-[#191D38]/50">
+            Nog geen offertregels.
+          </div>
+        </div>
+
+        {{-- totals + buttons --}}
+        <div class="mt-6 border-t border-[#191D38]/10 pt-6">
+          <div class="grid grid-cols-2 gap-6 items-start">
+            <div></div>
+
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-[#191D38] font-bold opacity-50">Subtotaal:</span>
+                <span class="text-[#191D38] font-semibold" x-text="formatCents(subTotalCents())"></span>
+              </div>
+
+              <div class="flex items-center justify-between text-xs pb-3">
+                <span class="text-[#191D38] font-bold opacity-50">BTW:</span>
+                <div class="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    x-model.number="vatRate"
+                    class="h-9 w-30 rounded-full px-3 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+                  >
+                  <span class="text-[#191D38] font-bold opacity-50">%</span>
+                  <span class="text-[#191D38] font-semibold w-28 text-right" x-text="formatCents(vatCents())"></span>
+                </div>
+              </div>
+
+              <div class="pt-3 border-t border-[#191D38]/10 flex items-center justify-between">
+                <span class="text-[#009AC3] font-black text-sm">Totaal incl. BTW:</span>
+                <span class="text-[#009AC3] font-black text-lg" x-text="formatCents(grandTotalCents())"></span>
+              </div>
+
+              <form
+                method="POST"
+                action="{{ route('support.projecten.finance.offertes.store', ['project' => $project]) }}"
+
+                hx-post="{{ route('support.projecten.finance.offertes.store', ['project' => $project]) }}"
+                hx-target="#project-finance"
+                hx-swap="outerHTML"
+              >
+                @csrf
+                <input type="hidden" name="quote_date" :value="quoteDate">
+                <input type="hidden" name="expire_date" :value="quoteExpireDate">
+                <input type="hidden" name="status" :value="quoteStatus">
+                <input type="hidden" name="vat_rate" :value="vatRate">
+                <input type="hidden" name="notes" :value="quoteNotes">
+                <template x-for="(it, idx) in quoteItems" :key="'q-h-'+it.key">
+                  <div>
+                    <input type="hidden" :name="`items[${idx}][description]`" :value="it.description">
+                    <input type="hidden" :name="`items[${idx}][quantity]`" :value="it.qty">
+                    <input type="hidden" :name="`items[${idx}][unit_price_eur]`" :value="it.unit_price_eur">
+                  </div>
+                </template>
+                <div class="pt-4 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    x-on:click="closeQuote()"
+                    class="h-9 px-4 inline-flex items-center rounded-full bg-[#2A324B]/20 text-[#2A324B]/60 text-xs font-semibold hover:bg-[#2A324B]/10 transition"
+                  >
+                    Annuleren
+                  </button>
+                  <button
+                    type="submit"
+                    class="h-9 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#009AC3] text-white text-xs font-semibold hover:bg-[#009AC3]/80 transition duration-200"
+                  >
+                    Offerte maken
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -68,4 +68,9 @@ class Project extends Model
     {
         return $this->hasMany(ProjectComment::class)->latest();
     }
+
+    public function quotes()
+    {
+        return $this->hasMany(ProjectQuote::class);
+    }
 }

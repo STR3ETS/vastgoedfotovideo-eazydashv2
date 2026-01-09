@@ -9,6 +9,7 @@ use App\Http\Controllers\ProjectTakenController;
 use App\Http\Controllers\ProjectTaskChatController;
 use App\Http\Controllers\ProjectTaskSubtaskController;
 use App\Http\Controllers\ProjectFinancienController;
+use App\Http\Controllers\ProjectQuoteController;
 use App\Http\Controllers\TakenController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\FinancienController;
@@ -89,6 +90,9 @@ Route::prefix('app')->group(function () {
                 Route::post('/{project}/finance-items', [ProjectFinancienController::class, 'store'])->name('finance.store')->scopeBindings();
                 Route::patch('/{project}/finance-items/{financeItem}', [ProjectFinancienController::class, 'update'])->name('finance.update')->scopeBindings();
                 Route::delete('/{project}/finance-items/{financeItem}', [ProjectFinancienController::class, 'destroy'])->name('finance.destroy')->scopeBindings();
+                Route::delete('/{project}/finance-items/bulk/delete', [ProjectFinancienController::class, 'bulkDestroy'])->name('finance.bulk_destroy')->scopeBindings();
+                Route::post('/{project}/offertes', [ProjectQuoteController::class, 'store'])->name('finance.offertes.store');
+                Route::get('/{project}/finance/offertes/{quote}/pdf', [ProjectQuoteController::class, 'pdf'])->name('finance.offertes.pdf')->scopeBindings();
             });
 
         Route::prefix('taken')

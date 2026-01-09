@@ -69,10 +69,33 @@ class ProjectFinancienController extends Controller
 
     public function destroy(Request $request, Project $project, ProjectFinanceItem $financeItem)
     {
-        // extra guard (naast scopeBindings)
         if ((int) $financeItem->project_id !== (int) $project->id) abort(404);
 
         $financeItem->delete();
+
+        return $this->renderFinance($request, $project);
+    }
+
+    /**
+     * ✅ Bulk delete (zelfde patroon als taken)
+     */
+    public function bulkDestroy(Request $request, Project $project)
+    {
+        $v = Validator::make($request->all(), [
+            'finance_item_ids' => ['required', 'array', 'min:1'],
+            'finance_item_ids.*' => ['integer'],
+        ]);
+
+        if ($v->fails()) {
+            return $this->renderFinance($request, $project, 422, $v->errors());
+        }
+
+        $ids = array_map('intval', (array) $v->validated()['finance_item_ids']);
+
+        ProjectFinanceItem::query()
+            ->where('project_id', $project->id)
+            ->whereIn('id', $ids)
+            ->delete();
 
         return $this->renderFinance($request, $project);
     }
@@ -86,7 +109,6 @@ class ProjectFinancienController extends Controller
                 'project'       => $project,
                 'financeErrors' => $errors,
 
-                // zelfde stijl als jij gebruikt
                 'sectionWrap'   => "overflow-hidden rounded-2xl",
                 'sectionHeader' => 'shrink-0 px-6 py-4 bg-[#191D38]/10',
                 'sectionBody'   => 'bg-[#191D38]/5',
@@ -98,7 +120,6 @@ class ProjectFinancienController extends Controller
 
     private function eurToCents(string $value): int
     {
-        // accepteert: "12,50" / "12.50" / "€ 12,50"
         $v = trim(str_replace(['€', ' '], '', $value));
         $v = str_replace(',', '.', $v);
 

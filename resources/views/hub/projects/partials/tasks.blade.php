@@ -128,7 +128,7 @@
         <button
           type="button"
           x-on:click="openAdd()"
-          class="h-8 px-4 inline-flex items-center gap-2 rounded-full bg-[#009AC3] text-white text-xs font-semibold hover:bg-[#009AC3]/80 transition duration-200"
+          class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#009AC3] text-white text-xs font-semibold hover:bg-[#009AC3]/80 transition duration-200"
         >
           Nieuwe taak aanmaken
         </button>
@@ -152,7 +152,7 @@
 
           <button
             type="submit"
-            class="h-8 px-4 inline-flex items-center gap-2 rounded-full bg-[#DF2935] text-white text-xs font-semibold hover:bg-[#DF2935]/80 transition duration-200"
+            class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#DF2935] text-white text-xs font-semibold hover:bg-[#DF2935]/80 transition duration-200"
           >
             Verwijder geselecteerde
           </button>
@@ -373,7 +373,7 @@
                 @else
                   <span class="inline-flex items-center gap-1.5 px-2.5 w-full h-8 border border-dashed border-[#191D38] rounded-full transition duration-200 opacity-20 hover:opacity-50 cursor-pointer">
                     <i class="fa-solid fa-user text-[#191D38]"></i>
-                    <p class="text-[#191D38] text-xs">Kies verantwoordelijke</p>
+                    <p class="text-[#191D38] text-xs">Kies persoon</p>
                   </span>
                 @endif
               </button>
