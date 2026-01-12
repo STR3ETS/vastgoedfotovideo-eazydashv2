@@ -49,6 +49,7 @@
                 </div>
             @endif
 
+            {{-- ✅ UPDATE FORM (alleen opslaan) --}}
             <form method="POST" action="{{ route('support.planning.update', $planningItem) }}" class="grid grid-cols-2 gap-6">
                 @csrf
                 @method('PATCH')
@@ -121,16 +122,24 @@
                         Opslaan
                     </button>
 
-                    <form method="POST" action="{{ route('support.planning.destroy', $planningItem) }}"
-                          onsubmit="return confirm('Weet je zeker dat je deze planning wilt verwijderen?');">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="px-6 h-11 rounded-full border border-gray-200 bg-white text-[#191D38] font-black text-sm hover:bg-[#DF2935] hover:text-white hover:border-[#DF2935] transition">
-                            Verwijderen
-                        </button>
-                    </form>
+                    {{-- ✅ Delete knop submit losse delete form (geen nested form!) --}}
+                    <button
+                        type="submit"
+                        form="deletePlanningItemForm"
+                        onclick="return confirm('Weet je zeker dat je deze planning wilt verwijderen?');"
+                        class="px-6 h-11 rounded-full border border-gray-200 bg-white text-[#191D38] font-black text-sm hover:bg-[#DF2935] hover:text-white hover:border-[#DF2935] transition"
+                    >
+                        Verwijderen
+                    </button>
                 </div>
             </form>
+
+            {{-- ✅ LOSSE DELETE FORM (buiten update form) --}}
+            <form id="deletePlanningItemForm" method="POST" action="{{ route('support.planning.destroy', $planningItem) }}" class="hidden">
+                @csrf
+                @method('DELETE')
+            </form>
+
         </div>
     </div>
 @endsection
