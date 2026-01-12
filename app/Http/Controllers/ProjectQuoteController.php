@@ -141,4 +141,29 @@ class ProjectQuoteController extends Controller
 
         return (int) round($f * 100);
     }
+
+    public function bulkDestroy(Request $request, Project $project)
+    {
+        $data = $request->validate([
+            'quote_ids'   => ['required', 'array', 'min:1'],
+            'quote_ids.*' => ['integer'],
+        ]);
+
+        $ids = array_map('intval', (array) $data['quote_ids']);
+
+        ProjectQuote::query()
+            ->where('project_id', $project->id)
+            ->whereIn('id', $ids)
+            ->delete();
+
+        // ✅ reload partial met finance + quotes (zoals jij al doet)
+        $project->load([
+            'financeItems',
+            'quotes' => fn ($q) => $q->latest('quote_date')->latest('id'),
+        ]);
+
+        return view('hub.projects.partials.finance', [
+            'project' => $project,
+        ]);
+    }
 }

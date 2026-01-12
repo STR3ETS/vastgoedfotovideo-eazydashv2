@@ -34,6 +34,8 @@
 
     // ✅ selectie
     selected: [],
+    selectedQuotes: [],
+    quotesStorageKey: null,
 
     financeSeed: @json($financeSeed),
 
@@ -54,6 +56,19 @@
 
     init(){
       this.storageKey = "project_finance_selected_" + this.projectId;
+
+      this.quotesStorageKey = "project_quotes_selected_" + this.projectId;
+
+      // restore quotes selectie na HTMX swap / page reload
+      this.restoreQuotesSelection();
+
+      // drop quote ids die niet meer bestaan in de huidige DOM
+      this.$nextTick(() => this.normalizeQuotesSelection());
+
+      // persist quotes selectie bij elke wijziging
+      this.$watch("selectedQuotes", (v) => {
+        try { sessionStorage.setItem(this.quotesStorageKey, JSON.stringify((v || []).map(String))); } catch(e) {}
+      });
 
       // restore selectie na HTMX swap / page reload
       this.restoreSelection();
@@ -109,6 +124,47 @@
     clearSelection(){
       this.selected = [];
       const master = this.$root.querySelector("input[data-master-checkbox]");
+      if(master) master.checked = false;
+    },
+
+    restoreQuotesSelection(){
+      try{
+        const raw = sessionStorage.getItem(this.quotesStorageKey);
+        if(!raw) return;
+        const arr = JSON.parse(raw);
+        if(Array.isArray(arr)){
+          this.selectedQuotes = arr.map(String);
+        }
+      } catch(e) {}
+    },
+
+    normalizeQuotesSelection(){
+      const ids = Array.from(this.$root.querySelectorAll("input[data-quote-checkbox]"))
+        .map(cb => String(cb.value));
+
+      this.selectedQuotes = (this.selectedQuotes || []).map(String).filter(id => ids.includes(id));
+    },
+
+    toggleAllQuotes(ev){
+      const on = ev.target.checked;
+      const ids = Array.from(this.$root.querySelectorAll("input[data-quote-checkbox]"))
+        .filter(cb => !cb.disabled)
+        .map(cb => String(cb.value));
+
+      this.selectedQuotes = on ? ids : [];
+    },
+
+    isAllQuotesSelected(){
+      const ids = Array.from(this.$root.querySelectorAll("input[data-quote-checkbox]"))
+        .filter(cb => !cb.disabled)
+        .map(cb => String(cb.value));
+
+      return ids.length > 0 && ids.every(id => (this.selectedQuotes || []).includes(id));
+    },
+
+    clearQuotesSelection(){
+      this.selectedQuotes = [];
+      const master = this.$root.querySelector("input[data-master-quote-checkbox]");
       if(master) master.checked = false;
     },
 
@@ -584,6 +640,8 @@
     </div>
   </div>
 
+  <hr class="border-[#191D38]/10 col-span-2 my-8">
+
 @php
   $quoteStatusMap = [
     'draft'    => ['label' => 'Concept',   'class' => 'text-[#DF9A57] bg-[#DF9A57]/20'],
@@ -594,17 +652,58 @@
 
   $quotes = ($project->quotes ?? collect())->values();
 
-  $qCols = "grid-cols-[160px_140px_1fr_140px_140px_140px_90px]";
+  $qCols = "grid-cols-[40px_160px_140px_1fr_140px_140px_140px_90px]";
 @endphp
 
 @if($quotes->count() > 0)
-  <div class="mt-6 border-t border-[#191D38]/10 pt-6">
-    <div class="flex items-center justify-between mb-3">
-      <p class="text-[#191D38] font-black text-sm">Offertes</p>
+  <div>
+    <div class="shrink-0 px-6 py-4 bg-[#191D38]/10 rounded-t-2xl flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <p class="text-[#191D38] font-black text-sm">Offertes</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div x-cloak x-show="selectedQuotes.length > 0" class="flex items-center gap-2 mr-4">
+          <span class="text-[#191D38] font-bold text-xs opacity-50">
+            Geselecteerd: <span x-text="selectedQuotes.length"></span>
+          </span>
+        </div>
+        <form
+          x-cloak
+          x-show="selectedQuotes.length > 0"
+          method="POST"
+          action="{{ route('support.projecten.finance.offertes.bulk_destroy', ['project' => $project]) }}"
+
+          hx-post="{{ route('support.projecten.finance.offertes.bulk_destroy', ['project' => $project]) }}"
+          hx-target="#project-finance"
+          hx-swap="outerHTML"
+          hx-confirm="Weet je zeker dat je de geselecteerde offertes wilt verwijderen?"
+        >
+          @csrf
+          @method('DELETE')
+          <template x-for="id in selectedQuotes" :key="'bulk-quote-del-'+id">
+            <input type="hidden" name="quote_ids[]" :value="id">
+          </template>
+          <button
+            type="submit"
+            class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#DF2935] text-white text-xs font-semibold hover:bg-[#DF2935]/80 transition duration-200"
+          >
+            Verwijder geselecteerde
+          </button>
+        </form>
+      </div>
     </div>
 
-    <div class="px-6 py-4 bg-[#191D38]/10 rounded-t-2xl border border-[#191D38]/10">
+    <div class="px-6 py-4 bg-[#191D38]/10 border-t border-[#191D38]/10">
       <div class="grid {{ $qCols }} gap-4 items-center">
+        <div class="flex items-center">
+          <input
+            type="checkbox"
+            data-master-quote-checkbox
+            class="h-4 w-4 rounded border-[#191D38]/20"
+            x-on:change="toggleAllQuotes($event)"
+            :checked="isAllQuotesSelected()"
+          >
+        </div>
         <p class="text-[#191D38] font-bold text-xs opacity-50">Nummer</p>
         <p class="text-[#191D38] font-bold text-xs opacity-50">Datum</p>
         <p class="text-[#191D38] font-bold text-xs opacity-50">Status</p>
@@ -615,7 +714,7 @@
       </div>
     </div>
 
-    <div class="bg-[#191D38]/5 rounded-b-2xl border border-t-0 border-[#191D38]/10 divide-y divide-[#191D38]/10 px-6 py-2">
+    <div class="bg-[#191D38]/5 rounded-b-2xl divide-y divide-[#191D38]/10 px-6 py-2">
       @foreach($quotes as $q)
         @php
           $key  = strtolower((string)($q->status ?? 'draft'));
@@ -626,33 +725,39 @@
           $tot = (int) ($q->total_cents ?? ($sub + $vat));
         @endphp
 
-        <div class="grid {{ $qCols }} gap-4 items-center py-3">
+        <div
+          class="grid {{ $qCols }} gap-4 items-center py-3 transition-opacity duration-200"
+          x-bind:class="(selectedQuotes.length > 0 && !selectedQuotes.includes(String({{ $q->id }}))) ? 'opacity-50' : 'opacity-100'"
+        >
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              value="{{ $q->id }}"
+              data-quote-checkbox
+              class="h-4 w-4 rounded border-[#191D38]/20"
+              x-model="selectedQuotes"
+            >
+          </div>
           <div class="text-[#191D38] font-semibold text-sm">
             {{ $q->quote_number ?? '—' }}
           </div>
-
           <div class="text-[#191D38] text-sm">
             {{ \Carbon\Carbon::parse($q->quote_date)->format('d-m-Y') }}
           </div>
-
           <div class="flex items-center gap-2">
             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $pill['class'] }}">
               {{ $pill['label'] }}
             </span>
           </div>
-
           <div class="text-[#191D38] text-sm">
             {{ $fmtCents($sub) }}
           </div>
-
           <div class="text-[#191D38] text-sm">
             {{ $fmtCents($vat) }}
           </div>
-
           <div class="text-[#009AC3] text-sm">
             {{ $fmtCents($tot) }}
           </div>
-
           <div class="flex justify-end">
             <a
               href="{{ route('support.projecten.finance.offertes.pdf', ['project' => $project, 'quote' => $q]) }}"
@@ -777,7 +882,7 @@
         </div>
 
         {{-- totals + buttons --}}
-        <div class="mt-6 border-t border-[#191D38]/10 pt-6">
+        <div class="mt-6 pt-6">
           <div class="grid grid-cols-2 gap-6 items-start">
             <div></div>
 
