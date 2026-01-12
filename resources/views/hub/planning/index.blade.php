@@ -170,7 +170,6 @@
                             <p class="text-[#191D38] font-bold text-xs opacity-50">Project</p>
                             <p class="text-[#191D38] font-bold text-xs opacity-50">Tijd</p>
                             <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Klant</p>
-                            <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Acties</p>
                         </div>
                     </div>
 
@@ -223,23 +222,6 @@
                                                     Project
                                                 </span>
                                             </div>
-
-                                            <div class="flex items-center justify-end gap-3">
-                                                <a href="{{ route('support.planning.edit', $pi) }}" class="cursor-pointer" title="Bewerken">
-                                                    <i class="fa-solid fa-pencil hover:text-[#009AC3] transition duration-200"></i>
-                                                </a>
-
-                                                <form method="POST"
-                                                      action="{{ route('support.planning.destroy', $pi) }}"
-                                                      onsubmit="return confirm('Weet je zeker dat je deze planning wilt verwijderen?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="cursor-pointer" title="Verwijderen">
-                                                        <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
-                                                    </button>
-                                                </form>
-                                            </div>
-
                                         </div>
                                     </div>
                                 @endforeach
