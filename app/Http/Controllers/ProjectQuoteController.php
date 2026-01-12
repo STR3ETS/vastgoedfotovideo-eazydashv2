@@ -166,4 +166,25 @@ class ProjectQuoteController extends Controller
             'project' => $project,
         ]);
     }
+
+    public function destroy(Request $request, Project $project, ProjectQuote $quote)
+    {
+        // scoped bindings doen dit al, maar extra safety kan geen kwaad:
+        abort_unless((int) $quote->project_id === (int) $project->id, 404);
+
+        DB::transaction(function () use ($quote) {
+            // hard delete + items ook weg
+            $quote->items()->delete();  // als relation bestaat
+            $quote->delete();
+        });
+
+        $project->load([
+            'financeItems',
+            'quotes' => fn ($q) => $q->latest('quote_date')->latest('id'),
+        ]);
+
+        return view('hub.projects.partials.finance', [
+            'project' => $project,
+        ]);
+    }
 }
