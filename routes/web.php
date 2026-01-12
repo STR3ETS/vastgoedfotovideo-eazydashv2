@@ -93,6 +93,7 @@ Route::prefix('app')->group(function () {
                 Route::delete('/{project}/finance-items/bulk/delete', [ProjectFinancienController::class, 'bulkDestroy'])->name('finance.bulk_destroy')->scopeBindings();
                 Route::post('/{project}/offertes', [ProjectQuoteController::class, 'store'])->name('finance.offertes.store');
                 Route::patch('/{project}/offertes/bulk/delete', [ProjectQuoteController::class, 'bulkDestroy'])->name('finance.offertes.bulk_destroy')->scopeBindings();
+                Route::delete('/{project}/offertes/{quote}', [ProjectQuoteController::class, 'destroy'])->name('finance.offertes.destroy')->scopeBindings();
                 Route::get('/{project}/finance/offertes/{quote}/pdf', [ProjectQuoteController::class, 'pdf'])->name('finance.offertes.pdf')->scopeBindings();
             });
 

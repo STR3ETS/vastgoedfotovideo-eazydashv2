@@ -790,6 +790,16 @@
 
             {{-- Acties --}}
             <div class="flex items-center justify-end gap-2">
+              <a
+                x-cloak
+                x-show="!edit"
+                href="{{ route('support.projecten.taken.show', ['project' => $project, 'task' => $t]) }}"
+                class="cursor-pointer"
+                title="Bekijk taak"
+              >
+                <i class="fa-solid fa-eye hover:text-[#009AC3] transition duration-200"></i>
+              </a>
+
               {{-- pencil --}}
               <button
                 type="button"
@@ -825,16 +835,6 @@
               </button>
 
               {{-- eye + trash alleen als niet aan het editen --}}
-              <a
-                x-cloak
-                x-show="!edit"
-                href="{{ route('support.projecten.taken.show', ['project' => $project, 'task' => $t]) }}"
-                class="cursor-pointer"
-                title="Bekijk taak"
-              >
-                <i class="fa-solid fa-eye hover:text-[#009AC3] transition duration-200"></i>
-              </a>
-
               <form
                 x-cloak
                 x-show="!edit"

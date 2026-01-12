@@ -758,7 +758,7 @@
           <div class="text-[#009AC3] text-sm">
             {{ $fmtCents($tot) }}
           </div>
-          <div class="flex justify-end">
+          <div class="flex justify-end items-center gap-2">
             <a
               href="{{ route('support.projecten.finance.offertes.pdf', ['project' => $project, 'quote' => $q]) }}"
               class="inline-flex items-center justify-center"
@@ -766,6 +766,22 @@
             >
               <i class="fa-solid fa-download hover:text-[#009AC3] transition duration-200"></i>
             </a>
+            <form
+              method="POST"
+              action="{{ route('support.projecten.finance.offertes.destroy', ['project' => $project, 'quote' => $q]) }}"
+
+              hx-post="{{ route('support.projecten.finance.offertes.destroy', ['project' => $project, 'quote' => $q]) }}"
+              hx-target="#project-finance"
+              hx-swap="outerHTML"
+              hx-confirm="Weet je zeker dat je deze offerte wilt verwijderen?"
+            >
+              @csrf
+              @method('DELETE')
+
+              <button type="submit" class="inline-flex items-center justify-center" title="Verwijder offerte">
+                <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
+              </button>
+            </form>
           </div>
         </div>
       @endforeach
