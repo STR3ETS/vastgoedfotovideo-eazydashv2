@@ -28,7 +28,7 @@ Route::prefix('app')->group(function () {
     Route::post('/resend', [AuthController::class, 'resendLoginToken'])->name('support.resend_token');
 
     // ✅ Invite accept (auth-gerelateerd, buiten auth middleware)
-    Route::get ('/instellingen/team/invite/{token}', [TeamInviteController::class, 'showAccept'])->name('support.instellingen.team.invite.accept');
+    Route::get('/instellingen/team/invite/{token}', [TeamInviteController::class, 'showAccept'])->name('support.instellingen.team.invite.accept');
     Route::post('/instellingen/team/invite/{token}', [TeamInviteController::class, 'handleAccept'])->name('support.instellingen.team.invite.handle');
 
     Route::middleware('auth')->group(function () {
