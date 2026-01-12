@@ -585,12 +585,18 @@
 
             <div class="px-3 my-1"><hr class="border-gray-100"></div>
 
-            <a href="#" role="menuitem" class="w-full p-2 rounded-xl flex items-center gap-1 hover:bg-gray-200 transition duration-300 -mb-2">
-              <i class="min-w-[16px] fa-solid fa-right-from-bracket text-[#191D38] fa-sm"></i>
-              <p class="px-1 text-sm text-[#191D38] font-semibold" data-i18n="profile_dropdown.uitloggen">
-                {{ __('profile_dropdown.uitloggen') }}
-              </p>
-            </a>
+            <form method="POST" action="{{ route('support.logout') }}" class="w-full">
+                @csrf
+                <button type="submit"
+                        role="menuitem"
+                        class="w-full p-2 rounded-xl flex items-center gap-1 hover:bg-gray-200 transition duration-300 -mb-2 text-left">
+                    <i class="min-w-[16px] fa-solid fa-right-from-bracket text-[#191D38] fa-sm"></i>
+                    <p class="px-1 text-sm text-[#191D38] font-semibold" data-i18n="profile_dropdown.uitloggen">
+                        {{ __('profile_dropdown.uitloggen') }}
+                    </p>
+                </button>
+            </form>
+
           </div>
         </div>
         <div class="w-8 h-8 rounded-full bg-[#191D38] flex items-center justify-center">
