@@ -59,8 +59,8 @@
         </form>
 
         {{-- Projecten worden bij jou via onboarding aangemaakt --}}
-        <a href="{{ route('support.onboarding.create') }}" class="{{ $navNewBtn }}">
-          Nieuwe onboarding
+        <a href="{{ route('support.projecten.create') }}" class="{{ $navNewBtn }}">
+          Project aanmaken
         </a>
       </div>
     </div>

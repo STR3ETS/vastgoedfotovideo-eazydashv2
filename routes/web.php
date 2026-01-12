@@ -53,7 +53,10 @@ Route::prefix('app')->group(function () {
             ->group(function () {
                 Route::controller(ProjectController::class)->group(function () {
                     Route::get('/', 'index')->name('index');
+                    Route::get('/nieuw', 'create')->name('create');
+                    Route::post('/nieuw', 'store')->name('store');
                     Route::get('/{project}', 'show')->name('show');
+                    Route::patch('/{project}/onboarding', [ProjectController::class, 'updateOnboarding'])->name('onboarding.update')->scopeBindings();
                 });
 
                 // TAKEN
@@ -88,11 +91,13 @@ Route::prefix('app')->group(function () {
 
                 // FINANCIEEL
                 Route::post('/{project}/finance-items', [ProjectFinancienController::class, 'store'])->name('finance.store')->scopeBindings();
+                Route::patch('/{project}/offertes/{quote}/status', [ProjectQuoteController::class, 'updateStatus'])->name('finance.offertes.status')->scopeBindings();
+                Route::patch('/{project}/offertes/bulk/status', [ProjectQuoteController::class, 'bulkUpdateStatus'])->name('finance.offertes.bulk_status')->scopeBindings();
                 Route::patch('/{project}/finance-items/{financeItem}', [ProjectFinancienController::class, 'update'])->name('finance.update')->scopeBindings();
                 Route::delete('/{project}/finance-items/{financeItem}', [ProjectFinancienController::class, 'destroy'])->name('finance.destroy')->scopeBindings();
                 Route::delete('/{project}/finance-items/bulk/delete', [ProjectFinancienController::class, 'bulkDestroy'])->name('finance.bulk_destroy')->scopeBindings();
                 Route::post('/{project}/offertes', [ProjectQuoteController::class, 'store'])->name('finance.offertes.store');
-                Route::patch('/{project}/offertes/bulk/delete', [ProjectQuoteController::class, 'bulkDestroy'])->name('finance.offertes.bulk_destroy')->scopeBindings();
+                Route::delete('/{project}/offertes/bulk/delete', [ProjectQuoteController::class, 'bulkDestroy'])->name('finance.offertes.bulk_destroy')->scopeBindings();
                 Route::delete('/{project}/offertes/{quote}', [ProjectQuoteController::class, 'destroy'])->name('finance.offertes.destroy')->scopeBindings();
                 Route::get('/{project}/finance/offertes/{quote}/pdf', [ProjectQuoteController::class, 'pdf'])->name('finance.offertes.pdf')->scopeBindings();
             });

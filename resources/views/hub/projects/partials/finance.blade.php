@@ -371,7 +371,7 @@
         <p class="text-[#191D38] font-bold text-xs opacity-50">Omschrijving</p>
         <p class="text-[#191D38] font-bold text-xs opacity-50 text-start">Aantal</p>
         <p class="text-[#191D38] font-bold text-xs opacity-50">Prijs per eenheid</p>
-        <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Totaalprijs</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Totaalprijs</p>
         <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Acties</p>
       </div>
     </div>
@@ -477,7 +477,7 @@
             </div>
 
             {{-- Totaalprijs --}}
-            <div class="text-[#009AC3] text-sm text-right">
+            <div class="text-[#009AC3] text-sm">
               <span x-show="!edit">{{ $fmtCents((int) ($item->total_cents ?? 0)) }}</span>
               <span x-cloak x-show="edit">—</span>
             </div>
@@ -642,47 +642,49 @@
 
   <hr class="border-[#191D38]/10 col-span-2 my-8">
 
-@php
-  $quoteStatusMap = [
-    'draft'    => ['label' => 'Concept',   'class' => 'text-[#DF9A57] bg-[#DF9A57]/20'],
-    'sent'     => ['label' => 'Verzonden', 'class' => 'text-[#009AC3] bg-[#009AC3]/20'],
-    'accepted' => ['label' => 'Akkoord',  'class' => 'text-[#87A878] bg-[#87A878]/20'],
-    'rejected' => ['label' => 'Afgewezen', 'class' => 'text-[#DF2935] bg-[#DF2935]/20'],
-  ];
+  @php
+    $quoteStatusMap = [
+      'draft'     => ['label' => 'Concept',             'class' => 'text-[#DF9A57] bg-[#DF9A57]/20'],
+      'sent'      => ['label' => 'Verstuurd naar klant','class' => 'text-[#009AC3] bg-[#009AC3]/20'],
+      'accepted'  => ['label' => 'Getekend',            'class' => 'text-[#87A878] bg-[#87A878]/20'],
+      'cancelled' => ['label' => 'Geannuleerd',         'class' => 'text-[#DF2935] bg-[#DF2935]/20'],
+    ];
 
-  $quotes = ($project->quotes ?? collect())->values();
+    $quotes = ($project->quotes ?? collect())->values();
+    $qCols  = "grid-cols-[40px_160px_140px_1fr_140px_140px_140px_90px]";
+  @endphp
 
-  $qCols = "grid-cols-[40px_160px_140px_1fr_140px_140px_140px_90px]";
-@endphp
-
-@if($quotes->count() > 0)
   <div>
     <div class="shrink-0 px-6 py-4 bg-[#191D38]/10 rounded-t-2xl flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <p class="text-[#191D38] font-black text-sm">Offertes</p>
       </div>
+
       <div class="flex items-center gap-3">
         <div x-cloak x-show="selectedQuotes.length > 0" class="flex items-center gap-2 mr-4">
           <span class="text-[#191D38] font-bold text-xs opacity-50">
             Geselecteerd: <span x-text="selectedQuotes.length"></span>
           </span>
         </div>
+
         <form
           x-cloak
           x-show="selectedQuotes.length > 0"
           method="POST"
           action="{{ route('support.projecten.finance.offertes.bulk_destroy', ['project' => $project]) }}"
 
-          hx-post="{{ route('support.projecten.finance.offertes.bulk_destroy', ['project' => $project]) }}"
+          hx-delete="{{ route('support.projecten.finance.offertes.bulk_destroy', ['project' => $project]) }}"
           hx-target="#project-finance"
           hx-swap="outerHTML"
           hx-confirm="Weet je zeker dat je de geselecteerde offertes wilt verwijderen?"
         >
           @csrf
           @method('DELETE')
+
           <template x-for="id in selectedQuotes" :key="'bulk-quote-del-'+id">
             <input type="hidden" name="quote_ids[]" :value="id">
           </template>
+
           <button
             type="submit"
             class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#DF2935] text-white text-xs font-semibold hover:bg-[#DF2935]/80 transition duration-200"
@@ -693,6 +695,7 @@
       </div>
     </div>
 
+    {{-- Header row blijft altijd zichtbaar --}}
     <div class="px-6 py-4 bg-[#191D38]/10 border-t border-[#191D38]/10">
       <div class="grid {{ $qCols }} gap-4 items-center">
         <div class="flex items-center">
@@ -702,6 +705,7 @@
             class="h-4 w-4 rounded border-[#191D38]/20"
             x-on:change="toggleAllQuotes($event)"
             :checked="isAllQuotesSelected()"
+            {{ $quotes->count() ? '' : 'disabled' }}
           >
         </div>
         <p class="text-[#191D38] font-bold text-xs opacity-50">Nummer</p>
@@ -715,7 +719,7 @@
     </div>
 
     <div class="bg-[#191D38]/5 rounded-b-2xl divide-y divide-[#191D38]/10 px-6 py-2">
-      @foreach($quotes as $q)
+      @forelse($quotes as $q)
         @php
           $key  = strtolower((string)($q->status ?? 'draft'));
           $pill = $quoteStatusMap[$key] ?? ['label' => ucfirst($key), 'class' => 'text-[#191D38] bg-[#191D38]/10'];
@@ -738,26 +742,77 @@
               x-model="selectedQuotes"
             >
           </div>
+
           <div class="text-[#191D38] font-semibold text-sm">
             {{ $q->quote_number ?? '—' }}
           </div>
+
           <div class="text-[#191D38] text-sm">
             {{ \Carbon\Carbon::parse($q->quote_date)->format('d-m-Y') }}
           </div>
-          <div class="flex items-center gap-2">
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $pill['class'] }}">
-              {{ $pill['label'] }}
-            </span>
+
+          <div
+            class="relative"
+            x-data="{ open:false }"
+            x-on:click.outside="open=false"
+            x-on:keydown.escape.window="open=false"
+          >
+            <button
+              type="button"
+              x-on:click="open = !open"
+              class="cursor-pointer w-full text-xs font-semibold rounded-full py-1.5 inline-flex items-center justify-center gap-2 px-4 text-left {{ $pill['class'] }}"
+            >
+              <span>{{ $pill['label'] }}</span>
+            </button>
+
+            <div
+              x-cloak
+              x-show="open"
+              x-transition.origin.top
+              class="absolute z-50 top-full mt-2 left-1/2 -translate-x-1/2 w-64"
+            >
+              <div class="bg-white ring-1 ring-[#191D38]/10 rounded-2xl p-2 shadow-lg">
+                <form
+                  method="POST"
+                  action="{{ route('support.projecten.finance.offertes.status', ['project' => $project, 'quote' => $q]) }}"
+                  class="max-h-64 overflow-y-auto custom-scroll flex flex-col gap-2"
+
+                  hx-patch="{{ route('support.projecten.finance.offertes.status', ['project' => $project, 'quote' => $q]) }}"
+                  hx-target="#project-finance"
+                  hx-swap="outerHTML"
+                >
+                  @csrf
+                  @method('PATCH')
+
+                  <template x-if="selectedQuotes.length > 0 && selectedQuotes.includes(String({{ $q->id }}))">
+                    <div>
+                      <template x-for="id in selectedQuotes" :key="'bulk-quote-status-'+id">
+                        <input type="hidden" name="quote_ids[]" :value="id">
+                      </template>
+                    </div>
+                  </template>
+
+                  <button type="submit" name="status" value="draft" class="text-[#DF9A57] cursor-pointer bg-[#DF9A57]/20 w-full rounded-full py-2.5 text-xs font-semibold text-center hover:opacity-90 transition duration-200">
+                    Concept
+                  </button>
+                  <button type="submit" name="status" value="sent" class="text-[#009AC3] cursor-pointer bg-[#009AC3]/20 w-full rounded-full py-2.5 text-xs font-semibold text-center hover:opacity-90 transition duration-200">
+                    Verstuurd naar klant
+                  </button>
+                  <button type="submit" name="status" value="accepted" class="text-[#87A878] cursor-pointer bg-[#87A878]/20 w-full rounded-full py-2.5 text-xs font-semibold text-center hover:opacity-90 transition duration-200">
+                    Getekend
+                  </button>
+                  <button type="submit" name="status" value="cancelled" class="text-[#DF2935] cursor-pointer bg-[#DF2935]/20 w-full rounded-full py-2.5 text-xs font-semibold text-center hover:opacity-90 transition duration-200">
+                    Geannuleerd
+                  </button>
+                </form>
+              </div>
+            </div>
           </div>
-          <div class="text-[#191D38] text-sm">
-            {{ $fmtCents($sub) }}
-          </div>
-          <div class="text-[#191D38] text-sm">
-            {{ $fmtCents($vat) }}
-          </div>
-          <div class="text-[#009AC3] text-sm">
-            {{ $fmtCents($tot) }}
-          </div>
+
+          <div class="text-[#191D38] text-sm">{{ $fmtCents($sub) }}</div>
+          <div class="text-[#191D38] text-sm">{{ $fmtCents($vat) }}</div>
+          <div class="text-[#009AC3] text-sm">{{ $fmtCents($tot) }}</div>
+
           <div class="flex justify-end items-center gap-2">
             <a
               href="{{ route('support.projecten.finance.offertes.pdf', ['project' => $project, 'quote' => $q]) }}"
@@ -766,11 +821,12 @@
             >
               <i class="fa-solid fa-download hover:text-[#009AC3] transition duration-200"></i>
             </a>
+
             <form
               method="POST"
               action="{{ route('support.projecten.finance.offertes.destroy', ['project' => $project, 'quote' => $q]) }}"
 
-              hx-post="{{ route('support.projecten.finance.offertes.destroy', ['project' => $project, 'quote' => $q]) }}"
+              hx-delete="{{ route('support.projecten.finance.offertes.destroy', ['project' => $project, 'quote' => $q]) }}"
               hx-target="#project-finance"
               hx-swap="outerHTML"
               hx-confirm="Weet je zeker dat je deze offerte wilt verwijderen?"
@@ -784,10 +840,13 @@
             </form>
           </div>
         </div>
-      @endforeach
+      @empty
+        <div class="py-10 text-center text-sm font-semibold text-[#191D38]/50">
+          Nog geen offertes.
+        </div>
+      @endforelse
     </div>
   </div>
-@endif
 
   {{-- ✅ Offerte modal (styling aligned with page) --}}
   <div
@@ -856,18 +915,19 @@
 
         {{-- header row (zelfde als tabel header op page) --}}
         <div class="px-6 py-4 bg-[#191D38]/10 rounded-tr-xl rounded-tl-xl">
-          <div class="grid grid-cols-[minmax(260px,1fr)_120px_170px_170px] gap-4 items-center">
+          <div class="grid grid-cols-[minmax(260px,1fr)_120px_170px_170px_44px] gap-4 items-center">
             <p class="text-[#191D38] font-bold text-xs opacity-50">Omschrijving</p>
             <p class="text-[#191D38] font-bold text-xs opacity-50">Aantal</p>
             <p class="text-[#191D38] font-bold text-xs opacity-50">Prijs per eenheid</p>
-            <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Totaalprijs</p>
+            <p class="text-[#191D38] font-bold text-xs opacity-50">Totaalprijs</p>
+            <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Acties</p>
           </div>
         </div>
 
         {{-- table body (zelfde tint + divide) --}}
         <div class="bg-[#191D38]/5 rounded-bl-xl rounded-br-xl px-6 py-2 divide-y divide-[#191D38]/10 px-4">
           <template x-for="(it, idx) in quoteItems" :key="it.key">
-            <div class="grid grid-cols-[minmax(260px,1fr)_120px_170px_170px] gap-4 py-3 items-center">
+            <div class="grid grid-cols-[minmax(260px,1fr)_120px_170px_170px_44px] gap-4 py-3 items-center">
               <input
                 type="text"
                 x-model="it.description"
@@ -888,7 +948,18 @@
                 class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
               >
 
-              <span class="w-full inline-flex items-center justify-end text-xs text-[#009AC3] text-right" x-text="formatCents(lineTotalCents(it))"></span>
+              <span
+                class="w-full inline-flex items-center justify-start text-xs text-[#009AC3]"
+                x-text="formatCents(lineTotalCents(it))"
+              ></span>
+
+              <button
+                type="button"
+                x-on:click="removeQuoteItem(idx)"
+                class="flex items-center justify-end cursor-pointer"
+              >
+                <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
+              </button>
             </div>
           </template>
 
