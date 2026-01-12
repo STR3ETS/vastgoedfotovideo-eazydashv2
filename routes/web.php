@@ -48,7 +48,6 @@ Route::prefix('app')->group(function () {
         Route::delete('/planning-management/{planningItem}', [PlanningController::class, 'destroy'])->name('support.planning.destroy');
 
         Route::prefix('projecten')
-            ->middleware('company_id:1')
             ->name('support.projecten.')
             ->group(function () {
                 Route::controller(ProjectController::class)->group(function () {
