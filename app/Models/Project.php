@@ -73,4 +73,5 @@ class Project extends Model
     {
         return $this->hasMany(ProjectQuote::class);
     }
+    
 }
