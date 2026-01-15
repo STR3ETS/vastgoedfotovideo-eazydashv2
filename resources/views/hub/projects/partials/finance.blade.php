@@ -37,6 +37,19 @@
     selectedQuotes: [],
     quotesStorageKey: null,
 
+    // ✅ facturen selectie
+    selectedInvoices: [],
+    invoicesStorageKey: null,
+
+    // ✅ factuur modal
+    invoiceOpen: false,
+    invoiceDate: "",
+    invoiceDueDate: "",
+    invoiceStatus: "draft",   // draft | sent | paid | cancelled
+    invoiceNotes: "",
+    invoiceVatRate: 21,
+    invoiceItems: [],
+
     financeSeed: @json($financeSeed),
 
     // ✅ add-rij
@@ -68,6 +81,19 @@
       // persist quotes selectie bij elke wijziging
       this.$watch("selectedQuotes", (v) => {
         try { sessionStorage.setItem(this.quotesStorageKey, JSON.stringify((v || []).map(String))); } catch(e) {}
+      });
+
+      this.invoicesStorageKey = "project_invoices_selected_" + this.projectId;
+
+      // restore invoices selectie na HTMX swap / page reload
+      this.restoreInvoicesSelection();
+
+      // drop invoice ids die niet meer bestaan in de huidige DOM
+      this.$nextTick(() => this.normalizeInvoicesSelection());
+
+      // persist invoices selectie bij elke wijziging
+      this.$watch("selectedInvoices", (v) => {
+        try { sessionStorage.setItem(this.invoicesStorageKey, JSON.stringify((v || []).map(String))); } catch(e) {}
       });
 
       // restore selectie na HTMX swap / page reload
@@ -165,6 +191,47 @@
     clearQuotesSelection(){
       this.selectedQuotes = [];
       const master = this.$root.querySelector("input[data-master-quote-checkbox]");
+      if(master) master.checked = false;
+    },
+
+    restoreInvoicesSelection(){
+      try{
+        const raw = sessionStorage.getItem(this.invoicesStorageKey);
+        if(!raw) return;
+        const arr = JSON.parse(raw);
+        if(Array.isArray(arr)){
+          this.selectedInvoices = arr.map(String);
+        }
+      } catch(e) {}
+    },
+
+    normalizeInvoicesSelection(){
+      const ids = Array.from(this.$root.querySelectorAll("input[data-invoice-checkbox]"))
+        .map(cb => String(cb.value));
+
+      this.selectedInvoices = (this.selectedInvoices || []).map(String).filter(id => ids.includes(id));
+    },
+
+    toggleAllInvoices(ev){
+      const on = ev.target.checked;
+      const ids = Array.from(this.$root.querySelectorAll("input[data-invoice-checkbox]"))
+        .filter(cb => !cb.disabled)
+        .map(cb => String(cb.value));
+
+      this.selectedInvoices = on ? ids : [];
+    },
+
+    isAllInvoicesSelected(){
+      const ids = Array.from(this.$root.querySelectorAll("input[data-invoice-checkbox]"))
+        .filter(cb => !cb.disabled)
+        .map(cb => String(cb.value));
+
+      return ids.length > 0 && ids.every(id => (this.selectedInvoices || []).includes(id));
+    },
+
+    clearInvoicesSelection(){
+      this.selectedInvoices = [];
+      const master = this.$root.querySelector("input[data-master-invoice-checkbox]");
       if(master) master.checked = false;
     },
 
@@ -276,7 +343,62 @@
         qty: 1,
         unit_price_eur: "0,00"
       });
-    }
+    },
+
+    invoiceSubTotalCents(){
+      return (this.invoiceItems || []).reduce((s, it) => s + this.lineTotalCents(it), 0);
+    },
+
+    invoiceVatCents(){
+      const rate = Math.max(0, Number(this.invoiceVatRate) || 0);
+      return Math.round(this.invoiceSubTotalCents() * rate / 100);
+    },
+
+    invoiceGrandTotalCents(){
+      return this.invoiceSubTotalCents() + this.invoiceVatCents();
+    },
+
+    seedInvoice(){
+      const now = new Date();
+      const due = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
+
+      this.invoiceDate = this.dateKey(now);
+      this.invoiceDueDate = this.dateKey(due);
+      this.invoiceStatus = "draft";
+      this.invoiceNotes = "";
+      this.invoiceVatRate = 21;
+
+      this.invoiceItems = (this.financeSeed || []).map(i => ({
+        key: String(i.id),
+        description: i.description || "",
+        qty: Math.max(1, Number(i.quantity) || 1),
+        unit_price_eur: this.centsToEurInput(i.unit_price_cents || 0)
+      }));
+    },
+
+    openInvoice(){
+      this.seedInvoice();
+      this.invoiceOpen = true;
+      this.$nextTick(() => { document.documentElement.classList.add("overflow-hidden"); });
+    },
+
+    closeInvoice(){
+      this.invoiceOpen = false;
+      this.$nextTick(() => { document.documentElement.classList.remove("overflow-hidden"); });
+    },
+
+    removeInvoiceItem(idx){
+      this.invoiceItems.splice(idx, 1);
+    },
+
+    addInvoiceItem(){
+      this.invoiceItems.push({
+        key: "new-" + Date.now(),
+        description: "",
+        qty: 1,
+        unit_price_eur: "0,00"
+      });
+    },
   }'
   x-init="init()"
 >
@@ -315,6 +437,14 @@
           class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#191D38] text-white text-xs font-semibold hover:bg-[#191D38]/80 transition duration-200"
         >
           Offerte maken
+        </button>
+
+        <button
+          type="button"
+          x-on:click="openInvoice()"
+          class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#191D38] text-white text-xs font-semibold hover:bg-[#191D38]/80 transition duration-200"
+        >
+          Factuur maken
         </button>
 
         {{-- ✅ Bulk delete button --}}
@@ -848,6 +978,214 @@
     </div>
   </div>
 
+  <hr class="border-[#191D38]/10 col-span-2 my-8">
+
+  @php
+    $invoiceStatusMap = [
+      'draft'     => ['label' => 'Concept',             'class' => 'text-[#DF9A57] bg-[#DF9A57]/20'],
+      'sent'      => ['label' => 'Verstuurd naar klant','class' => 'text-[#009AC3] bg-[#009AC3]/20'],
+      'paid'      => ['label' => 'Betaald',             'class' => 'text-[#87A878] bg-[#87A878]/20'],
+      'cancelled' => ['label' => 'Geannuleerd',         'class' => 'text-[#DF2935] bg-[#DF2935]/20'],
+    ];
+
+    $invoices = ($project->invoices ?? collect())->values();
+    $iCols    = "grid-cols-[40px_160px_140px_1fr_140px_140px_140px_90px]";
+  @endphp
+
+  <div>
+    <div class="shrink-0 px-6 py-4 bg-[#191D38]/10 rounded-t-2xl flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <p class="text-[#191D38] font-black text-sm">Facturen</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div x-cloak x-show="selectedInvoices.length > 0" class="flex items-center gap-2 mr-4">
+          <span class="text-[#191D38] font-bold text-xs opacity-50">
+            Geselecteerd: <span x-text="selectedInvoices.length"></span>
+          </span>
+        </div>
+
+        <form
+          x-cloak
+          x-show="selectedInvoices.length > 0"
+          method="POST"
+          action="{{ route('support.projecten.finance.facturen.bulk_destroy', ['project' => $project]) }}"
+
+          hx-delete="{{ route('support.projecten.finance.facturen.bulk_destroy', ['project' => $project]) }}"
+          hx-target="#project-finance"
+          hx-swap="outerHTML"
+          hx-confirm="Weet je zeker dat je de geselecteerde facturen wilt verwijderen?"
+        >
+          @csrf
+          @method('DELETE')
+
+          <template x-for="id in selectedInvoices" :key="'bulk-invoice-del-'+id">
+            <input type="hidden" name="invoice_ids[]" :value="id">
+          </template>
+
+          <button
+            type="submit"
+            class="h-8 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#DF2935] text-white text-xs font-semibold hover:bg-[#DF2935]/80 transition duration-200"
+          >
+            Verwijder geselecteerde
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {{-- Header row blijft altijd zichtbaar --}}
+    <div class="px-6 py-4 bg-[#191D38]/10 border-t border-[#191D38]/10">
+      <div class="grid {{ $iCols }} gap-4 items-center">
+        <div class="flex items-center">
+          <input
+            type="checkbox"
+            data-master-invoice-checkbox
+            class="h-4 w-4 rounded border-[#191D38]/20"
+            x-on:change="toggleAllInvoices($event)"
+            :checked="isAllInvoicesSelected()"
+            {{ $invoices->count() ? '' : 'disabled' }}
+          >
+        </div>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Nummer</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Datum</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Status</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Ex. BTW</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">BTW</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50">Incl. BTW</p>
+        <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Acties</p>
+      </div>
+    </div>
+
+    <div class="bg-[#191D38]/5 rounded-b-2xl divide-y divide-[#191D38]/10 px-6 py-2">
+      @forelse($invoices as $inv)
+        @php
+          $key  = strtolower((string)($inv->status ?? 'draft'));
+          $pill = $invoiceStatusMap[$key] ?? ['label' => ucfirst($key), 'class' => 'text-[#191D38] bg-[#191D38]/10'];
+
+          $sub = (int) ($inv->sub_total_cents ?? 0);
+          $vat = (int) ($inv->vat_cents ?? 0);
+          $tot = (int) ($inv->total_cents ?? ($sub + $vat));
+        @endphp
+
+        <div
+          class="grid {{ $iCols }} gap-4 items-center py-3 transition-opacity duration-200"
+          x-bind:class="(selectedInvoices.length > 0 && !selectedInvoices.includes(String({{ $inv->id }}))) ? 'opacity-50' : 'opacity-100'"
+        >
+          <div class="flex items-center">
+            <input
+              type="checkbox"
+              value="{{ $inv->id }}"
+              data-invoice-checkbox
+              class="h-4 w-4 rounded border-[#191D38]/20"
+              x-model="selectedInvoices"
+            >
+          </div>
+
+          <div class="text-[#191D38] font-semibold text-sm">
+            {{ $inv->invoice_number ?? '—' }}
+          </div>
+
+          <div class="text-[#191D38] text-sm">
+            {{ \Carbon\Carbon::parse($inv->invoice_date)->format('d-m-Y') }}
+          </div>
+
+          <div
+            class="relative"
+            x-data="{ open:false }"
+            x-on:click.outside="open=false"
+            x-on:keydown.escape.window="open=false"
+          >
+            <button
+              type="button"
+              x-on:click="open = !open"
+              class="cursor-pointer w-full text-xs font-semibold rounded-full py-1.5 inline-flex items-center justify-center gap-2 px-4 text-left {{ $pill['class'] }}"
+            >
+              <span>{{ $pill['label'] }}</span>
+            </button>
+
+            <div
+              x-cloak
+              x-show="open"
+              x-transition.origin.top
+              class="absolute z-50 top-full mt-2 left-1/2 -translate-x-1/2 w-64"
+            >
+              <div class="bg-white ring-1 ring-[#191D38]/10 rounded-2xl p-2 shadow-lg">
+                <form
+                  method="POST"
+                  action="{{ route('support.projecten.finance.facturen.status', ['project' => $project, 'invoice' => $inv]) }}"
+                  class="max-h-64 overflow-y-auto custom-scroll flex flex-col gap-2"
+
+                  hx-patch="{{ route('support.projecten.finance.facturen.status', ['project' => $project, 'invoice' => $inv]) }}"
+                  hx-target="#project-finance"
+                  hx-swap="outerHTML"
+                >
+                  @csrf
+                  @method('PATCH')
+
+                  <template x-if="selectedInvoices.length > 0 && selectedInvoices.includes(String({{ $inv->id }}))">
+                    <div>
+                      <template x-for="id in selectedInvoices" :key="'bulk-invoice-status-'+id">
+                        <input type="hidden" name="invoice_ids[]" :value="id">
+                      </template>
+                    </div>
+                  </template>
+
+                  <button type="submit" name="status" value="draft" class="text-[#DF9A57] cursor-pointer bg-[#DF9A57]/20 w-full rounded-full py-2.5 text-xs font-semibold text-center hover:opacity-90 transition duration-200">
+                    Concept
+                  </button>
+                  <button type="submit" name="status" value="sent" class="text-[#009AC3] cursor-pointer bg-[#009AC3]/20 w-full rounded-full py-2.5 text-xs font-semibold text-center hover:opacity-90 transition duration-200">
+                    Verstuurd naar klant
+                  </button>
+                  <button type="submit" name="status" value="paid" class="text-[#87A878] cursor-pointer bg-[#87A878]/20 w-full rounded-full py-2.5 text-xs font-semibold text-center hover:opacity-90 transition duration-200">
+                    Betaald
+                  </button>
+                  <button type="submit" name="status" value="cancelled" class="text-[#DF2935] cursor-pointer bg-[#DF2935]/20 w-full rounded-full py-2.5 text-xs font-semibold text-center hover:opacity-90 transition duration-200">
+                    Geannuleerd
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-[#191D38] text-sm">{{ $fmtCents($sub) }}</div>
+          <div class="text-[#191D38] text-sm">{{ $fmtCents($vat) }}</div>
+          <div class="text-[#009AC3] text-sm">{{ $fmtCents($tot) }}</div>
+
+          <div class="flex justify-end items-center gap-2">
+            <a
+              href="{{ route('support.projecten.finance.facturen.pdf', ['project' => $project, 'invoice' => $inv]) }}"
+              class="inline-flex items-center justify-center"
+              title="Download PDF"
+            >
+              <i class="fa-solid fa-download hover:text-[#009AC3] transition duration-200"></i>
+            </a>
+
+            <form
+              method="POST"
+              action="{{ route('support.projecten.finance.facturen.destroy', ['project' => $project, 'invoice' => $inv]) }}"
+
+              hx-delete="{{ route('support.projecten.finance.facturen.destroy', ['project' => $project, 'invoice' => $inv]) }}"
+              hx-target="#project-finance"
+              hx-swap="outerHTML"
+              hx-confirm="Weet je zeker dat je deze factuur wilt verwijderen?"
+            >
+              @csrf
+              @method('DELETE')
+
+              <button type="submit" class="inline-flex items-center justify-center" title="Verwijder factuur">
+                <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      @empty
+        <div class="py-10 text-center text-sm font-semibold text-[#191D38]/50">
+          Nog geen facturen.
+        </div>
+      @endforelse
+    </div>
+  </div>
+
   {{-- ✅ Offerte modal (styling aligned with page) --}}
   <div
     x-cloak
@@ -1039,6 +1377,190 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div
+    x-cloak
+    x-show="invoiceOpen"
+    x-on:keydown.escape.window="closeInvoice()"
+    class="fixed inset-0 z-[999] flex items-center justify-center p-6"
+  >
+    <div class="absolute inset-0 bg-black/40" x-on:click="closeInvoice()"></div>
+
+    <div class="relative w-[min(1100px,calc(100%-2rem))] max-h-[85vh] bg-white rounded-2xl shadow-xl ring-1 ring-[#191D38]/10 overflow-hidden">
+      <div class="px-6 py-4 bg-[#191D38]/5 border-b border-[#191D38]/10 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <i class="fa-regular fa-file-lines text-[#009AC3]"></i>
+          <div>
+            <p class="text-[#191D38] font-black text-sm leading-tight">Factuur maken</p>
+            <p class="text-[#191D38]/50 text-xs font-semibold">
+              Project: {{ $project->title ?? '—' }}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          x-on:click="closeInvoice()"
+          class="h-9 w-9 inline-flex items-center justify-center rounded-full bg-white ring-1 ring-[#191D38]/10 hover:bg-[#191D38]/5 transition"
+          aria-label="Sluiten"
+        >
+          <i class="fa-solid fa-xmark text-[#2A324B]/70"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto custom-scroll max-h-[calc(85vh-64px)]">
+        <div class="grid grid-cols-2 gap-6">
+          <div>
+            <label class="text-[#191D38] font-bold text-xs opacity-50">Factuurdatum *</label>
+            <input
+              type="date"
+              x-model="invoiceDate"
+              class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+            >
+          </div>
+
+          <div>
+            <label class="text-[#191D38] font-bold text-xs opacity-50">Vervaldatum *</label>
+            <input
+              type="date"
+              x-model="invoiceDueDate"
+              class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+            >
+          </div>
+        </div>
+
+        <div class="my-6 border-t border-[#191D38]/10"></div>
+
+        <div class="px-6 py-4 bg-[#191D38]/10 rounded-tr-xl rounded-tl-xl">
+          <div class="grid grid-cols-[minmax(260px,1fr)_120px_170px_170px_44px] gap-4 items-center">
+            <p class="text-[#191D38] font-bold text-xs opacity-50">Omschrijving</p>
+            <p class="text-[#191D38] font-bold text-xs opacity-50">Aantal</p>
+            <p class="text-[#191D38] font-bold text-xs opacity-50">Prijs per eenheid</p>
+            <p class="text-[#191D38] font-bold text-xs opacity-50">Totaalprijs</p>
+            <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Acties</p>
+          </div>
+        </div>
+
+        <div class="bg-[#191D38]/5 rounded-bl-xl rounded-br-xl px-6 py-2 divide-y divide-[#191D38]/10 px-4">
+          <template x-for="(it, idx) in invoiceItems" :key="it.key">
+            <div class="grid grid-cols-[minmax(260px,1fr)_120px_170px_170px_44px] gap-4 py-3 items-center">
+              <input
+                type="text"
+                x-model="it.description"
+                class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+              >
+
+              <input
+                type="number"
+                min="1"
+                x-model.number="it.qty"
+                class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+              >
+
+              <input
+                type="text"
+                x-model="it.unit_price_eur"
+                placeholder="Bijv. 49,95"
+                class="h-9 w-full rounded-full px-4 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+              >
+
+              <span
+                class="w-full inline-flex items-center justify-start text-xs text-[#009AC3]"
+                x-text="formatCents(lineTotalCents(it))"
+              ></span>
+
+              <button
+                type="button"
+                x-on:click="removeInvoiceItem(idx)"
+                class="flex items-center justify-end cursor-pointer"
+              >
+                <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
+              </button>
+            </div>
+          </template>
+
+          <div x-show="invoiceItems.length === 0" class="py-8 text-center text-sm font-semibold text-[#191D38]/50">
+            Nog geen factuurregels.
+          </div>
+        </div>
+
+        <div class="mt-6 pt-6">
+          <div class="grid grid-cols-2 gap-6 items-start">
+            <div></div>
+
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-[#191D38] font-bold opacity-50">Subtotaal:</span>
+                <span class="text-[#191D38] font-semibold" x-text="formatCents(invoiceSubTotalCents())"></span>
+              </div>
+
+              <div class="flex items-center justify-between text-xs pb-3">
+                <span class="text-[#191D38] font-bold opacity-50">BTW:</span>
+                <div class="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    x-model.number="invoiceVatRate"
+                    class="h-9 w-30 rounded-full px-3 text-xs font-semibold bg-white ring-1 ring-[#191D38]/10 text-[#191D38] outline-none focus:ring-[#009AC3] transition"
+                  >
+                  <span class="text-[#191D38] font-bold opacity-50">%</span>
+                  <span class="text-[#191D38] font-semibold w-28 text-right" x-text="formatCents(invoiceVatCents())"></span>
+                </div>
+              </div>
+
+              <div class="pt-3 border-t border-[#191D38]/10 flex items-center justify-between">
+                <span class="text-[#009AC3] font-black text-sm">Totaal incl. BTW:</span>
+                <span class="text-[#009AC3] font-black text-lg" x-text="formatCents(invoiceGrandTotalCents())"></span>
+              </div>
+
+              <form
+                method="POST"
+                action="{{ route('support.projecten.finance.facturen.store', ['project' => $project]) }}"
+
+                hx-post="{{ route('support.projecten.finance.facturen.store', ['project' => $project]) }}"
+                hx-target="#project-finance"
+                hx-swap="outerHTML"
+              >
+                @csrf
+                <input type="hidden" name="invoice_date" :value="invoiceDate">
+                <input type="hidden" name="due_date" :value="invoiceDueDate">
+                <input type="hidden" name="status" :value="invoiceStatus">
+                <input type="hidden" name="vat_rate" :value="invoiceVatRate">
+                <input type="hidden" name="notes" :value="invoiceNotes">
+
+                <template x-for="(it, idx) in invoiceItems" :key="'i-h-'+it.key">
+                  <div>
+                    <input type="hidden" :name="`items[${idx}][description]`" :value="it.description">
+                    <input type="hidden" :name="`items[${idx}][quantity]`" :value="it.qty">
+                    <input type="hidden" :name="`items[${idx}][unit_price_eur]`" :value="it.unit_price_eur">
+                  </div>
+                </template>
+
+                <div class="pt-4 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    x-on:click="closeInvoice()"
+                    class="h-9 px-4 inline-flex items-center rounded-full bg-[#2A324B]/20 text-[#2A324B]/60 text-xs font-semibold hover:bg-[#2A324B]/10 transition"
+                  >
+                    Annuleren
+                  </button>
+                  <button
+                    type="submit"
+                    class="h-9 cursor-pointer px-4 inline-flex items-center gap-2 rounded-full bg-[#009AC3] text-white text-xs font-semibold hover:bg-[#009AC3]/80 transition duration-200"
+                  >
+                    Factuur maken
+                  </button>
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>

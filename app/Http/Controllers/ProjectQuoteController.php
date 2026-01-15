@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Project;
 use App\Models\ProjectQuote;
 use App\Models\ProjectQuoteItem;
+use App\Support\ProjectLogger;
+use App\Support\Toast;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +14,41 @@ use Illuminate\Validation\Rule;
 
 class ProjectQuoteController extends Controller
 {
+    private function renderFinanceForQuotes(
+        Request $request,
+        Project $project,
+        int $status = 200,
+        ?string $toastMessage = null,
+        string $toastType = 'success'
+    ) {
+        $project->refresh()->load([
+            'financeItems',
+            'quotes'   => fn ($q) => $q->orderBy('quote_number', 'asc'),
+            'invoices' => fn ($q) => $q->orderBy('invoice_number', 'asc'),
+
+            'logs' => fn ($q) => $q->latest()->limit(80),
+            'logs.user',
+        ]);
+
+        $resp = response()->view('hub.projects.partials.finance_response', [
+            'project' => $project,
+            'sectionWrap'   => "overflow-hidden rounded-2xl",
+            'sectionHeader' => 'shrink-0 px-6 py-4 bg-[#191D38]/10',
+            'sectionBody'   => 'bg-[#191D38]/5',
+        ], $status);
+
+        if (Toast::isHtmx() && $toastMessage) {
+            return Toast::attach($resp, $toastMessage, $toastType);
+        }
+
+        if (!Toast::isHtmx() && $toastMessage) {
+            Toast::flash($toastMessage, $toastType);
+            return back();
+        }
+
+        return $resp;
+    }
+
     public function store(Request $request, Project $project)
     {
         $data = $request->validate([
@@ -50,12 +87,13 @@ class ProjectQuoteController extends Controller
         $vatCents = (int) round($subTotal * $vatRate / 100);
         $total    = $subTotal + $vatCents;
 
-        DB::transaction(function () use ($project, $data, $items, $subTotal, $vatCents, $total) {
-            $quoteDate   = Carbon::parse($data['quote_date']);
-            $quoteNumber = $this->nextQuoteNumber($quoteDate); // YYYYMM0001
+        $createdQuote = null;
 
-            /** @var \App\Models\ProjectQuote $quote */
-            $quote = ProjectQuote::create([
+        DB::transaction(function () use ($project, $data, $items, $subTotal, $vatCents, $total, &$createdQuote) {
+            $quoteDate   = Carbon::parse($data['quote_date']);
+            $quoteNumber = $this->nextQuoteNumber($quoteDate);
+
+            $createdQuote = ProjectQuote::create([
                 'project_id'      => $project->id,
                 'created_by'      => auth()->id(),
                 'quote_number'    => $quoteNumber,
@@ -71,7 +109,7 @@ class ProjectQuoteController extends Controller
 
             foreach ($items as $idx => $it) {
                 ProjectQuoteItem::create([
-                    'project_quote_id' => $quote->id,
+                    'project_quote_id' => $createdQuote->id,
                     'position'         => $idx,
                     'description'      => $it['description'],
                     'quantity'         => $it['quantity'],
@@ -81,34 +119,35 @@ class ProjectQuoteController extends Controller
             }
         });
 
-        // ✅ Altijd oplopend op quote_number (status mag niets “reshufflen”)
-        $project->refresh()->load([
-            'financeItems',
-            'quotes' => fn ($q) => $q->orderBy('quote_number', 'asc'),
-        ]);
+        ProjectLogger::add(
+            $project,
+            $request->user(),
+            'quote.created',
+            'Offerte aangemaakt',
+            [
+                'quote_id'      => (int) ($createdQuote?->id ?? 0),
+                'quote_number'  => (string) ($createdQuote?->quote_number ?? ''),
+                'total_cents'   => (int) $total,
+                'vat_cents'     => (int) $vatCents,
+                'sub_total'     => (int) $subTotal,
+            ]
+        );
 
-        return view('hub.projects.partials.finance', [
-            'project' => $project,
-        ]);
+        return $this->renderFinanceForQuotes($request, $project, 200, 'Offerte aangemaakt');
     }
 
-    /**
-     * ✅ Single status update + (optioneel) bulk via quote_ids[]
-     * Zelfde idee als taken: als de aangeklikte offerte in selectie zit, stuur je quote_ids[] mee.
-     */
     public function updateStatus(Request $request, Project $project, ProjectQuote $quote)
     {
-        if ((int) $quote->project_id !== (int) $project->id) abort(404);
+        abort_unless((int) $quote->project_id === (int) $project->id, 404);
 
         $data = $request->validate([
-            'status'        => ['required', 'string', Rule::in(['draft', 'sent', 'accepted', 'cancelled'])],
-            'quote_ids'     => ['sometimes', 'array', 'min:1'],
-            'quote_ids.*'   => ['integer'],
+            'status'      => ['required', 'string', Rule::in(['draft', 'sent', 'accepted', 'cancelled'])],
+            'quote_ids'   => ['sometimes', 'array', 'min:1'],
+            'quote_ids.*' => ['integer'],
         ]);
 
         $newStatus = $data['status'];
 
-        // ✅ Bulk als quote_ids[] is meegestuurd
         if (!empty($data['quote_ids'])) {
             $ids = array_map('intval', (array) $data['quote_ids']);
 
@@ -116,29 +155,27 @@ class ProjectQuoteController extends Controller
                 ->where('project_id', $project->id)
                 ->whereIn('id', $ids)
                 ->update(['status' => $newStatus]);
+
+            ProjectLogger::add($project, $request->user(), 'quote.bulk_status_updated', 'Offertestatus bijgewerkt', [
+                'count' => count($ids),
+                'ids'   => $ids,
+                'status'=> $newStatus,
+            ]);
         } else {
-            // ✅ Single
+            $oldStatus = (string) $quote->status;
             $quote->status = $newStatus;
             $quote->save();
-        }
 
-        $project->refresh()->load([
-            'financeItems',
-            'quotes' => fn ($q) => $q->orderBy('quote_number', 'asc'),
-        ]);
-
-        if ($request->header('HX-Request') === 'true') {
-            return response()->view('hub.projects.partials.finance', [
-                'project' => $project,
+            ProjectLogger::add($project, $request->user(), 'quote.status_updated', 'Offertestatus bijgewerkt', [
+                'quote_id' => (int) $quote->id,
+                'from'     => $oldStatus,
+                'to'       => $newStatus,
             ]);
         }
 
-        return back();
+        return $this->renderFinanceForQuotes($request, $project, 200, 'Offertestatus bijgewerkt');
     }
 
-    /**
-     * ✅ Pure bulk status endpoint (optioneel als je die los gebruikt)
-     */
     public function bulkUpdateStatus(Request $request, Project $project)
     {
         $data = $request->validate([
@@ -154,23 +191,56 @@ class ProjectQuoteController extends Controller
             ->whereIn('id', $ids)
             ->update(['status' => $data['status']]);
 
-        $project->refresh()->load([
-            'financeItems',
-            'quotes' => fn ($q) => $q->orderBy('quote_number', 'asc'),
+        ProjectLogger::add($project, $request->user(), 'quote.bulk_status_updated', 'Offertestatus bijgewerkt', [
+            'count' => count($ids),
+            'ids'   => $ids,
+            'status'=> (string) $data['status'],
         ]);
 
-        if ($request->header('HX-Request') === 'true') {
-            return response()->view('hub.projects.partials.finance', [
-                'project' => $project,
-            ]);
-        }
+        return $this->renderFinanceForQuotes($request, $project, 200, 'Offertestatus bijgewerkt');
+    }
 
-        return back();
+    public function bulkDestroy(Request $request, Project $project)
+    {
+        $data = $request->validate([
+            'quote_ids'   => ['required', 'array', 'min:1'],
+            'quote_ids.*' => ['integer'],
+        ]);
+
+        $ids = array_map('intval', (array) $data['quote_ids']);
+
+        ProjectLogger::add($project, $request->user(), 'quote.bulk_deleted', 'Offertes verwijderd', [
+            'count' => count($ids),
+            'ids'   => $ids,
+        ]);
+
+        ProjectQuote::query()
+            ->where('project_id', $project->id)
+            ->whereIn('id', $ids)
+            ->delete();
+
+        return $this->renderFinanceForQuotes($request, $project, 200, 'Offertes verwijderd');
+    }
+
+    public function destroy(Request $request, Project $project, ProjectQuote $quote)
+    {
+        abort_unless((int) $quote->project_id === (int) $project->id, 404);
+
+        ProjectLogger::add($project, $request->user(), 'quote.deleted', 'Offerte verwijderd', [
+            'quote_id'     => (int) $quote->id,
+            'quote_number' => (string) $quote->quote_number,
+        ]);
+
+        DB::transaction(function () use ($quote) {
+            $quote->items()->delete();
+            $quote->delete();
+        });
+
+        return $this->renderFinanceForQuotes($request, $project, 200, 'Offerte verwijderd');
     }
 
     public function pdf(Project $project, ProjectQuote $quote)
     {
-        // extra safety (als je geen scoped bindings gebruikt)
         abort_unless((int) $quote->project_id === (int) $project->id, 404);
 
         $quote->load(['items', 'project', 'creator']);
@@ -183,54 +253,6 @@ class ProjectQuoteController extends Controller
         return $pdf->download('offerte-' . $quote->quote_number . '.pdf');
     }
 
-    public function bulkDestroy(Request $request, Project $project)
-    {
-        $data = $request->validate([
-            'quote_ids'   => ['required', 'array', 'min:1'],
-            'quote_ids.*' => ['integer'],
-        ]);
-
-        $ids = array_map('intval', (array) $data['quote_ids']);
-
-        ProjectQuote::query()
-            ->where('project_id', $project->id)
-            ->whereIn('id', $ids)
-            ->delete();
-
-        $project->refresh()->load([
-            'financeItems',
-            'quotes' => fn ($q) => $q->orderBy('quote_number', 'asc'),
-        ]);
-
-        return view('hub.projects.partials.finance', [
-            'project' => $project,
-        ]);
-    }
-
-    public function destroy(Request $request, Project $project, ProjectQuote $quote)
-    {
-        abort_unless((int) $quote->project_id === (int) $project->id, 404);
-
-        DB::transaction(function () use ($quote) {
-            // items weg + quote weg
-            $quote->items()->delete();
-            $quote->delete();
-        });
-
-        $project->refresh()->load([
-            'financeItems',
-            'quotes' => fn ($q) => $q->orderBy('quote_number', 'asc'),
-        ]);
-
-        return view('hub.projects.partials.finance', [
-            'project' => $project,
-        ]);
-    }
-
-    /**
-     * ✅ Quote nummer: YYYYMM + 4 digits (0001..)
-     * Lock binnen transactie: voorkomt dubbele nummers.
-     */
     private function nextQuoteNumber(Carbon $date): string
     {
         $prefix = $date->format('Ym'); // 202601

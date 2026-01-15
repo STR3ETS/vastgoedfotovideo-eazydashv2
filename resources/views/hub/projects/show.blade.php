@@ -162,6 +162,15 @@
             'sectionBody' => $sectionBody,
           ])
 
+          <hr class="border-[#191D38]/10 col-span-2 my-4">
+
+          @include('hub.projects.partials.logbook', [
+            'project' => $project,
+            'sectionWrap' => $sectionWrap,
+            'sectionHeader' => $sectionHeader,
+            'sectionBody' => $sectionBody,
+          ])
+
         </div>
       </div>
     </div>
@@ -169,15 +178,32 @@
   </div>
 </div>
 <script>
-  document.addEventListener('htmx:afterSwap', function (evt) {
-    var target = evt.target;
+  function initAlpineFor(target) {
     if (!target) return;
+    if (!window.Alpine || typeof window.Alpine.initTree !== 'function') return;
 
-    if (window.Alpine && typeof window.Alpine.initTree === 'function') {
-      if (target.id === 'project-tasks' || target.id === 'project-finance' || target.id === 'project-location' || target.id === 'project-contact' || target.id === 'project-agency' || target.id === 'project-planning') {
-        window.Alpine.initTree(target);
-      }
+    const ids = [
+      'project-tasks',
+      'project-finance',
+      'project-logbook',
+      'project-location',
+      'project-contact',
+      'project-agency',
+      'project-planning',
+    ];
+
+    if (ids.includes(target.id)) {
+      window.Alpine.initTree(target);
     }
+  }
+
+  document.addEventListener('htmx:afterSwap', function (evt) {
+    initAlpineFor(evt.detail?.target);
+  });
+
+  // ✅ OOB swaps (zoals logboek) triggeren deze event
+  document.addEventListener('htmx:oobAfterSwap', function (evt) {
+    initAlpineFor(evt.detail?.target);
   });
 </script>
 @endsection

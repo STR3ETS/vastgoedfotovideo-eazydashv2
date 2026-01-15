@@ -5,21 +5,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-
     <title>{{ config('app.name', 'Laravel') }}</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
-
     <link rel="preload" href="{{ asset('fontawesome/css/all.min.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
         <link rel="stylesheet" href="{{ asset('fontawesome/css/all.min.css') }}">
     </noscript>
-
     <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script>
     <style>
         canvas#confetti {
@@ -142,6 +138,67 @@
                         </a>
                     </div>
                     @endif
+                    @if (request()->is('app/financien*'))
+                        @php
+                            $finBase = url('/app/financien');
+
+                            // Actief bepalen op basis van URL
+                            $active = 'overview';
+                            if (request()->is('app/financien/facturen*')) $active = 'facturen';
+                            elseif (request()->is('app/financien/offertes*')) $active = 'offertes';
+
+                            $linkClass = function (string $key) use ($active) {
+                            $isActive = $active === $key;
+
+                            return ($isActive ? 'text-[#009AC3]' : 'text-[#191D38]')
+                                . ' font-semibold text-sm hover:text-[#009AC3] transition duration-300';
+                            };
+                        @endphp
+
+                        <ul class="grid gap-2" x-data="{ openFinancien: true }">
+                            <li class="flex items-center justify-between gap-2">
+                            <a href="{{ $finBase }}"
+                                class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                Financiën
+                            </a>
+
+                            <button
+                                type="button"
+                                class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                                @click="openFinancien = !openFinancien"
+                                :aria-expanded="openFinancien.toString()">
+                                <i
+                                class="fa-solid fa-plus text-gray-500 text-[11px] pb-0.25 transition-transform duration-200"
+                                :class="openFinancien ? 'rotate-45 text-[#009AC3]' : ''"></i>
+                            </button>
+                            </li>
+
+                            <li x-show="openFinancien" x-transition>
+                            <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
+                                <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="{{ $finBase }}" class="{{ $linkClass('overview') }}">
+                                    Overzicht
+                                </a>
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="{{ $finBase . '/facturen' }}" class="{{ $linkClass('facturen') }}">
+                                    Facturen
+                                </a>
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                <a href="{{ $finBase . '/offertes' }}" class="{{ $linkClass('offertes') }}">
+                                    Offertes
+                                </a>
+                                </div>
+                            </div>
+                            </li>
+                        </ul>
+                    @endif
                     @php
                     /** @var array $statusMap label => value */
                     $statusMap = $statusMap ?? [
@@ -243,196 +300,71 @@
                         </li>
                     </ul>
                     @endif
-                    @if (request()->is('app/marketing*'))
-                    <ul class="grid gap-2" x-data="{ openMailing: true }">
-                        <li class="flex items-center justify-between gap-2">
-                            <a href="{{ url('/app/marketing/mailing') }}" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                Mailing
-                            </a>
-                            <button
-                                type="button"
-                                class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
-                                @click="openMailing = !openMailing"
-                                :aria-expanded="openMailing.toString()">
-                                <i
-                                    class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
-                                    :class="openMailing ? 'rotate-45 text-[#009AC3]' : ''"></i>
-                            </button>
-                        </li>
-                        <li x-show="openMailing" x-transition>
-                            <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
-                                <div class="flex items-center gap-2">
-                                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                    <a href="{{ url('/app/marketing/mailing/nieuwsbrieven') }}" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                        Nieuwsbrieven
-                                    </a>
-                                </div>
-                                <ul class="grid gap-2">
+
+                    @if (request()->is('app/gebruikers*'))
+                        @php
+                        $activeRole = request('rol'); // Admin | Klant | Team manager | Klant manager | Fotograaf
+                        $roleLink = fn($role) => route('support.gebruikers.index', ['rol' => $role]);
+                        $isActive = fn($role) => (string)$activeRole === (string)$role;
+                        @endphp
+
+                        <ul class="grid gap-2" x-data="{ openUser: true }">
+                            <li class="flex items-center justify-between gap-2">
+                                <a href="{{ route('support.gebruikers.index') }}"
+                                    class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                    Gebruikers
+                                </a>
+                                <button
+                                    type="button"
+                                    class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
+                                    @click="openUser = !openUser"
+                                    :aria-expanded="openUser.toString()">
+                                    <i
+                                        class="fa-solid fa-plus text-gray-500 text-[11px] pb-0.25 transition-transform duration-200"
+                                        :class="openUser ? 'rotate-45 text-[#009AC3]' : ''"></i>
+                                </button>
+                            </li>
+
+                            <li x-show="openUser" x-transition>
+                                <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
                                     <div class="flex items-center gap-2">
                                         <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                        <a href="{{ url('/app/marketing/mailing/templates') }}" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                            Templates
+                                        <a href="{{ $roleLink('Admin') }}"
+                                            class="{{ $isActive('Admin') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                            Admin
                                         </a>
                                     </div>
-                                    <li>
-                                        <div class="ml-[18px] border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
-                                            <div class="flex items-center gap-2">
-                                                <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                                <a href="{{ url('/app/marketing/mailing/templates/nieuwsbrief-templates') }}" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                                    Nieuwsbrief-templates
-                                                </a>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                                <a href="{{ url('/app/marketing/mailing/templates/actie-aanbod-templates') }}" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                                    Actie / aanbod-templates
-                                                </a>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                                <a href="{{ url('/app/marketing/mailing/templates/onboarding-opvolg-templates') }}" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                                    Onboarding / opvolg-templates
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </li>
-                                </ul>
-                                <ul class="grid gap-2">
-                                    <li class="flex items-center justify-between gap-2">
-                                        <div class="flex items-center gap-2">
-                                            <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                            <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                                Campagnes
-                                            </a>
-                                        </div>
-                                        <div
-                                            class="w-4 h-4 bg-[#009AC3] font-semibold text-[11px] rounded-full text-white flex items-center justify-center">
-                                            2
-                                        </div>
-                                    </li>
-                                    <li>
-                                        <div class="ml-[18px] border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
-                                            <div class="flex items-center gap-2">
-                                                <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                                <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                                    Winteractie
-                                                </a>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                                <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                                    Nieuwjaarskorting
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </div>
-                        </li>
-                    </ul>
-                    <ul class="grid gap-2" x-data="{ openSocial: true }">
-                        <li class="flex items-center justify-between gap-2">
-                            <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                Socials
-                            </a>
-                            <button
-                                type="button"
-                                class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
-                                @click="openSocial = !openSocial"
-                                :aria-expanded="openSocial.toString()">
-                                <i
-                                    class="fa-solid fa-plus text-gray-500 text-[11px] pr-0.25 pb-0.25 transition-transform duration-200"
-                                    :class="openSocial ? 'rotate-45 text-[#009AC3]' : ''"></i>
-                            </button>
-                        </li>
-                        <li x-show="openSocial" x-transition>
-                            <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
-                                <div class="flex items-center gap-2">
-                                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                    <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                        Contentkalender
-                                    </a>
+                                    <div class="flex items-center gap-2">
+                                        <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                        <a href="{{ $roleLink('Klant') }}"
+                                            class="{{ $isActive('Klant') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                            Klant
+                                        </a>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                        <a href="{{ $roleLink('Team manager') }}"
+                                            class="{{ $isActive('Team manager') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                            Team manager
+                                        </a>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                        <a href="{{ $roleLink('Klant manager') }}"
+                                            class="{{ $isActive('Klant manager') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                            Klant manager
+                                        </a>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <hr class="w-[10px] border-1 border-[#191D38]/25">
+                                        <a href="{{ $roleLink('Fotograaf') }}"
+                                            class="{{ $isActive('Fotograaf') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
+                                            Fotograaf
+                                        </a>
+                                    </div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                    <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                        Posts
-                                    </a>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                    <a href="#" class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                        Activiteiten
-                                    </a>
-                                </div>
-                            </div>
-                        </li>
-                    </ul>
-                    @endif
-                    @if (request()->is('app/gebruikers*'))
-                    @php
-                    $activeRole = request('rol'); // Admin | Klant | Team manager | Klant manager | Fotograaf
-                    $roleLink = fn($role) => route('support.gebruikers.index', ['rol' => $role]);
-                    $isActive = fn($role) => (string)$activeRole === (string)$role;
-                    @endphp
-
-                    <ul class="grid gap-2" x-data="{ openUser: true }">
-                        <li class="flex items-center justify-between gap-2">
-                            <a href="{{ route('support.gebruikers.index') }}"
-                                class="text-[#191D38] font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                Gebruikers
-                            </a>
-                            <button
-                                type="button"
-                                class="w-4 h-4 bg-white rounded-full flex items-center justify-center cursor-pointer"
-                                @click="openUser = !openUser"
-                                :aria-expanded="openUser.toString()">
-                                <i
-                                    class="fa-solid fa-plus text-gray-500 text-[11px] pb-0.25 transition-transform duration-200"
-                                    :class="openUser ? 'rotate-45 text-[#009AC3]' : ''"></i>
-                            </button>
-                        </li>
-
-                        <li x-show="openUser" x-transition>
-                            <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
-                                <div class="flex items-center gap-2">
-                                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                    <a href="{{ $roleLink('Admin') }}"
-                                        class="{{ $isActive('Admin') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                        Admin
-                                    </a>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                    <a href="{{ $roleLink('Klant') }}"
-                                        class="{{ $isActive('Klant') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                        Klant
-                                    </a>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                    <a href="{{ $roleLink('Team manager') }}"
-                                        class="{{ $isActive('Team manager') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                        Team manager
-                                    </a>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                    <a href="{{ $roleLink('Klant manager') }}"
-                                        class="{{ $isActive('Klant manager') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                        Klant manager
-                                    </a>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                    <a href="{{ $roleLink('Fotograaf') }}"
-                                        class="{{ $isActive('Fotograaf') ? 'text-[#009AC3]' : 'text-[#191D38]' }} font-semibold text-sm hover:text-[#009AC3] transition duration-300">
-                                        Fotograaf
-                                    </a>
-                                </div>
-                            </div>
-                        </li>
-                    </ul>
+                            </li>
+                        </ul>
                     @endif
 
                     @if (request()->is('app/planning-management*'))
@@ -828,6 +760,193 @@
             if (token) e.detail.headers['X-CSRF-TOKEN'] = token;
         });
     </script>
+
+    {{-- Toast container (blijft altijd staan, ook na HTMX swaps) --}}
+<div id="toast-container"
+     class="pointer-events-none fixed bottom-4 right-4 z-[9999] flex flex-col gap-2">
+</div>
+
+@verbatim
+<script>
+(function () {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const COLORS = {
+    success: '#87A878',
+    error:   '#DF2935',
+    warning: '#DF9A57',
+    info:    '#009AC3'
+  };
+
+  const TITLES = {
+    success: 'Gelukt',
+    error:   'Actie mislukt',
+    warning: 'Let op',
+    info:    'Info'
+  };
+
+  const ICONS = {
+    success: 'fa-circle-check',
+    error:   'fa-circle-xmark',
+    warning: 'fa-triangle-exclamation',
+    info:    'fa-circle-info'
+  };
+
+  let seq = 0;
+  const MAX = 4;
+
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function removeToast(el) {
+    if (!el || !el.parentNode) return;
+    const t = Number(el.dataset.timer || 0);
+    if (t) clearTimeout(t);
+
+    el.classList.remove('opacity-100', 'translate-y-0');
+    el.classList.add('opacity-0', 'translate-y-1');
+    setTimeout(() => el.remove(), 180);
+  }
+
+  window.showToast = function (opts) {
+    // Backwards-compatible defaults (jullie controllers sturen vooral {type, message})
+    const o = Object.assign(
+      {
+        type: 'success',
+        title: null,
+        message: '',
+        description: null,
+        timeout: 3200,
+        action: null,        // { label, href }
+        actionLabel: null,   // compat
+        actionHref: null     // compat
+      },
+      opts || {}
+    );
+
+    const type = String(o.type || 'info');
+    const accent = COLORS[type] || COLORS.info;
+
+    // In jullie huidige flow is message de hoofdtekst; we geven default titel erbij (zoals screenshot)
+    const title = escapeHtml(o.title || TITLES[type] || 'Melding');
+    const body  = escapeHtml(o.description ?? o.message ?? '');
+
+    const action =
+      o.action ||
+      (o.actionLabel && o.actionHref ? { label: o.actionLabel, href: o.actionHref } : null);
+
+    const icon = ICONS[type] || ICONS.info;
+
+    if (!body) return;
+
+    const wrap = document.createElement('div');
+    wrap.dataset.toast = String(++seq);
+    wrap.className =
+      'pointer-events-auto min-w-[300px] max-w-[300px]' +
+      'opacity-0 translate-y-1 transition duration-200';
+
+    wrap.innerHTML = `
+      <div class="bg-white ring-1 ring-[#191D38]/10 rounded-2xl shadow-lg overflow-hidden">
+        <div class="p-4">
+          <div class="flex items-start gap-3">
+            <div class="shrink-0 pt-0.5">
+              <i class="fa-solid ${icon} text-[18px]" style="color:${accent}"></i>
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-bold text-[#191D38] leading-5">${title}</p>
+              <p class="text-xs font-medium text-[#191D38]/70 leading-5">${body}</p>
+
+              ${
+                action && action.href && action.label
+                  ? `<a href="${escapeHtml(action.href)}"
+                        class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#009AC3] hover:text-[#009AC3]/70 transition">
+                        ${escapeHtml(action.label)}
+                        <span aria-hidden="true">→</span>
+                     </a>`
+                  : ''
+              }
+            </div>
+
+            <button type="button"
+                    class="-mt-1 -mr-1 px-2 py-1 text-[#2A324B]/50 hover:text-[#2A324B] transition"
+                    aria-label="Sluiten"></button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const btn = wrap.querySelector('button');
+    btn.addEventListener('click', () => removeToast(wrap));
+
+    container.prepend(wrap);
+
+    // Stack limit
+    const all = Array.from(container.querySelectorAll('[data-toast]'));
+    if (all.length > MAX) {
+      all.slice(MAX).forEach(removeToast);
+    }
+
+    requestAnimationFrame(() => {
+      wrap.classList.remove('opacity-0', 'translate-y-1');
+      wrap.classList.add('opacity-100', 'translate-y-0');
+    });
+
+    const timer = setTimeout(() => removeToast(wrap), Math.max(900, Number(o.timeout) || 3200));
+    wrap.dataset.timer = String(timer);
+  };
+
+  // ✅ HTMX events vanuit HX-Trigger header
+  document.body.addEventListener('toast', (e) => {
+    window.showToast(e.detail || {});
+  });
+
+  document.body.addEventListener('htmx:sendError', () => {
+    window.showToast({ type: 'error', message: 'Netwerkfout. Probeer opnieuw.' });
+  });
+
+  document.body.addEventListener('htmx:timeout', () => {
+    window.showToast({ type: 'error', message: 'Request timeout. Probeer opnieuw.' });
+  });
+
+  document.body.addEventListener('htmx:responseError', (e) => {
+    let msg = 'Actie mislukt. Controleer je invoer.';
+    try {
+      const xhr = e.detail && e.detail.xhr;
+      const ct = xhr ? (xhr.getResponseHeader('content-type') || '') : '';
+      if (xhr && ct.includes('application/json')) {
+        const data = JSON.parse(xhr.responseText || '{}');
+        if (data && data.message) msg = data.message;
+      }
+    } catch (_) {}
+    window.showToast({ type: 'error', message: msg });
+  });
+
+  document.body.addEventListener('htmx:beforeSwap', (e) => {
+    if (e.detail && e.detail.xhr && e.detail.xhr.status === 422) {
+      e.detail.shouldSwap = true;
+      e.detail.isError = false;
+    }
+  });
+})();
+</script>
+@endverbatim
+
+{{-- Toast uit redirect/refresh (niet-HTMX) --}}
+@if(session('toast'))
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      window.dispatchEvent(new CustomEvent('toast', { detail: @json(session('toast')) }));
+    });
+  </script>
+@endif
 </body>
 
 </html>

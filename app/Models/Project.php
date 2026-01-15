@@ -73,4 +73,14 @@ class Project extends Model
     {
         return $this->hasMany(ProjectQuote::class);
     }
+
+    public function invoices()
+    {
+        return $this->hasMany(ProjectInvoice::class);
+    }
+
+    public function logs()
+    {
+        return $this->hasMany(ProjectLog::class);
+    }
 }

@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Support\Toast;
+use Symfony\Component\HttpFoundation\Response;
 
 class ProjectController extends Controller
 {
@@ -170,6 +172,8 @@ class ProjectController extends Controller
             'financeItems',
             'planningItems.assignee',
             'comments.user',
+            'logs' => fn ($q) => $q->latest()->limit(80),
+            'logs.user',
         ]);
 
         if ($project->relationLoaded('tasks') && $project->tasks) {
@@ -208,9 +212,11 @@ class ProjectController extends Controller
             'section' => ['required', 'string', Rule::in(['location','contact','agency'])],
         ]);
 
-        $field = $data['field'];
-        $value = $data['value'];
+        $section = (string) $data['section'];
+        $field   = (string) $data['field'];
+        $value   = $data['value'];
 
+        // normalisaties
         if (in_array($field, ['surface_home','surface_outbuildings','surface_plot'], true)) {
             $value = (int) ($value ?? 0);
         }
@@ -227,20 +233,81 @@ class ProjectController extends Controller
             $request->validate(['value' => ['nullable', 'email']]);
         }
 
-        $req->{$field} = $value;
+        // ✅ voorkom toast-spam: alleen opslaan/toast als er echt iets verandert
+        $old = $req->getAttribute($field);
+        if ($old === $value) {
+            // return gewoon partial zonder toast
+            $project->load('onboardingRequest');
+
+            $view = match ($section) {
+                'location' => 'hub.projects.partials.onboarding.location',
+                'contact'  => 'hub.projects.partials.onboarding.contact',
+                default    => 'hub.projects.partials.onboarding.agency',
+            };
+
+            return view($view, ['project' => $project]);
+        }
+
+        $req->setAttribute($field, $value);
         $req->save();
 
         $project->load('onboardingRequest');
 
-        if ($data['section'] === 'location') {
-            return view('hub.projects.partials.onboarding.location', ['project' => $project]);
+        $view = match ($section) {
+            'location' => 'hub.projects.partials.onboarding.location',
+            'contact'  => 'hub.projects.partials.onboarding.contact',
+            default    => 'hub.projects.partials.onboarding.agency',
+        };
+
+        // ✅ response object (nodig voor headers)
+        $resp = response()->view($view, ['project' => $project]);
+
+        $msg = $this->onboardingToastMessage($section, $field);
+
+        if (Toast::isHtmx()) {
+            return Toast::attach($resp, $msg, 'success');
         }
 
-        if ($data['section'] === 'contact') {
-            return view('hub.projects.partials.onboarding.contact', ['project' => $project]);
+        Toast::flash($msg, 'success');
+        return redirect()->back();
+    }
+
+    private function onboardingToastMessage(string $section, string $field): string
+    {
+        $labels = [
+            'location' => [
+                'address'              => 'Adres',
+                'postcode'             => 'Postcode',
+                'city'                 => 'Plaats',
+                'surface_home'         => 'Oppervlakte woning',
+                'surface_outbuildings' => 'Bijgebouwen',
+                'surface_plot'         => 'Perceel',
+                'shoot_date'           => 'Shootdatum',
+                'shoot_slot'           => 'Tijdslot',
+            ],
+            'contact' => [
+                'contact_first_name' => 'Voornaam',
+                'contact_last_name'  => 'Achternaam',
+                'contact_email'      => 'E-mail',
+                'contact_phone'      => 'Telefoon',
+                'contact_updates'    => 'Updates',
+            ],
+            'agency' => [
+                'agency_first_name' => 'Voornaam',
+                'agency_last_name'  => 'Achternaam',
+                'agency_email'      => 'E-mail',
+                'agency_phone'      => 'Telefoon',
+            ],
+        ];
+
+        $label = $labels[$section][$field] ?? 'Gegevens';
+
+        // iets nettere copy voor de checkbox
+        if ($field === 'contact_updates') {
+            return 'Contact-updates bijgewerkt';
         }
 
-        return view('hub.projects.partials.onboarding.agency', ['project' => $project]);
+        return $label . ' opgeslagen';
     }
 
     private function makeOnboardingRequestCloneOrEmpty(?OnboardingRequest $src, int $clientUserId, int $createdByUserId): OnboardingRequest

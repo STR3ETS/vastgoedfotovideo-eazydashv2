@@ -8,7 +8,9 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectTakenController;
 use App\Http\Controllers\ProjectTaskChatController;
 use App\Http\Controllers\ProjectTaskSubtaskController;
+use App\Http\Controllers\ProjectInvoiceController;
 use App\Http\Controllers\ProjectFinancienController;
+use App\Http\Controllers\ProjectPlanningController;
 use App\Http\Controllers\ProjectQuoteController;
 use App\Http\Controllers\TakenController;
 use App\Http\Controllers\OnboardingController;
@@ -87,7 +89,7 @@ Route::prefix('app')->group(function () {
                         Route::delete('/bulk/delete', [ProjectTaskSubtaskController::class, 'bulkDestroy'])->name('bulk_destroy');
                         Route::delete('/{subtask}',   [ProjectTaskSubtaskController::class, 'destroy'])->name('destroy');
                     });
-
+                    
                 // FINANCIEEL
                 Route::post('/{project}/finance-items', [ProjectFinancienController::class, 'store'])->name('finance.store')->scopeBindings();
                 Route::patch('/{project}/offertes/{quote}/status', [ProjectQuoteController::class, 'updateStatus'])->name('finance.offertes.status')->scopeBindings();
@@ -99,6 +101,16 @@ Route::prefix('app')->group(function () {
                 Route::delete('/{project}/offertes/bulk/delete', [ProjectQuoteController::class, 'bulkDestroy'])->name('finance.offertes.bulk_destroy')->scopeBindings();
                 Route::delete('/{project}/offertes/{quote}', [ProjectQuoteController::class, 'destroy'])->name('finance.offertes.destroy')->scopeBindings();
                 Route::get('/{project}/finance/offertes/{quote}/pdf', [ProjectQuoteController::class, 'pdf'])->name('finance.offertes.pdf')->scopeBindings();
+                Route::post('/{project}/facturen', [ProjectInvoiceController::class, 'store'])->name('finance.facturen.store')->scopeBindings();
+                Route::patch('/{project}/facturen/{invoice}/status', [ProjectInvoiceController::class, 'updateStatus'])->name('finance.facturen.status')->scopeBindings();
+                Route::patch('/{project}/facturen/bulk/status', [ProjectInvoiceController::class, 'bulkUpdateStatus'])->name('finance.facturen.bulk_status')->scopeBindings();
+                Route::delete('/{project}/facturen/bulk/delete', [ProjectInvoiceController::class, 'bulkDestroy'])->name('finance.facturen.bulk_destroy')->scopeBindings();
+                Route::delete('/{project}/facturen/{invoice}', [ProjectInvoiceController::class, 'destroy'])->name('finance.facturen.destroy')->scopeBindings();
+                Route::get('/{project}/finance/facturen/{invoice}/pdf', [ProjectInvoiceController::class, 'pdf'])->name('finance.facturen.pdf')->scopeBindings();
+                
+                // PLANNING
+                Route::post('/{project}/planning-items', [ProjectPlanningController::class, 'store'])->name('planning.store')->scopeBindings();
+                Route::delete('/{project}/planning-items/{planningItem}', [ProjectPlanningController::class, 'destroy'])->name('planning.destroy')->scopeBindings();
             });
 
         Route::prefix('taken')
@@ -140,6 +152,8 @@ Route::prefix('app')->group(function () {
             ->controller(FinancienController::class)
             ->group(function () {
                 Route::get('/', 'index')->name('index');
+                Route::get('/facturen', 'facturen')->name('facturen.index');
+                Route::get('/offertes', 'offertes')->name('offertes.index');
             });
 
         Route::prefix('gebruikers')
