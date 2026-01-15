@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Project;
+use App\Models\ProjectPlanningItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
@@ -30,6 +33,10 @@ class GebruikersController extends Controller
         'saturday'  => 'Zaterdag',
         'sunday'    => 'Zondag',
     ];
+
+    // -----------------------------
+    // Helpers
+    // -----------------------------
 
     private function normalizeRole(?string $role): ?string
     {
@@ -112,20 +119,17 @@ class GebruikersController extends Controller
             $start = trim((string) data_get($input, $dayKey . '.start', ''));
             $end   = trim((string) data_get($input, $dayKey . '.end', ''));
 
-            // beide leeg = geen werktijd
             if ($start === '' && $end === '') {
                 $out[$dayKey] = null;
                 continue;
             }
 
-            // één ingevuld = we bewaren wat er is (validator vangt errors)
             $out[$dayKey] = [
                 'start' => $start !== '' ? $start : null,
                 'end'   => $end !== '' ? $end : null,
             ];
         }
 
-        // als alles null is, return null
         $hasAny = false;
         foreach ($out as $v) {
             if (is_array($v) && ($v['start'] || $v['end'])) {
@@ -156,14 +160,12 @@ class GebruikersController extends Controller
                 $start = data_get($wh, "$dayKey.start");
                 $end   = data_get($wh, "$dayKey.end");
 
-                // als één van beide is ingevuld, moet de ander ook
                 if (($start && !$end) || (!$start && $end)) {
                     $v->errors()->add("work_hours.$dayKey.start", 'Vul beide tijden in (start en eind).');
                     $v->errors()->add("work_hours.$dayKey.end", 'Vul beide tijden in (start en eind).');
                     continue;
                 }
 
-                // als beide ingevuld zijn: end moet later zijn dan start
                 if ($start && $end && $end <= $start) {
                     $v->errors()->add("work_hours.$dayKey.end", 'Eindtijd moet later zijn dan starttijd.');
                 }
@@ -173,18 +175,144 @@ class GebruikersController extends Controller
         return $validator->validate();
     }
 
-    public function index(Request $request)
+    private function applySort($qb, string $sort)
     {
-        $user = auth()->user();
-
-        $activeRole = $this->safeRoleOrDefault($request->query('rol', 'klant'));
-        $activeRoleLabel = $this->roleLabel($activeRole);
-
-        $q = $this->extractQ($request) ?? '';
-
-        return view('hub.gebruikers.index', compact('user', 'activeRole', 'activeRoleLabel', 'q'));
+        return match ($sort) {
+            'oldest'    => $qb->orderBy('created_at', 'asc')->orderBy('id', 'asc'),
+            'name_asc'  => $qb->orderBy('name', 'asc')->orderBy('id', 'asc'),
+            'name_desc' => $qb->orderBy('name', 'desc')->orderBy('id', 'desc'),
+            'email'     => $qb->orderBy('email', 'asc')->orderBy('id', 'asc'),
+            default     => $qb->orderBy('created_at', 'desc')->orderBy('id', 'desc'), // newest
+        };
     }
 
+    /**
+     * ✅ Leest terug-navigatie context uit hidden fields:
+     * _back[rol], _back[q], _back[sort], _back[tab]
+     */
+    private function backParamsFromRequest(Request $request): array
+    {
+        $b = (array) $request->input('_back', []);
+
+        $rolRaw = trim((string) data_get($b, 'rol', ''));
+        $rol    = $rolRaw !== '' ? $this->safeRoleOrDefault($rolRaw) : null;
+
+        $q    = trim((string) data_get($b, 'q', ''));
+        $sort = (string) data_get($b, 'sort', 'newest');
+        $tab  = trim((string) data_get($b, 'tab', ''));
+
+        return array_filter([
+            'rol'  => $rol ?: null,
+            'q'    => $q ?: null,
+            'sort' => $sort ?: null,
+            'tab'  => $tab ?: null,
+        ]);
+    }
+
+    private function fetchProjectsForUser(User $user)
+    {
+        if (!Schema::hasTable('projects')) {
+            return collect();
+        }
+
+        // detecteer mogelijke koppelkolom
+        $candidateCols = ['client_id', 'customer_id', 'user_id', 'klant_id'];
+        $col = null;
+
+        foreach ($candidateCols as $c) {
+            if (Schema::hasColumn('projects', $c)) {
+                $col = $c;
+                break;
+            }
+        }
+
+        if (!$col) {
+            return collect();
+        }
+
+        return Project::query()
+            ->where($col, $user->id)
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get();
+    }
+
+    private function fetchPlanningForUser(User $user)
+    {
+        // jij gebruikt ProjectPlanningItem elders; tabel/kolommen kunnen verschillen
+        if (!Schema::hasTable('project_planning_items')) {
+            return collect();
+        }
+
+        $qb = ProjectPlanningItem::query();
+
+        if (Schema::hasColumn('project_planning_items', 'assignee_id')) {
+            $qb->where('assignee_id', $user->id);
+        } elseif (Schema::hasColumn('project_planning_items', 'user_id')) {
+            $qb->where('user_id', $user->id);
+        } else {
+            return collect();
+        }
+
+        $orderCol = null;
+        foreach (['start_at', 'start', 'starts_at', 'created_at', 'id'] as $c) {
+            if (Schema::hasColumn('project_planning_items', $c)) {
+                $orderCol = $c;
+                break;
+            }
+        }
+
+        return $qb->orderByDesc($orderCol ?: 'id')
+            ->limit(100)
+            ->get();
+    }
+
+    // -----------------------------
+    // Routes
+    // -----------------------------
+
+    /**
+     * ✅ index: zonder ?rol= => ALLE gebruikers
+     * kolommen in jouw Blade: Naam, e-mail, telefoon, rol, acties
+     */
+    public function index(Request $request)
+    {
+        $authUser = auth()->user();
+
+        $rolRaw = trim((string) $request->query('rol', ''));
+        $rol = $rolRaw !== '' ? $this->safeRoleOrDefault($rolRaw) : null;
+        $rolLabel = $rol ? $this->roleLabel($rol) : 'Alle gebruikers';
+
+        $q    = trim((string) $request->query('q', $this->extractQ($request) ?? ''));
+        $sort = (string) $request->query('sort', 'newest');
+
+        $qb = User::query()
+            ->when($rol, fn($qb) => $qb->where('rol', $rol))
+            ->when($q !== '', function ($qb) use ($q) {
+                $qb->where(function ($q2) use ($q) {
+                    $q2->where('name', 'like', '%' . $q . '%')
+                        ->orWhere('email', 'like', '%' . $q . '%')
+                        ->orWhere('phone', 'like', '%' . $q . '%');
+                });
+            });
+
+        $this->applySort($qb, $sort);
+
+        $rows = $qb->paginate(25)->withQueryString();
+
+        return view('hub.gebruikers.index', [
+            'user' => $authUser,
+            'rows' => $rows,
+            'rol'  => $rol,
+            'rolLabel' => $rolLabel,
+            'q'    => $q,
+            'sort' => $sort,
+        ]);
+    }
+
+    /**
+     * (optioneel) oude HTMX lijst: /lijst/{rol}
+     */
     public function lijst(Request $request, string $rol)
     {
         $rol = $this->safeRoleOrDefault($rol);
@@ -197,11 +325,12 @@ class GebruikersController extends Controller
             ->when($q, function ($qb) use ($q) {
                 $qb->where(function ($q2) use ($q) {
                     $q2->where('name', 'like', '%' . $q . '%')
-                        ->orWhere('email', 'like', '%' . $q . '%');
+                        ->orWhere('email', 'like', '%' . $q . '%')
+                        ->orWhere('phone', 'like', '%' . $q . '%');
                 });
             })
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'rol']);
+            ->get(['id', 'name', 'email', 'phone', 'rol']);
 
         return view('hub.gebruikers.partials.users_list', compact('users', 'rol', 'rolLabel', 'q'));
     }
@@ -211,7 +340,6 @@ class GebruikersController extends Controller
         $this->assertAdmin();
 
         $roleNormalized = $this->safeRoleOrDefault($request->input('rol'));
-        $rolLabel = $this->roleLabel($roleNormalized);
 
         $validated = $request->validate([
             'name'  => ['required', 'string', 'max:255'],
@@ -224,7 +352,6 @@ class GebruikersController extends Controller
             'phone'          => ['nullable', 'string', 'max:32'],
         ]);
 
-        // ✅ werktijden valideren (optioneel)
         $this->validateWorkHours($request);
         $workHours = $this->normalizeWorkHours($request->input('work_hours'));
 
@@ -241,43 +368,47 @@ class GebruikersController extends Controller
                 'postal_code'    => $validated['postal_code'] ?? null,
                 'phone'          => $validated['phone'] ?? null,
 
-                // ✅ werktijden
                 'work_hours' => $workHours,
 
                 'password'   => bcrypt(Str::random(24)),
             ]);
         });
 
-        $q = $this->extractQ($request);
-
-        $users = User::query()
-            ->where('rol', $roleNormalized)
-            ->when($q, function ($qb) use ($q) {
-                $qb->where(function ($q2) use ($q) {
-                    $q2->where('name', 'like', '%' . $q . '%')
-                        ->orWhere('email', 'like', '%' . $q . '%');
-                });
-            })
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'rol']);
-
-        return response()
-            ->view('hub.gebruikers.partials.users_list', [
-                'users'    => $users,
-                'rol'      => $roleNormalized,
-                'rolLabel' => $rolLabel,
-                'q'        => $q ?? '',
-            ], 200)
-            ->header('Content-Type', 'text/html; charset=UTF-8');
+        return redirect()->route('support.gebruikers.index', [
+            'rol' => $roleNormalized,
+        ]);
     }
 
+    /**
+     * ✅ show: full page user hub (bewerken + werkuren + planning + projecten)
+     */
     public function show(Request $request, User $user)
     {
         if ($this->isHtmx($request)) {
             return view('hub.gebruikers.partials.user_detail', compact('user'));
         }
 
-        return redirect()->route('support.gebruikers.index', ['rol' => $user->rol]);
+        $authUser = auth()->user();
+
+        // ✅ rol mag leeg zijn (alle)
+        $rolRaw = trim((string) $request->query('rol', ''));
+        $rol    = $rolRaw !== '' ? $this->safeRoleOrDefault($rolRaw) : null;
+
+        $q    = trim((string) $request->query('q', ''));
+        $sort = (string) $request->query('sort', 'newest');
+
+        $projects      = $this->fetchProjectsForUser($user);
+        $planningItems = $this->fetchPlanningForUser($user);
+
+        return view('hub.gebruikers.show', [
+            'user'          => $authUser,  // layout
+            'targetUser'    => $user,      // detail user
+            'rol'           => $rol,
+            'q'             => $q,
+            'sort'          => $sort,
+            'projects'      => $projects,
+            'planningItems' => $planningItems,
+        ]);
     }
 
     public function update(Request $request, User $user)
@@ -287,8 +418,8 @@ class GebruikersController extends Controller
         $roleNormalized = $this->safeRoleOrDefault($request->input('rol'));
 
         $validated = $request->validate([
-            'name'  => ['required','string','max:255'],
-            'email' => ['required','email','max:255', Rule::unique('users','email')->ignore($user->id)],
+            'name'  => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
 
             'address'        => ['nullable', 'string', 'max:255'],
             'city'           => ['nullable', 'string', 'max:255'],
@@ -297,7 +428,6 @@ class GebruikersController extends Controller
             'phone'          => ['nullable', 'string', 'max:32'],
         ]);
 
-        // ✅ werktijden valideren
         $this->validateWorkHours($request);
         $workHours = $this->normalizeWorkHours($request->input('work_hours'));
 
@@ -312,7 +442,6 @@ class GebruikersController extends Controller
             'postal_code'    => $validated['postal_code'] ?? null,
             'phone'          => $validated['phone'] ?? null,
 
-            // ✅ werktijden
             'work_hours' => $workHours,
         ]);
 
@@ -321,42 +450,32 @@ class GebruikersController extends Controller
             return response($detail, 200)->header('Content-Type', 'text/html; charset=UTF-8');
         }
 
-        return back();
+        $qs = $this->backParamsFromRequest($request);
+
+        return redirect()->route('support.gebruikers.show', ['user' => $user->id] + $qs);
     }
 
     public function destroy(Request $request, User $user)
     {
         $this->assertAdmin();
 
-        $role = $user->rol;
+        // ✅ nooit jezelf verwijderen
+        abort_if($user->id === auth()->id(), 403, 'Je kunt je eigen account niet verwijderen.');
+
+        // (optioneel) nooit laatste admin verwijderen
+        if ($user->rol === 'admin') {
+            $admins = User::where('rol', 'admin')->count();
+            abort_if($admins <= 1, 403, 'Je kunt de laatste admin niet verwijderen.');
+        }
+
         $user->delete();
 
         if ($this->isHtmx($request)) {
-            $q = $this->extractQ($request);
-
-            $users = User::query()
-                ->where('rol', $role)
-                ->when($q, function ($qb) use ($q) {
-                    $qb->where(function ($q2) use ($q) {
-                        $q2->where('name', 'like', '%' . $q . '%')
-                            ->orWhere('email', 'like', '%' . $q . '%');
-                    });
-                })
-                ->orderBy('name')
-                ->get(['id', 'name', 'email', 'rol']);
-
-            $list = view('hub.gebruikers.partials.users_list', [
-                'users'    => $users,
-                'rol'      => $role,
-                'rolLabel' => $this->roleLabel($role),
-                'q'        => $q ?? '',
-            ])->render();
-
-            $close = '<div id="user-detail-card" hx-swap-oob="true" class="hidden col-span-1 bg-white rounded-xl h-full min-h-0 flex flex-col"></div>';
-
-            return response($list . "\n" . $close, 200)->header('Content-Type', 'text/html; charset=UTF-8');
+            return response('', 200);
         }
 
-        return back();
+        $qs = $this->backParamsFromRequest($request);
+
+        return redirect()->route('support.gebruikers.index', $qs);
     }
 }

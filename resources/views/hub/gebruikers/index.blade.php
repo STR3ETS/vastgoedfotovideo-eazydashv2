@@ -1,328 +1,186 @@
+{{-- resources/views/hub/gebruikers/index.blade.php --}}
 @extends('hub.layouts.app')
 
 @section('content')
-  @php
-    $activeRole = $activeRole ?? request()->query('rol', 'klant');
-    $activeRoleLabel = $activeRoleLabel ?? ($activeRole);
+<div class="col-span-5 flex-1 min-h-0">
+  <div class="w-full p-8 bg-white border border-gray-200 rounded-2xl h-full min-h-0 flex flex-col">
 
-    $q = $q ?? request()->query('q', '');
-    $listUrl = route('support.gebruikers.lijst', ['rol' => $activeRole]);
-  @endphp
+    @php
+      $crumbLabel = 'Overzicht';
+      $navNewBtn  = "h-9 inline-flex text-xs items-center justify-center bg-[#009AC3] hover:bg-[#009AC3]/70 transition duration-200 px-6 text-white rounded-full font-semibold cursor-pointer";
 
-  {{-- LINKS --}}
-  <div class="col-span-1 p-4 h-full bg-white rounded-xl">
-    <div class="mb-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <h1 class="text-xl text-[#215558] font-black">Gebruikers</h1>
+      $q    = $q    ?? (string) request()->query('q', '');
+      $sort = $sort ?? (string) request()->query('sort', 'newest');
+
+      // ✅ rol is optioneel (zonder ?rol= => alles)
+      $rolRaw = isset($rol) ? (string) $rol : (string) request()->query('rol', '');
+      $rolRaw = trim($rolRaw);
+      $rol    = $rolRaw !== '' ? $rolRaw : null;
+
+      // paginator of collection
+      $rows = $rows ?? ($users ?? collect());
+
+      $isAdmin = (auth()->user()->rol ?? null) === 'admin';
+
+      $roleMap = [
+        'admin'          => ['label' => 'Admin',         'class' => 'text-[#DF2935] bg-[#DF2935]/20'],
+        'klant'          => ['label' => 'Klant',         'class' => 'text-[#009AC3] bg-[#009AC3]/20'],
+        'team-manager'   => ['label' => 'Team manager',  'class' => 'text-[#87A878] bg-[#87A878]/20'],
+        'client-manager' => ['label' => 'Klant manager', 'class' => 'text-[#DF9A57] bg-[#DF9A57]/20'],
+        'fotograaf'      => ['label' => 'Fotograaf',     'class' => 'text-[#2A324B] bg-[#2A324B]/20'],
+      ];
+
+      // helper: detail url met behoud van filters
+      $detailQsBase = array_filter([
+        'rol'  => $rol,
+        'q'    => $q ?: null,
+        'sort' => $sort ?: null,
+      ]);
+    @endphp
+
+    {{-- Breadcrumbs + filters --}}
+    <div class="shrink-0 mb-4 flex items-center justify-between">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs font-semibold text-[#191D38]/50">
+        <a href="{{ route('support.dashboard') }}" class="hover:text-[#191D38] transition">Dashboard</a>
+        <span class="opacity-40">/</span>
+        <a href="{{ route('support.gebruikers.index') }}" class="hover:text-[#191D38] transition">Gebruikers</a>
+        <span class="opacity-40">/</span>
+        <span class="text-[#009AC3]">{{ $crumbLabel }}</span>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <form method="GET" action="{{ route('support.gebruikers.index') }}" class="flex items-center gap-3">
+          {{-- ✅ rol behouden als je gefilterd bent --}}
+          @if($rol)
+            <input type="hidden" name="rol" value="{{ $rol }}">
+          @endif
+
+          <input
+            type="text"
+            name="q"
+            value="{{ $q }}"
+            placeholder="Zoeken op naam of e-mail..."
+            class="h-9 bg-white border border-gray-200 flex items-center px-4 w-[300px] rounded-full text-xs text-[#191D38] font-medium outline-none"
+          >
+
+          <div class="relative">
+            <select
+              name="sort"
+              class="h-9 bg-white border border-gray-200 pl-4 pr-10 rounded-full text-xs text-[#191D38] font-medium outline-none appearance-none cursor-pointer"
+              onchange="this.form.submit()"
+            >
+              <option value="newest"    {{ $sort === 'newest' ? 'selected' : '' }}>Nieuwste eerst</option>
+              <option value="oldest"    {{ $sort === 'oldest' ? 'selected' : '' }}>Oudste eerst</option>
+              <option value="name_asc"  {{ $sort === 'name_asc' ? 'selected' : '' }}>Naam A–Z</option>
+              <option value="name_desc" {{ $sort === 'name_desc' ? 'selected' : '' }}>Naam Z–A</option>
+              <option value="email"     {{ $sort === 'email' ? 'selected' : '' }}>E-mail</option>
+            </select>
+
+            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#191D38]/60">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.24 4.5a.75.75 0 0 1-1.08 0l-4.24-4.5a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd"/>
+              </svg>
+            </span>
+          </div>
+        </form>
+
+        @if($isAdmin)
+          <a
+            href="{{ route('support.gebruikers.index', array_filter(['rol' => $rol, 'q' => $q ?: null, 'sort' => $sort ?: null, 'create' => 1])) }}"
+            class="{{ $navNewBtn }}"
+          >
+            Gebruiker aanmaken
+          </a>
+        @endif
+      </div>
+    </div>
+
+    <div class="flex-1 w-full overflow-hidden flex flex-col min-h-0">
+
+      {{-- Header row --}}
+      <div class="shrink-0 px-6 py-4 bg-[#191D38]/10 rounded-tl-2xl rounded-tr-2xl">
+        <div class="grid grid-cols-[1.1fr_1.2fr_0.9fr_0.75fr_0.45fr] items-center gap-6">
+          <p class="text-[#191D38] font-bold text-xs opacity-50">Naam</p>
+          <p class="text-[#191D38] font-bold text-xs opacity-50">E-mail</p>
+          <p class="text-[#191D38] font-bold text-xs opacity-50">Telefoonnummer</p>
+          <p class="text-[#191D38] font-bold text-xs opacity-50">Rol</p>
+          <p class="text-[#191D38] font-bold text-xs opacity-50 text-right">Acties</p>
+        </div>
       </div>
 
-      @if((auth()->user()->rol ?? null) === 'admin')
-        <div class="relative" id="add-user-menu">
-          <button type="button"
-                  id="open-create-user"
-                  class="w-8 h-8 bg-gray-200 hover:bg-gray-300 transition duration-300 cursor-pointer rounded-full flex items-center justify-center relative group"
-                  aria-haspopup="dialog" aria-expanded="false" aria-controls="create-user-panel">
-            <i class="fa-solid fa-plus text-[#215558]"></i>
+      {{-- Body --}}
+      <div class="flex-1 min-h-0 bg-[#191D38]/5 overflow-y-auto rounded-bl-2xl rounded-br-2xl">
+        <div class="px-6 py-2 divide-y divide-[#191D38]/10">
 
-            <div
-              class="flex items-center p-2 rounded-xl bg-white border border-gray-200 shadow-md absolute bottom-[135%] left-0
-                      opacity-0 invisible translate-y-1 pointer-events-none
-                      group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-hover:pointer-events-auto
-                      transition-all duration-300 ease-out z-10">
-              <p class="text-[#215558] text-xs font-semibold whitespace-nowrap">Gebruiker toevoegen</p>
-            </div>
-          </button>
-
-          {{-- Create panel --}}
-          <div id="create-user-panel"
-              class="absolute z-30 top-0 left-[135%] w-[380px] p-3 rounded-xl bg-white border border-gray-200 shadow-lg
-                      transition duration-300 ease-out transform-gpu
-                      opacity-0 translate-x-1 pointer-events-none">
-
-            <div class="flex items-center justify-between mb-3">
-              <p class="text-base text-[#215558] font-black">Nieuwe gebruiker</p>
-              <button type="button" id="create-close"
-                      class="w-8 h-8 rounded-full hover:bg-gray-100 transition duration-200 flex items-center justify-center">
-                <i class="fa-solid fa-xmark text-[#215558]"></i>
-              </button>
-            </div>
-
+          @forelse($rows as $u)
             @php
-              $roleOptions = [
-                ['value' => 'admin',          'label' => 'Admin',         'icon' => 'fa-user-shield'],
-                ['value' => 'klant',          'label' => 'Klant',         'icon' => 'fa-user'],
-                ['value' => 'team-manager',   'label' => 'Team manager',  'icon' => 'fa-users-gear'],
-                ['value' => 'client-manager', 'label' => 'Klant manager', 'icon' => 'fa-handshake'],
-                ['value' => 'fotograaf',      'label' => 'Fotograaf',     'icon' => 'fa-camera'],
-              ];
+              $roleKey = strtolower((string) ($u->rol ?? 'klant'));
+              $pill = $roleMap[$roleKey] ?? ['label' => ucfirst($roleKey), 'class' => 'text-[#191D38] bg-[#191D38]/20'];
+
+              $detailUrl = route('support.gebruikers.show', $u);
+              if (!empty($detailQsBase)) {
+                $detailUrl .= '?' . http_build_query($detailQsBase);
+              }
             @endphp
 
-            <div id="create-errors" class="hidden mb-2 text-sm text-red-600"></div>
-
-            <form
-              id="create-user-form"
-              method="post"
-              hx-post="{{ route('support.gebruikers.store') }}"
-              hx-target="#users-list"
-              hx-swap="innerHTML transition:true"
-              hx-headers='{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}'
-            >
-              @csrf
-
-              {{-- Rol dropdown --}}
-              <div class="mb-3">
-                <label class="block text-xs font-semibold text-gray-500 mb-1">Rol</label>
-
-                <input type="hidden" name="rol" id="create-role-hidden-form" value="{{ $activeRole }}">
-
-                <div class="relative" id="create-role-dd" data-open="false">
-                  <button type="button"
-                          id="create-role-btn"
-                          class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none
-                                focus:ring-2 focus:ring-[#0F9B9F]/30 flex items-center justify-between gap-3">
-                    <span class="flex items-center gap-2 min-w-0">
-                      <i id="create-role-icon" class="fa-solid fa-user text-[#215558]"></i>
-                      <span id="create-role-label" class="font-semibold text-[#215558] truncate"></span>
-                    </span>
-                    <i class="fa-solid fa-chevron-down text-gray-400"></i>
-                  </button>
-
-                  <div id="create-role-menu"
-                      class="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg p-1 hidden z-40">
-                    @foreach($roleOptions as $opt)
-                      <button type="button"
-                              class="w-full px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-gray-100 transition"
-                              data-role-value="{{ $opt['value'] }}"
-                              data-role-label="{{ $opt['label'] }}"
-                              data-role-icon="{{ $opt['icon'] }}">
-                        <i class="fa-solid {{ $opt['icon'] }} text-[#215558] w-4"></i>
-                        <span class="font-semibold text-[#215558]">{{ $opt['label'] }}</span>
-                      </button>
-                    @endforeach
-                  </div>
-                </div>
+            <div class="py-3 grid grid-cols-[1.1fr_1.2fr_0.9fr_0.75fr_0.45fr] items-center gap-6">
+              <div class="text-[#191D38] text-sm font-semibold">
+                {{ $u->name ?? ('Gebruiker #'.$u->id) }}
               </div>
 
-              <div class="grid gap-2">
-                <div>
-                  <label class="block text-xs font-semibold text-gray-500 mb-1">Naam</label>
-                  <input name="name" type="text" required
-                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0F9B9F]/30">
-                </div>
-
-                <div>
-                  <label class="block text-xs font-semibold text-gray-500 mb-1">E-mail</label>
-                  <input name="email" type="email" required
-                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0F9B9F]/30">
-                </div>
-
-                <div>
-                  <label class="block text-xs font-semibold text-gray-500 mb-1">Adres</label>
-                  <input name="address" type="text"
-                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0F9B9F]/30">
-                </div>
-
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Postcode</label>
-                    <input name="postal_code" type="text"
-                          class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0F9B9F]/30">
-                  </div>
-                  <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Stad</label>
-                    <input name="city" type="text"
-                          class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0F9B9F]/30">
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Provincie</label>
-                    <input name="state_province" type="text"
-                          class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0F9B9F]/30">
-                  </div>
-                  <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Telefoonnummer</label>
-                    <input name="phone" type="text"
-                          class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0F9B9F]/30">
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-2 mt-2">
-                  <button type="submit" id="create-submit"
-                          class="bg-[#0F9B9F] hover:bg-[#215558] cursor-pointer text-center w-full text-white text-base font-semibold px-6 py-3 rounded-full transition duration-300">
-                    Opslaan
-                  </button>
-                  <button type="button" id="create-cancel"
-                          class="bg-gray-200 hover:bg-gray-300 cursor-pointer text-center w-full text-gray-600 text-base font-semibold px-6 py-3 rounded-full transition duration-300">
-                    Annuleren
-                  </button>
-                </div>
+              <div class="text-[#191D38] text-sm">
+                {{ $u->email ?? '—' }}
               </div>
-            </form>
 
-          </div>
+              <div class="text-[#191D38] text-sm">
+                {{ $u->phone ?? '—' }}
+              </div>
+
+              <div class="{{ $pill['class'] }} text-xs font-semibold rounded-full py-1.5 text-center">
+                {{ $pill['label'] }}
+              </div>
+
+              <div class="justify-end text-[#191D38] flex items-center gap-3">
+                <a
+                  href="{{ $detailUrl }}"
+                  class="cursor-pointer"
+                  title="Bewerken / bekijken"
+                >
+                  <i class="fa-solid fa-eye hover:text-[#009AC3] transition duration-200"></i>
+                </a>
+
+                @if($isAdmin)
+                  <form
+                    method="POST"
+                    action="{{ route('support.gebruikers.destroy', $u) }}"
+                    onsubmit="return confirm('Weet je zeker dat je {{ addslashes((string)($u->name ?? 'deze gebruiker')) }} wilt verwijderen?');"
+                  >
+                    @csrf
+                    @method('DELETE')
+
+                    <button type="submit" class="cursor-pointer" title="Verwijderen">
+                      <i class="fa-solid fa-trash-can hover:text-[#009AC3] transition duration-200"></i>
+                    </button>
+                  </form>
+                @endif
+              </div>
+            </div>
+          @empty
+            <div class="py-10 text-center text-sm font-semibold text-[#191D38]/50">
+              Nog geen gebruikers gevonden.
+            </div>
+          @endforelse
+
+          @if(!empty($rows) && method_exists($rows, 'links'))
+            <div class="pt-6">
+              {{ $rows->links() }}
+            </div>
+          @endif
+
         </div>
-      @endif
-    </div>
-
-    <div id="search-bar" class="mb-5 bg-gray-100 rounded-xl border border-gray-200 px-3 flex items-center">
-      <div class="w-[16px]">
-        <i class="fa-solid fa-magnifying-glass fa-sm text-gray-500"></i>
       </div>
-      <input id="users-search" type="text" value="{{ $q }}" placeholder="Zoek op naam of e-mail"
-            class="py-2 w-[calc(100%-16px)] text-sm text-gray-600 pl-3 font-medium outline-none bg-transparent">
+
     </div>
   </div>
-
-  {{-- MIDDEN: LIJST --}}
-  <div class="col-span-1 p-3 h-fit bg-white rounded-xl">
-    <div id="users-list"
-        hx-get="{{ $listUrl }}{{ $q !== '' ? ('?q=' . urlencode($q)) : '' }}"
-        hx-trigger="load"
-        hx-swap="innerHTML transition:true"
-        data-list-url="{{ $listUrl }}"
-        data-active-role="{{ $activeRole }}">
-      <div class="w-full h-10 rounded-xl bg-gray-200 animate-pulse"></div>
-    </div>
-  </div>
-
-  {{-- RECHTS: DETAIL --}}
-  <div id="user-detail-card" class="hidden overflow-scroll col-span-2 bg-white rounded-xl h-full min-h-0 flex flex-col"></div>
-
-  <script>
-    (function () {
-      const btn = document.getElementById('open-create-user');
-      const panel = document.getElementById('create-user-panel');
-      const closeBtn = document.getElementById('create-close');
-      const cancelBtn = document.getElementById('create-cancel');
-      const errors = document.getElementById('create-errors');
-
-      const hiddenForm = document.getElementById('create-role-hidden-form');
-      const ddRoot = document.getElementById('create-role-dd');
-      const ddBtn  = document.getElementById('create-role-btn');
-      const ddMenu = document.getElementById('create-role-menu');
-      const ddLabel = document.getElementById('create-role-label');
-      const ddIcon  = document.getElementById('create-role-icon');
-
-      const ROLE_MAP = {
-        'admin':          { label: 'Admin',         icon: 'fa-user-shield' },
-        'klant':          { label: 'Klant',         icon: 'fa-user' },
-        'team-manager':   { label: 'Team manager',  icon: 'fa-users-gear' },
-        'client-manager': { label: 'Klant manager', icon: 'fa-handshake' },
-        'fotograaf':      { label: 'Fotograaf',     icon: 'fa-camera' },
-      };
-
-      function setCreateRole(value) {
-        if (!value) value = 'klant';
-        if (hiddenForm) hiddenForm.value = value;
-
-        const cfg = ROLE_MAP[value] || { label: value, icon: 'fa-user' };
-        if (ddLabel) ddLabel.textContent = cfg.label;
-        if (ddIcon) ddIcon.className = `fa-solid ${cfg.icon} text-[#215558]`;
-      }
-
-      function openRoleMenu() {
-        if (!ddMenu || !ddRoot) return;
-        ddMenu.classList.remove('hidden');
-        ddRoot.dataset.open = 'true';
-      }
-      function closeRoleMenu() {
-        if (!ddMenu || !ddRoot) return;
-        ddMenu.classList.add('hidden');
-        ddRoot.dataset.open = 'false';
-      }
-
-      ddBtn?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if ((ddRoot?.dataset.open || 'false') === 'true') closeRoleMenu();
-        else openRoleMenu();
-      });
-
-      ddMenu?.addEventListener('click', (e) => {
-        const opt = e.target.closest('button[data-role-value]');
-        if (!opt) return;
-        setCreateRole(opt.dataset.roleValue);
-        closeRoleMenu();
-      });
-
-      document.addEventListener('click', (e) => {
-        if (ddRoot && !ddRoot.contains(e.target)) closeRoleMenu();
-      });
-
-      function openPanel() {
-        if (!panel) return;
-
-        const active = document.getElementById('users-list')?.dataset.activeRole || 'klant';
-        setCreateRole(active);
-
-        panel.classList.remove('opacity-0','translate-x-1','pointer-events-none');
-        panel.classList.add('opacity-100','translate-x-0');
-        btn?.setAttribute('aria-expanded','true');
-
-        errors?.classList.add('hidden');
-        if (errors) errors.innerHTML = '';
-
-        const name = panel.querySelector('input[name="name"]');
-        setTimeout(() => name?.focus(), 50);
-      }
-
-      function closePanel() {
-        if (!panel) return;
-        panel.classList.add('opacity-0','translate-x-1','pointer-events-none');
-        panel.classList.remove('opacity-100','translate-x-0');
-        btn?.setAttribute('aria-expanded','false');
-        closeRoleMenu();
-      }
-
-      btn?.addEventListener('click', openPanel);
-      closeBtn?.addEventListener('click', closePanel);
-      cancelBtn?.addEventListener('click', closePanel);
-
-      document.body.addEventListener('htmx:afterRequest', (e) => {
-        if (e.target?.id !== 'create-user-form') return;
-
-        const xhr = e.detail.xhr;
-
-        if (xhr.status === 200) {
-          const createdRole = (hiddenForm?.value || '').trim() || 'klant';
-          const currentRole = (document.getElementById('users-list')?.dataset.activeRole || 'klant').trim();
-
-          closePanel();
-
-          const detail = document.getElementById('user-detail-card');
-          if (detail) { detail.classList.add('hidden'); detail.innerHTML = ''; }
-
-          if (createdRole && createdRole !== currentRole) {
-            const params = new URLSearchParams(window.location.search);
-            params.set('rol', createdRole);
-            params.delete('q');
-            window.location.href = window.location.pathname + '?' + params.toString();
-          }
-        }
-
-        if (xhr.status === 422) {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            const msgs = Object.values(data.errors || {}).flat();
-            if (errors) {
-              errors.innerHTML = msgs.join('<br>');
-              errors.classList.remove('hidden');
-            }
-          } catch (_) {}
-        }
-
-        if (xhr.status === 403) {
-          if (errors) {
-            errors.innerHTML = 'Je hebt geen rechten om gebruikers aan te maken.';
-            errors.classList.remove('hidden');
-          }
-        }
-      });
-
-      setCreateRole(document.getElementById('users-list')?.dataset.activeRole || 'klant');
-      window.closeCreatePanel = closePanel;
-    })();
-  </script>
+</div>
 @endsection
