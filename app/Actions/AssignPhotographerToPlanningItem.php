@@ -6,6 +6,7 @@ use App\Models\ProjectPlanningItem;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AssignPhotographerToPlanningItem
@@ -13,11 +14,21 @@ class AssignPhotographerToPlanningItem
     public function execute(ProjectPlanningItem $item): ?User
     {
         if (!$item->start_at || !$item->end_at || blank($item->location)) {
+            Log::warning('Auto-assign: planning item mist data', [
+                'planning_item_id' => $item->id,
+                'start_at' => $item->start_at,
+                'end_at' => $item->end_at,
+                'location' => $item->location,
+            ]);
             return null;
         }
 
         // Zorg dat dit item coords heeft
         if (!$this->ensureGeocoded($item)) {
+            Log::warning('Auto-assign: geocoding mislukt voor target item', [
+                'planning_item_id' => $item->id,
+                'location' => $item->location,
+            ]);
             return null;
         }
 
@@ -26,6 +37,7 @@ class AssignPhotographerToPlanningItem
             ->get();
 
         if ($photographers->isEmpty()) {
+            Log::warning('Auto-assign: geen fotografen gevonden', []);
             return null;
         }
 
@@ -69,12 +81,10 @@ class AssignPhotographerToPlanningItem
             // Check prev -> item
             if ($prev) {
                 if (!$this->ensureGeocoded($prev)) {
+                    // als we prev niet kunnen geocoden, kunnen we travel niet bepalen
                     continue;
                 }
 
-                $slackSeconds = max(0, $item->start_at->diffInSeconds($prev->end_at, false) * -1);
-                // diffInSeconds met false geeft negatief/positief afhankelijk van volgorde
-                // we willen: item.start - prev.end
                 $slackSeconds = $item->start_at->timestamp - $prev->end_at->timestamp;
                 if ($slackSeconds < 0) {
                     continue;
@@ -127,6 +137,12 @@ class AssignPhotographerToPlanningItem
         }
 
         if (!$bestUser) {
+            Log::info('Auto-assign: geen geschikte fotograaf gevonden', [
+                'planning_item_id' => $item->id,
+                'location' => $item->location,
+                'start_at' => (string) $item->start_at,
+                'end_at' => (string) $item->end_at,
+            ]);
             return null;
         }
 
@@ -140,6 +156,11 @@ class AssignPhotographerToPlanningItem
                 $bestUser->id => ['role' => 'photographer'],
             ]);
         }
+
+        Log::info('Auto-assign: fotograaf toegewezen', [
+            'planning_item_id' => $item->id,
+            'assignee_user_id' => $bestUser->id,
+        ]);
 
         return $bestUser;
     }
@@ -155,47 +176,62 @@ class AssignPhotographerToPlanningItem
 
         $cacheKey = 'ors:geocode:' . md5(Str::lower($text));
 
-        $coords = Cache::remember($cacheKey, now()->addDays(30), function () use ($text) {
-            $base = rtrim((string) config('services.ors.base_url'), '/');
-            $key  = (string) config('services.ors.key');
+        // ✅ cache NOOIT null: alleen cache bij succes
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && isset($cached['lat'], $cached['lng'])) {
+            $item->location_lat = (float) $cached['lat'];
+            $item->location_lng = (float) $cached['lng'];
+            $item->location_geocoded_at = now();
+            $item->save();
+            return true;
+        }
 
-            if ($key === '') return null;
+        $base = rtrim((string) config('services.ors.base_url'), '/');
+        $key  = (string) config('services.ors.key');
 
-            $res = Http::timeout(12)
-                ->acceptJson()
-                ->get($base . '/geocode/search', [
-                    'api_key' => $key,
-                    'text' => $text,
-                    // optioneel: focus op NL resultaten
-                    'boundary.country' => 'NL',
-                    'size' => 1,
-                ]);
-
-            if (!$res->ok()) {
-                return null;
-            }
-
-            $json = $res->json();
-
-            $first = $json['features'][0] ?? null;
-            $coords = $first['geometry']['coordinates'] ?? null; // [lng, lat]
-
-            if (!is_array($coords) || count($coords) < 2) {
-                return null;
-            }
-
-            return [
-                'lng' => (float) $coords[0],
-                'lat' => (float) $coords[1],
-            ];
-        });
-
-        if (!$coords) {
+        if ($key === '') {
+            Log::error('ORS geocode: services.ors.key leeg');
             return false;
         }
 
-        $item->location_lat = $coords['lat'];
-        $item->location_lng = $coords['lng'];
+        $res = Http::timeout(15)
+            ->acceptJson()
+            ->get($base . '/geocode/search', [
+                'api_key' => $key,
+                'text' => $text,
+                'boundary.country' => 'NL',
+                'size' => 1,
+            ]);
+
+        if (!$res->ok()) {
+            Log::error('ORS geocode faalde', [
+                'status' => $res->status(),
+                'body' => $res->body(),
+                'location_text' => $text,
+            ]);
+            return false;
+        }
+
+        $json = $res->json();
+        $first = $json['features'][0] ?? null;
+        $coords = $first['geometry']['coordinates'] ?? null; // [lng, lat]
+
+        if (!is_array($coords) || count($coords) < 2) {
+            Log::error('ORS geocode: geen coordinates in response', [
+                'location_text' => $text,
+                'json' => $json,
+            ]);
+            return false;
+        }
+
+        $lng = (float) $coords[0];
+        $lat = (float) $coords[1];
+
+        // ✅ cache alleen succesvolle coords
+        Cache::put($cacheKey, ['lat' => $lat, 'lng' => $lng], now()->addDays(30));
+
+        $item->location_lat = $lat;
+        $item->location_lng = $lng;
         $item->location_geocoded_at = now();
         $item->save();
 
@@ -204,43 +240,66 @@ class AssignPhotographerToPlanningItem
 
     private function routeDurationSeconds(float $fromLat, float $fromLng, float $toLat, float $toLng): ?int
     {
-        // Cache per route om ORS calls laag te houden
-        $cacheKey = 'ors:route:'
-            . md5($fromLat . ',' . $fromLng . '|' . $toLat . ',' . $toLng . '|'
-            . (string) config('services.ors.profile', 'driving-car'));
+        $profile = (string) config('services.ors.profile', 'driving-car');
 
-        return Cache::remember($cacheKey, now()->addDays(14), function () use ($fromLat, $fromLng, $toLat, $toLng) {
-            $base = rtrim((string) config('services.ors.base_url'), '/');
-            $key  = (string) config('services.ors.key');
-            $profile = (string) config('services.ors.profile', 'driving-car');
+        $cacheKey = 'ors:route:' . md5(
+            $fromLat . ',' . $fromLng . '|' . $toLat . ',' . $toLng . '|' . $profile
+        );
 
-            if ($key === '') return null;
+        // ✅ cache NOOIT null: alleen cache bij succes
+        $cached = Cache::get($cacheKey);
+        if (is_int($cached) && $cached > 0) {
+            return $cached;
+        }
 
-            $res = Http::timeout(15)
-                ->acceptJson()
-                ->withHeaders([
-                    'Authorization' => $key,
-                    'Content-Type' => 'application/json; charset=utf-8',
-                ])
-                ->post($base . '/v2/directions/' . $profile, [
-                    'coordinates' => [
-                        [$fromLng, $fromLat],
-                        [$toLng, $toLat],
-                    ],
-                ]);
+        $base = rtrim((string) config('services.ors.base_url'), '/');
+        $key  = (string) config('services.ors.key');
 
-            if (!$res->ok()) {
-                return null;
-            }
+        if ($key === '') {
+            Log::error('ORS route: services.ors.key leeg');
+            return null;
+        }
 
-            $json = $res->json();
-            $duration = $json['routes'][0]['summary']['duration'] ?? null;
+        $res = Http::timeout(20)
+            ->acceptJson()
+            ->withHeaders([
+                'Authorization' => $key,
+            ])
+            ->post($base . '/v2/directions/' . $profile, [
+                'coordinates' => [
+                    [$fromLng, $fromLat],
+                    [$toLng, $toLat],
+                ],
+            ]);
 
-            if (!is_numeric($duration)) {
-                return null;
-            }
+        if (!$res->ok()) {
+            Log::error('ORS route faalde', [
+                'status' => $res->status(),
+                'body' => $res->body(),
+                'from' => [$fromLat, $fromLng],
+                'to' => [$toLat, $toLng],
+                'profile' => $profile,
+            ]);
+            return null;
+        }
 
-            return (int) round((float) $duration);
-        });
+        $json = $res->json();
+        $duration = $json['routes'][0]['summary']['duration'] ?? null;
+
+        if (!is_numeric($duration)) {
+            Log::error('ORS route: geen duration in response', [
+                'json' => $json,
+            ]);
+            return null;
+        }
+
+        $seconds = (int) round((float) $duration);
+
+        // ✅ cache alleen succesvolle duration
+        if ($seconds > 0) {
+            Cache::put($cacheKey, $seconds, now()->addDays(14));
+        }
+
+        return $seconds;
     }
 }
