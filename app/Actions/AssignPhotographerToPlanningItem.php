@@ -136,16 +136,6 @@ class AssignPhotographerToPlanningItem
             }
         }
 
-        if (!$bestUser) {
-            Log::info('Auto-assign: geen geschikte fotograaf gevonden', [
-                'planning_item_id' => $item->id,
-                'location' => $item->location,
-                'start_at' => (string) $item->start_at,
-                'end_at' => (string) $item->end_at,
-            ]);
-            return null;
-        }
-
         // Update planning item
         $item->assignee_user_id = $bestUser->id;
         $item->save();
@@ -156,11 +146,6 @@ class AssignPhotographerToPlanningItem
                 $bestUser->id => ['role' => 'photographer'],
             ]);
         }
-
-        Log::info('Auto-assign: fotograaf toegewezen', [
-            'planning_item_id' => $item->id,
-            'assignee_user_id' => $bestUser->id,
-        ]);
 
         return $bestUser;
     }
