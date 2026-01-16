@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
-use App\Models\ProjectInvoice; // pas aan als model anders heet
-use App\Models\ProjectQuote;   // pas aan als model anders heet
+use App\Models\ProjectInvoice;
+use App\Models\ProjectQuote;
 
 class FinancienController extends Controller
 {
@@ -21,19 +21,56 @@ class FinancienController extends Controller
         [$from, $to] = $this->resolvePeriod($request, $period);
 
         // -----------------------------
-        // Base queries (geen company_id!)
+        // Base queries
         // -----------------------------
         $quotesQ   = ProjectQuote::query();
         $invoicesQ = ProjectInvoice::query();
 
-        if ($from) {
-            $quotesQ->whereDate('quote_date', '>=', $from->toDateString());
-            $invoicesQ->whereDate('invoice_date', '>=', $from->toDateString());
+        // -----------------------------
+        // Period filter (met fallback naar created_at als date kolom null is)
+        // -----------------------------
+        if ($from || $to) {
+            $quotesQ->where(function ($q) use ($from, $to) {
+                $q->where(function ($qq) use ($from, $to) {
+                    if ($from) $qq->whereDate('quote_date', '>=', $from->toDateString());
+                    if ($to)   $qq->whereDate('quote_date', '<=', $to->toDateString());
+                })
+                ->orWhere(function ($qq) use ($from, $to) {
+                    $qq->whereNull('quote_date');
+                    if ($from) $qq->whereDate('created_at', '>=', $from->toDateString());
+                    if ($to)   $qq->whereDate('created_at', '<=', $to->toDateString());
+                });
+            });
+
+            $invoicesQ->where(function ($q) use ($from, $to) {
+                $q->where(function ($qq) use ($from, $to) {
+                    if ($from) $qq->whereDate('invoice_date', '>=', $from->toDateString());
+                    if ($to)   $qq->whereDate('invoice_date', '<=', $to->toDateString());
+                })
+                ->orWhere(function ($qq) use ($from, $to) {
+                    $qq->whereNull('invoice_date');
+                    if ($from) $qq->whereDate('created_at', '>=', $from->toDateString());
+                    if ($to)   $qq->whereDate('created_at', '<=', $to->toDateString());
+                });
+            });
         }
-        if ($to) {
-            $quotesQ->whereDate('quote_date', '<=', $to->toDateString());
-            $invoicesQ->whereDate('invoice_date', '<=', $to->toDateString());
-        }
+
+        // -----------------------------
+        // ✅ Dit miste: data voor je index tabel
+        // -----------------------------
+        $quotes = (clone $quotesQ)
+            ->with('project')
+            ->orderByDesc('quote_date')
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get();
+
+        $invoices = (clone $invoicesQ)
+            ->with('project')
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get();
 
         // -----------------------------
         // Offertes analytics
@@ -156,11 +193,8 @@ class FinancienController extends Controller
             }
         }
 
-        // -----------------------------
         // Chart: Inkomstenoverzicht (per maand huidig jaar)
-        // -----------------------------
         $year = (int) now()->year;
-
         $monthsNl = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 
         $invoiceByMonth = ProjectInvoice::query()
@@ -192,6 +226,10 @@ class FinancienController extends Controller
         return view('hub.financien.index', [
             'user' => $user,
 
+            // ✅ Nu zie je ze in je index.blade.php
+            'quotes'   => $quotes,
+            'invoices' => $invoices,
+
             'filters' => [
                 'period'   => $period,
                 'customer' => $customer,
@@ -215,7 +253,6 @@ class FinancienController extends Controller
                 'overdue_buckets'        => $overdueBuckets,
             ],
 
-            // ✅ BELANGRIJK: key heet offers (niet quotes), zodat je Blade chart['offers'] niet crasht
             'chart' => [
                 'labels'   => $monthsNl,
                 'invoices' => $chartInvoices,
