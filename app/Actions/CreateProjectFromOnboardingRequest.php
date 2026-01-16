@@ -37,11 +37,20 @@ class CreateProjectFromOnboardingRequest
             // 3) Default tasks
             $this->seedTasks($project, $req);
 
-            // 4) Finance (package + extras, met correcte prijzen + total_cents)
+            // 4) Finance
             $this->seedFinance($project, $req);
 
             // 5) Planning (shoot date + slot)
-            $this->seedPlanning($project, $req);
+            $planningItem = $this->seedPlanning($project, $req);
+
+            // 6) ✅ Auto-assign fotograaf op basis van reistijd (ORS)
+            if ($planningItem) {
+                try {
+                    app(\App\Actions\AssignPhotographerToPlanningItem::class)->execute($planningItem);
+                } catch (\Throwable $e) {
+                    // onboarding moet nooit falen door ORS issues
+                }
+            }
 
             return $project;
         });
@@ -58,38 +67,18 @@ class CreateProjectFromOnboardingRequest
 
     private function packageCatalog(): array
     {
-        // EXACT dezelfde prijzen als onboarding show (maar dan in cents)
         return [
-            'pro' => [
-                'title' => 'Pro pakket',
-                'price_cents' => 50900,
-            ],
-            'plus' => [
-                'title' => 'Plus pakket',
-                'price_cents' => 38500,
-            ],
-            'essentials' => [
-                'title' => 'Essentials pakket',
-                'price_cents' => 32500,
-            ],
-            'media' => [
-                'title' => 'Media pakket',
-                'price_cents' => 26000,
-            ],
-            'buiten' => [
-                'title' => 'Buiten pakket',
-                'price_cents' => 7500,
-            ],
-            'funda_klaar' => [
-                'title' => 'Funda klaar pakket',
-                'price_cents' => 5000,
-            ],
+            'pro' => ['title' => 'Pro pakket', 'price_cents' => 50900],
+            'plus' => ['title' => 'Plus pakket', 'price_cents' => 38500],
+            'essentials' => ['title' => 'Essentials pakket', 'price_cents' => 32500],
+            'media' => ['title' => 'Media pakket', 'price_cents' => 26000],
+            'buiten' => ['title' => 'Buiten pakket', 'price_cents' => 7500],
+            'funda_klaar' => ['title' => 'Funda klaar pakket', 'price_cents' => 5000],
         ];
     }
 
     private function extrasCatalog(): array
     {
-        // EXACT dezelfde extras + bedragen als onboarding show (in cents)
         return [
             'privacy_check' => ['title' => 'Privacy check', 'price_cents' => 1000],
             'detailfotos' => ['title' => 'Detailfoto’s', 'price_cents' => 2500],
@@ -114,7 +103,6 @@ class CreateProjectFromOnboardingRequest
     {
         $catalog = $this->packageCatalog();
         $key = (string) $key;
-
         return $catalog[$key]['title'] ?? ucfirst($key);
     }
 
@@ -137,8 +125,6 @@ class CreateProjectFromOnboardingRequest
 
     private function baseTasksForPackage(string $packageKey): array
     {
-        // Vul dit eventueel later aan met jullie exacte pakket-inhoud.
-        // BELANGRIJK: de naming doen we straks als "{Pakket} | {Taaknaam}".
         return match ($packageKey) {
             'plus' => [
                 'Alles uit Essentials',
@@ -210,11 +196,8 @@ class CreateProjectFromOnboardingRequest
         $names = array_values(array_unique(array_filter($names)));
 
         foreach ($names as $i => $baseName) {
-            // ✅ Dit is jouw gewenste format:
-            // "Essentials pakket | Taaknaam"
             $canonicalName = $packageLabel . ' | ' . $baseName;
 
-            // Als er al legacy taken bestaan (zonder prefix), hernoemen we die i.p.v. dupliceren
             $existing = ProjectTask::query()
                 ->where('project_id', $project->id)
                 ->where(function ($q) use ($canonicalName, $baseName) {
@@ -251,7 +234,6 @@ class CreateProjectFromOnboardingRequest
 
         $wanted = [];
 
-        // Package line
         $pkgKey = (string) ($req->package ?? '');
         if (isset($pkgCatalog[$pkgKey])) {
             $wanted[] = [
@@ -269,7 +251,6 @@ class CreateProjectFromOnboardingRequest
             ];
         }
 
-        // Extras lines
         foreach ($this->selectedExtras($req) as $key) {
             if (!isset($exCatalog[$key])) continue;
 
@@ -281,7 +262,6 @@ class CreateProjectFromOnboardingRequest
             ];
         }
 
-        // Cleanup: remove stale onboarding-related finance lines that are not selected anymore
         $knownDescriptions = array_merge(
             array_map(fn($p) => $p['title'], $pkgCatalog),
             array_map(fn($e) => $e['title'], $exCatalog)
@@ -294,7 +274,6 @@ class CreateProjectFromOnboardingRequest
             ->whereNotIn('description', $wantedDescriptions)
             ->delete();
 
-        // Upsert wanted lines (idempotent + zet total_cents)
         foreach ($wanted as $line) {
             $qty   = (int) ($line['qty'] ?? 1);
             $unit  = (int) ($line['unit_price_cents'] ?? 0);
@@ -312,11 +291,10 @@ class CreateProjectFromOnboardingRequest
         }
     }
 
-    private function seedPlanning(Project $project, OnboardingRequest $req): void
+    private function seedPlanning(Project $project, OnboardingRequest $req): ?ProjectPlanningItem
     {
-        if (!$req->shoot_date || !$req->shoot_slot) return;
+        if (!$req->shoot_date || !$req->shoot_slot) return null;
 
-        // shoot_slot voorbeeld: "09:00 - 11:00"
         [$start, $end] = array_map('trim', explode('-', (string) $req->shoot_slot));
 
         $date = Carbon::parse($req->shoot_date)->format('Y-m-d');
@@ -325,13 +303,16 @@ class CreateProjectFromOnboardingRequest
 
         $location = trim(($req->address ?? '') . ', ' . ($req->postcode ?? '') . ' ' . ($req->city ?? ''));
 
-        ProjectPlanningItem::firstOrCreate(
+        return ProjectPlanningItem::firstOrCreate(
             ['project_id' => $project->id, 'notes' => 'Uitvoerdatum - Onboarding foto'],
             [
                 'start_at' => $startAt,
                 'end_at' => $endAt,
                 'location' => $location,
                 'assignee_user_id' => null,
+                'location_lat' => null,
+                'location_lng' => null,
+                'location_geocoded_at' => null,
             ]
         );
     }

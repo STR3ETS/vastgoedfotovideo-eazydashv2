@@ -6,12 +6,6 @@ return [
     |--------------------------------------------------------------------------
     | Third Party Services
     |--------------------------------------------------------------------------
-    |
-    | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
-    |
     */
 
     'postmark' => [
@@ -51,5 +45,12 @@ return [
         'client_secret' => env('M365_CLIENT_SECRET'),
         'mailbox'       => env('M365_INFO_MAILBOX', 'info@eazyonline.nl'),
         'webhook_secret'=> env('M365_WEBHOOK_SECRET'),
+    ],
+
+    // ✅ OpenRouteService (geocoding + routing)
+    'ors' => [
+        'key' => env('ORS_API_KEY'),
+        'base_url' => env('ORS_BASE_URL', 'https://api.openrouteservice.org'),
+        'profile' => env('ORS_PROFILE', 'driving-car'),
     ],
 ];
