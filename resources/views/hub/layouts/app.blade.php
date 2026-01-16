@@ -177,13 +177,6 @@
                             <div class="border-l-2 border-l-[#191D38]/25 py-2 grid gap-2">
                                 <div class="flex items-center gap-2">
                                 <hr class="w-[10px] border-1 border-[#191D38]/25">
-                                <a href="{{ $finBase }}" class="{{ $linkClass('overview') }}">
-                                    Overzicht
-                                </a>
-                                </div>
-
-                                <div class="flex items-center gap-2">
-                                <hr class="w-[10px] border-1 border-[#191D38]/25">
                                 <a href="{{ $finBase . '/facturen' }}" class="{{ $linkClass('facturen') }}">
                                     Facturen
                                 </a>
